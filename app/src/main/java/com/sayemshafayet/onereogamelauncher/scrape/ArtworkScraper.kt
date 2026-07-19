@@ -2,6 +2,7 @@ package com.sayemshafayet.onereogamelauncher.scrape
 
 import android.content.Context
 import android.util.Log
+import com.sayemshafayet.onereogamelauncher.data.db.dao.GameDao
 import com.sayemshafayet.onereogamelauncher.data.db.dao.MediaDao
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
@@ -14,6 +15,7 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,6 +28,7 @@ class ArtworkScraper @Inject constructor(
     @ApplicationContext private val context: Context,
     private val http: OkHttpClient,
     private val mediaDao: MediaDao,
+    private val gameDao: GameDao,
     private val screenScraperClient: ScreenScraperClient,
     private val libretroClient: LibretroThumbnailsClient,
 ) {
@@ -38,18 +41,56 @@ class ArtworkScraper @Inject constructor(
 
     private val writeMutex = Mutex()
 
+    /**
+     * @return true if media and/or metadata was saved; false if nothing useful was found.
+     * Throws on hard failures after retries are exhausted (caller may treat as failed).
+     */
     suspend fun scrapeGame(
         game: GameEntity,
         systemFolder: String,
         settings: OrglSettings,
         orglDataDirPath: String?,
+        retryThreshold: Int = 3,
+        retryDelayMs: Long = 2_000L,
         onProgress: (ScrapeProgress) -> Unit = {},
     ): Boolean {
         coroutineContext.ensureActive()
         onProgress(ScrapeProgress(game.title, 0, 1))
 
+        val attempts = retryThreshold.coerceAtLeast(1)
+        var lastError: Exception? = null
+        var saved = false
+
+        repeat(attempts) { attempt ->
+            coroutineContext.ensureActive()
+            try {
+                saved = scrapeGameOnce(game, systemFolder, settings, orglDataDirPath)
+                lastError = null
+                return@repeat
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                Log.w(TAG, "Scrape attempt ${attempt + 1}/$attempts failed for ${game.title}", e)
+                if (attempt < attempts - 1) delay(retryDelayMs.coerceAtLeast(0L))
+            }
+        }
+
+        // Always stamp lastScrapedAt so "scraped" stats reflect attempts with ORGL.
+        markScraped(game.id)
+        onProgress(ScrapeProgress(game.title, 1, 1))
+        if (lastError != null && !saved) throw lastError
+        return saved
+    }
+
+    private suspend fun scrapeGameOnce(
+        game: GameEntity,
+        systemFolder: String,
+        settings: OrglSettings,
+        orglDataDirPath: String?,
+    ): Boolean {
         val romFile = File(game.romPath)
-        val romName = romFile.name
+        val romName = romFile.name.takeIf { it.isNotBlank() } ?: game.fileName
         val md5 = runCatching { md5Hex(romFile) }.getOrNull()
 
         var saved = false
@@ -60,6 +101,7 @@ class ArtworkScraper @Inject constructor(
                 md5 = md5,
             )
             if (info != null) {
+                applyMetadata(game, info)
                 saved = saveScreenScraperMedia(game, systemFolder, orglDataDirPath, info.media) || saved
             }
         }
@@ -67,9 +109,33 @@ class ArtworkScraper @Inject constructor(
         if (!saved) {
             saved = saveLibretroFallback(game, systemFolder, orglDataDirPath) || saved
         }
-
-        onProgress(ScrapeProgress(game.title, 1, 1))
         return saved
+    }
+
+    private suspend fun applyMetadata(game: GameEntity, info: ScreenScraperGameInfo) {
+        val latest = gameDao.getById(game.id) ?: game
+        val newDescription = latest.description?.takeIf { it.isNotBlank() }
+            ?: info.synopsis?.takeIf { it.isNotBlank() }
+        val newTitle = when {
+            latest.title.isNotBlank() &&
+                !latest.title.equals(latest.fileName.substringBeforeLast('.'), ignoreCase = true) ->
+                latest.title
+            !info.name.isNullOrBlank() -> info.name!!
+            else -> latest.title
+        }
+        if (newDescription != latest.description || newTitle != latest.title) {
+            gameDao.update(
+                latest.copy(
+                    title = newTitle,
+                    description = newDescription,
+                ),
+            )
+        }
+    }
+
+    private suspend fun markScraped(gameId: Long) {
+        val latest = gameDao.getById(gameId) ?: return
+        gameDao.update(latest.copy(lastScrapedAt = System.currentTimeMillis()))
     }
 
     suspend fun scrapeGames(
@@ -79,11 +145,20 @@ class ArtworkScraper @Inject constructor(
         orglDataDirPath: String?,
         onProgress: (ScrapeProgress) -> Unit,
         isCancelled: () -> Boolean = { false },
+        retryThreshold: Int = 3,
+        retryDelayMs: Long = 2_000L,
     ) {
         games.forEachIndexed { index, game ->
             if (isCancelled()) throw CancellationException("Scrape cancelled")
             onProgress(ScrapeProgress(game.title, index, games.size))
-            scrapeGame(game, systemFolder, settings, orglDataDirPath)
+            scrapeGame(
+                game = game,
+                systemFolder = systemFolder,
+                settings = settings,
+                orglDataDirPath = orglDataDirPath,
+                retryThreshold = retryThreshold,
+                retryDelayMs = retryDelayMs,
+            )
             onProgress(ScrapeProgress(game.title, index + 1, games.size))
         }
     }
@@ -148,10 +223,6 @@ class ArtworkScraper @Inject constructor(
         }
     }
 
-    /**
-     * Writes only under the ORGL data directory (never ES-DE). Falls back to app-private storage
-     * when the user has not selected an ORGL data folder yet.
-     */
     fun mediaDestDir(
         systemFolder: String,
         type: MediaType,

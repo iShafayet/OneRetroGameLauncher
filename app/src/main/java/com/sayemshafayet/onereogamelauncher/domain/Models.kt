@@ -53,6 +53,37 @@ data class ScrapeProgress(
     val total: Int,
 )
 
+enum class ScrapeGameFilter {
+    ALL,
+    MISSING_METADATA,
+    MISSING_ANY_MEDIA,
+    MISSING_VIDEO,
+}
+
+data class ScrapeSessionState(
+    val running: Boolean = false,
+    val finished: Boolean = false,
+    val cancelled: Boolean = false,
+    val currentTitle: String = "",
+    val currentSystem: String = "",
+    val index: Int = 0,
+    val total: Int = 0,
+    val completed: Int = 0,
+    val failed: Int = 0,
+    val skipped: Int = 0,
+    val pending: Int = 0,
+    val startedAtMs: Long? = null,
+    val finishedAtMs: Long? = null,
+    val lastError: String? = null,
+) {
+    val elapsedMs: Long
+        get() {
+            val start = startedAtMs ?: return 0L
+            val end = finishedAtMs ?: System.currentTimeMillis()
+            return (end - start).coerceAtLeast(0L)
+        }
+}
+
 data class ScanProgress(
     val systemName: String,
     val gamesFound: Int,

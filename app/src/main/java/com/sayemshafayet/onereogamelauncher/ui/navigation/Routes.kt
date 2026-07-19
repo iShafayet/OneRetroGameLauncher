@@ -15,6 +15,7 @@ object Routes {
     const val SETUP_SETTINGS_RETROARCH = "setup/settings/retroarch"
     const val SETUP_SETTINGS_CREDITS = "setup/settings/credits"
     const val SETUP_SCRAPE = "setup/scrape"
+    const val SETUP_SCRAPE_WIZARD = "setup/scrape/wizard"
 
     const val PLAY_HOME = "play/home"
     const val PLAY_PICKER = "play/picker"

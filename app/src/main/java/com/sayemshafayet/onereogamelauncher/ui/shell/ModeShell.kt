@@ -44,6 +44,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeWizardScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
@@ -83,7 +84,8 @@ fun ModeShell(
     )
     val showSetupBar = !isPlay && (
         currentRoute in setupTabs ||
-            currentRoute?.startsWith("setup/settings/") == true
+            currentRoute?.startsWith("setup/settings/") == true ||
+            currentRoute?.startsWith("setup/scrape") == true
     )
     // System / game detail: hide Setup↔Play bar so the screen TopAppBar owns the space.
     val hideModeSwitcher = currentRoute?.startsWith("setup/system/") == true ||
@@ -227,7 +229,17 @@ fun ModeShell(
             composable(Routes.SETUP_SETTINGS_CREDITS) {
                 CreditsScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.SETUP_SCRAPE) { ScrapeScreen() }
+            composable(Routes.SETUP_SCRAPE) {
+                ScrapeScreen(
+                    onStartWizard = { navController.navigate(Routes.SETUP_SCRAPE_WIZARD) },
+                    onOpenCredentials = {
+                        navController.navigate(Routes.SETUP_SETTINGS_SCREENSCRAPER)
+                    },
+                )
+            }
+            composable(Routes.SETUP_SCRAPE_WIZARD) {
+                ScrapeWizardScreen(onBack = { navController.popBackStack() })
+            }
 
             composable(Routes.PLAY_PICKER) {
                 PlayPickerScreen(

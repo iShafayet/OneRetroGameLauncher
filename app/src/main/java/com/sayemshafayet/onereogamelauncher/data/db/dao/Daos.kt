@@ -123,6 +123,15 @@ interface GameDao {
 
     @Query("SELECT COUNT(*) FROM games WHERE systemId = :systemId")
     suspend fun countForSystem(systemId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM games")
+    suspend fun countAll(): Int
+
+    @Query("SELECT COUNT(*) FROM games WHERE lastScrapedAt IS NOT NULL")
+    suspend fun countScraped(): Int
+
+    @Query("SELECT COUNT(*) FROM games WHERE systemId = :systemId AND lastScrapedAt IS NOT NULL")
+    suspend fun countScrapedForSystem(systemId: Long): Int
 }
 
 @Dao
@@ -237,6 +246,12 @@ interface MediaDao {
 
     @Query("DELETE FROM media WHERE gameId = :gameId")
     suspend fun deleteForGame(gameId: Long)
+
+    @Query("SELECT COUNT(*) FROM media WHERE gameId = :gameId")
+    suspend fun countForGame(gameId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM media WHERE gameId = :gameId AND type = :type")
+    suspend fun countForGameType(gameId: Long, type: MediaType): Int
 }
 
 @Dao

@@ -63,6 +63,8 @@ data class GameEntity(
     val raGameId: Int? = null,
     val hltbId: Long? = null,
     val unknownExtensionsNote: String? = null,
+    /** Epoch millis of last ORGL scrape attempt (media/metadata). */
+    val lastScrapedAt: Long? = null,
 )
 
 @Entity(

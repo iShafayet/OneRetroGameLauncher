@@ -22,14 +22,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ScrapeForegroundService : Service() {
     @Inject lateinit var artworkScraper: ArtworkScraper
     @Inject lateinit var gameDao: GameDao
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var scrapeSessionRepository: ScrapeSessionRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var scrapeJob: Job? = null
@@ -40,49 +41,87 @@ class ScrapeForegroundService : Service() {
         when (intent?.action) {
             ACTION_CANCEL -> {
                 scrapeJob?.cancel()
-                stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_SCRAPE_GAME -> {
                 val gameId = intent.getLongExtra(EXTRA_GAME_ID, -1L)
                 val systemFolder = intent.getStringExtra(EXTRA_SYSTEM_FOLDER).orEmpty()
-                startScrape(listOf(gameId), systemFolder)
+                scrapeSessionRepository.queueJob(
+                    ScrapeJobConfig(
+                        items = listOf(
+                            ScrapeJobItem(gameId, systemFolder, systemFolder),
+                        ),
+                    ),
+                )
+                startQueuedJob()
             }
             ACTION_SCRAPE_SYSTEM -> {
                 val systemFolder = intent.getStringExtra(EXTRA_SYSTEM_FOLDER).orEmpty()
                 val ids = intent.getLongArrayExtra(EXTRA_GAME_IDS)?.toList().orEmpty()
-                startScrape(ids, systemFolder)
+                scrapeSessionRepository.queueJob(
+                    ScrapeJobConfig(
+                        items = ids.map { ScrapeJobItem(it, systemFolder, systemFolder) },
+                    ),
+                )
+                startQueuedJob()
             }
+            ACTION_SCRAPE_SESSION -> startQueuedJob()
         }
         return START_NOT_STICKY
     }
 
-    private fun startScrape(gameIds: List<Long>, systemFolder: String) {
+    private fun startQueuedJob() {
+        val config = scrapeSessionRepository.takeJob() ?: return
         scrapeJob?.cancel()
         createChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Starting scrape…", 0, 0, indeterminate = true))
         scrapeJob = scope.launch {
+            var cancelled = false
             try {
                 val settings = settingsRepository.settings.first()
                 val orglData = settings.orglDataDirPath
-                val games = gameIds.mapNotNull { gameDao.getById(it) }
-                artworkScraper.scrapeGames(
-                    games = games,
-                    systemFolder = systemFolder,
-                    settings = settings,
-                    orglDataDirPath = orglData,
-                    onProgress = { progress ->
-                        updateNotification(
-                            progress.currentTitle,
-                            progress.index,
-                            progress.total,
+                val items = config.items
+                scrapeSessionRepository.markRunning(items.size)
+                items.forEachIndexed { index, item ->
+                    if (scrapeJob?.isCancelled == true) throw CancellationException("Scrape cancelled")
+                    val game = gameDao.getById(item.gameId)
+                    if (game == null) {
+                        scrapeSessionRepository.onGameSkipped(index + 1, items.size)
+                        return@forEachIndexed
+                    }
+                    scrapeSessionRepository.onGameStart(
+                        title = game.title,
+                        system = item.systemDisplayName,
+                        index = index,
+                        total = items.size,
+                    )
+                    updateNotification(game.title, index, items.size)
+                    try {
+                        artworkScraper.scrapeGame(
+                            game = game,
+                            systemFolder = item.systemFolder,
+                            settings = settings,
+                            orglDataDirPath = orglData,
+                            retryThreshold = config.retryThreshold,
+                            retryDelayMs = config.retryDelayMs,
                         )
-                    },
-                    isCancelled = { scrapeJob?.isCancelled == true },
-                )
+                        scrapeSessionRepository.onGameSuccess(index + 1, items.size)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        scrapeSessionRepository.onGameFailed(
+                            index + 1,
+                            items.size,
+                            e.message ?: e::class.java.simpleName,
+                        )
+                    }
+                    updateNotification(game.title, index + 1, items.size)
+                }
+                settingsRepository.setLastScrapeAt(System.currentTimeMillis())
             } catch (_: CancellationException) {
-                // user cancelled
+                cancelled = true
             } finally {
+                scrapeSessionRepository.markFinished(cancelled = cancelled)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -152,6 +191,7 @@ class ScrapeForegroundService : Service() {
 
         const val ACTION_SCRAPE_GAME = "scrape_game"
         const val ACTION_SCRAPE_SYSTEM = "scrape_system"
+        const val ACTION_SCRAPE_SESSION = "scrape_session"
         const val ACTION_CANCEL = "scrape_cancel"
 
         const val EXTRA_GAME_ID = "game_id"
@@ -174,6 +214,22 @@ class ScrapeForegroundService : Service() {
                     action = ACTION_SCRAPE_SYSTEM
                     putExtra(EXTRA_GAME_IDS, gameIds)
                     putExtra(EXTRA_SYSTEM_FOLDER, systemFolder)
+                },
+            )
+        }
+
+        fun startSession(context: Context) {
+            context.startForegroundService(
+                Intent(context, ScrapeForegroundService::class.java).apply {
+                    action = ACTION_SCRAPE_SESSION
+                },
+            )
+        }
+
+        fun cancel(context: Context) {
+            context.startService(
+                Intent(context, ScrapeForegroundService::class.java).apply {
+                    action = ACTION_CANCEL
                 },
             )
         }

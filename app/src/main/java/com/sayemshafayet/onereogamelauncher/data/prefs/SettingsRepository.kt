@@ -42,6 +42,8 @@ data class AppSettings(
     val appMode: AppMode = AppMode.SETUP,
     /** Grid vs list for system game browsing. */
     val gameListLayout: GameListLayout = GameListLayout.GRID,
+    /** Epoch millis when the last scrape batch finished. */
+    val lastScrapeAt: Long? = null,
 )
 
 enum class GameListLayout { GRID, LIST }
@@ -86,6 +88,7 @@ class SettingsRepository @Inject constructor(
         val onboardingDone = booleanPreferencesKey("onboarding_done")
         val appMode = stringPreferencesKey("app_mode")
         val gameListLayout = stringPreferencesKey("game_list_layout")
+        val lastScrapeAt = stringPreferencesKey("last_scrape_at")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -116,6 +119,7 @@ class SettingsRepository @Inject constructor(
             gameListLayout = runCatching {
                 GameListLayout.valueOf(p[Keys.gameListLayout] ?: GameListLayout.GRID.name)
             }.getOrDefault(GameListLayout.GRID),
+            lastScrapeAt = p[Keys.lastScrapeAt]?.toLongOrNull(),
         )
     }
 
@@ -191,6 +195,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setGameListLayout(layout: GameListLayout) {
         context.dataStore.edit { it[Keys.gameListLayout] = layout.name }
+    }
+
+    suspend fun setLastScrapeAt(epochMs: Long) {
+        context.dataStore.edit { it[Keys.lastScrapeAt] = epochMs.toString() }
     }
 }
 

@@ -586,6 +586,7 @@ class RomScanner @Inject constructor(
             raGameId = existing?.raGameId,
             hltbId = existing?.hltbId,
             unknownExtensionsNote = existing?.unknownExtensionsNote,
+            lastScrapedAt = existing?.lastScrapedAt,
         )
     }
 
