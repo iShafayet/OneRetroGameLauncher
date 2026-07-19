@@ -1,26 +1,41 @@
 package com.sayemshafayet.onereogamelauncher.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sayemshafayet.onereogamelauncher.data.db.entity.EmulatorProfileEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameConfigEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.scrape.ScrapeForegroundService
+import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import android.content.Context
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class GameLaunchConfigUi(
+    val useOverride: Boolean = false,
+    val emulatorKey: String = "",
+    val core: String = "",
+    val customConfigPath: String = "",
+    val emulatorChoices: List<EmulatorChoice> = emptyList(),
+    val coreChoices: List<CoreChoice> = emptyList(),
+    val systemEmulatorLabel: String = "",
+    val systemCoreLabel: String = "",
+)
 
 @HiltViewModel
 class GameDetailViewModel @Inject constructor(
@@ -30,6 +45,8 @@ class GameDetailViewModel @Inject constructor(
     private val commitmentRepository: CommitmentRepository,
     private val launchResolver: LaunchResolver,
     private val settingsRepository: SettingsRepository,
+    private val emulatorLauncher: EmulatorLauncher,
+    private val systemConfigLoader: SystemConfigLoader,
 ) : ViewModel() {
     val gameId: Long = savedStateHandle.get<String>("gameId")?.toLongOrNull() ?: 0L
 
@@ -42,13 +59,26 @@ class GameDetailViewModel @Inject constructor(
     val config: StateFlow<GameConfigEntity?> = libraryRepository.observeGameConfig(gameId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val emulators: StateFlow<List<EmulatorProfileEntity>> = libraryRepository.observeEmulators()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     val activeCommitment = commitmentRepository.observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    private val _launchConfig = MutableStateFlow(GameLaunchConfigUi())
+    val launchConfig: StateFlow<GameLaunchConfigUi> = _launchConfig.asStateFlow()
+
     private var systemCache: SystemEntity? = null
+
+    init {
+        viewModelScope.launch {
+            config.collect { cfg ->
+                syncFromConfig(cfg)
+            }
+        }
+        viewModelScope.launch {
+            game.collect { g ->
+                if (g != null) reloadChoices(g.systemId)
+            }
+        }
+    }
 
     suspend fun system(): SystemEntity? {
         systemCache?.let { return it }
@@ -69,10 +99,30 @@ class GameDetailViewModel @Inject constructor(
         viewModelScope.launch { libraryRepository.setOnShelf(gameId, on) }
     }
 
-    fun saveConfig(emulatorKey: String?, core: String?, configPath: String?) {
-        viewModelScope.launch {
-            libraryRepository.saveGameConfig(gameId, emulatorKey, core, configPath)
+    fun setUseOverride(enabled: Boolean) {
+        _launchConfig.update { it.copy(useOverride = enabled) }
+        persistLaunchConfig()
+    }
+
+    fun setEmulatorKey(key: String) {
+        _launchConfig.update {
+            it.copy(
+                emulatorKey = key,
+                core = if (key.equals("RETROARCH", ignoreCase = true)) it.core else "",
+            )
         }
+    }
+
+    fun setCore(core: String) {
+        _launchConfig.update { it.copy(core = core) }
+    }
+
+    fun setCustomConfigPath(path: String) {
+        _launchConfig.update { it.copy(customConfigPath = path) }
+    }
+
+    fun saveLaunchConfig() {
+        persistLaunchConfig()
     }
 
     fun saveNotes(description: String) {
@@ -87,5 +137,104 @@ class GameDetailViewModel @Inject constructor(
             val sys = libraryRepository.getSystem(g.systemId) ?: return@launch
             ScrapeForegroundService.scrapeGame(context, gameId, sys.folderName)
         }
+    }
+
+    private fun persistLaunchConfig() {
+        viewModelScope.launch {
+            val state = _launchConfig.value
+            libraryRepository.saveGameConfig(
+                gameId = gameId,
+                useOverride = state.useOverride,
+                emulatorKey = state.emulatorKey.ifBlank { null },
+                coreOverride = state.core.ifBlank { null },
+                customConfigPath = state.customConfigPath.ifBlank { null },
+            )
+        }
+    }
+
+    private suspend fun syncFromConfig(cfg: GameConfigEntity?) {
+        val current = _launchConfig.value
+        _launchConfig.update {
+            it.copy(
+                useOverride = cfg?.useOverride == true,
+                emulatorKey = cfg?.emulatorKey?.takeIf { k -> k.isNotBlank() }
+                    ?: current.emulatorKey,
+                core = cfg?.coreOverride?.takeIf { c -> c.isNotBlank() } ?: current.core,
+                customConfigPath = cfg?.customConfigPath.orEmpty(),
+            )
+        }
+    }
+
+    private suspend fun reloadChoices(systemId: Long) {
+        val sys = libraryRepository.getSystem(systemId) ?: return
+        systemCache = sys
+        val settings = settingsRepository.current()
+        val def = systemConfigLoader.systemByFolder(sys.folderName)
+        val fromCommands = def?.let { systemConfigLoader.emulatorOptionsForSystem(it) }.orEmpty()
+        val choices = buildEmulatorChoices(fromCommands, settings.preferredRetroArchPackage)
+        val cores = def?.let { systemConfigLoader.retroArchCoresForSystem(it) }
+            .orEmpty()
+            .map { (label, file) -> CoreChoice(fileName = file, label = label) }
+
+        val systemEmu = sys.defaultEmulatorKey?.takeIf { it.isNotBlank() }
+            ?: choices.firstOrNull { it.installed }?.key
+            ?: ""
+        val systemCore = sys.defaultCore?.takeIf { it.isNotBlank() }
+            ?: cores.firstOrNull()?.fileName
+            ?: ""
+
+        val cfg = config.value
+        val emuKey = cfg?.emulatorKey?.takeIf { it.isNotBlank() }
+            ?: systemEmu
+        val core = cfg?.coreOverride?.takeIf { it.isNotBlank() }
+            ?: systemCore
+
+        _launchConfig.update {
+            it.copy(
+                useOverride = cfg?.useOverride == true,
+                emulatorKey = emuKey,
+                core = core,
+                customConfigPath = cfg?.customConfigPath.orEmpty(),
+                emulatorChoices = choices,
+                coreChoices = cores,
+                systemEmulatorLabel = choices.firstOrNull {
+                    it.key.equals(systemEmu, ignoreCase = true)
+                }?.label ?: systemEmu.ifBlank { "Not set" },
+                systemCoreLabel = cores.firstOrNull { it.fileName == systemCore }?.label
+                    ?: systemCore.ifBlank { "Not set" },
+            )
+        }
+    }
+
+    private fun buildEmulatorChoices(
+        catalog: List<Pair<String, String>>,
+        preferredRa: String,
+    ): List<EmulatorChoice> {
+        val byKey = linkedMapOf<String, EmulatorChoice>()
+
+        fun add(key: String, labelHint: String) {
+            val canonical = when {
+                key.equals("RETROARCH", ignoreCase = true) -> "RETROARCH"
+                else -> emulatorLauncher.profileForKey(key)?.key ?: return
+            }
+            if (byKey.containsKey(canonical)) return
+            val label = when (canonical) {
+                "RETROARCH" -> "RetroArch"
+                else -> emulatorLauncher.profileForKey(canonical)?.displayName ?: labelHint.ifBlank { canonical }
+            }
+            val installed = emulatorLauncher.installedForKey(canonical, preferredRa) != null
+            byKey[canonical] = EmulatorChoice(canonical, label, installed)
+        }
+
+        for ((key, label) in catalog) add(key, label)
+        add("RETROARCH", "RetroArch")
+        for (profile in EmulatorLauncher.SUPPORTED_PROFILES) {
+            if (emulatorLauncher.installedForKey(profile.key, preferredRa) != null) {
+                add(profile.key, profile.displayName)
+            }
+        }
+        return byKey.values.sortedWith(
+            compareByDescending<EmulatorChoice> { it.installed }.thenBy { it.label.lowercase() },
+        )
     }
 }

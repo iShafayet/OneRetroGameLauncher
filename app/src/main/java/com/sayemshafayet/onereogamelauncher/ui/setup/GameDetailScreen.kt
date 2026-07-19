@@ -42,10 +42,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
+import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import kotlinx.coroutines.launch
@@ -58,17 +59,12 @@ fun GameDetailScreen(
 ) {
     val game by viewModel.game.collectAsState()
     val media by viewModel.media.collectAsState()
-    val config by viewModel.config.collectAsState()
-    val emulators by viewModel.emulators.collectAsState()
+    val launchConfig by viewModel.launchConfig.collectAsState()
     val activeCommitment by viewModel.activeCommitment.collectAsState()
-    val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     var notes by remember(game?.description) { mutableStateOf(game?.description.orEmpty()) }
-    var emulatorKey by remember(config?.emulatorKey) { mutableStateOf(config?.emulatorKey.orEmpty()) }
-    var core by remember(config?.coreOverride) { mutableStateOf(config?.coreOverride.orEmpty()) }
-    var configPath by remember(config?.customConfigPath) { mutableStateOf(config?.customConfigPath.orEmpty()) }
     var launchAllowed by remember { mutableStateOf(true) }
     var lockReason by remember { mutableStateOf<String?>(null) }
 
@@ -76,11 +72,14 @@ fun GameDetailScreen(
         launchAllowed = viewModel.launchAllowed()
         if (!launchAllowed) {
             lockReason = "Another game is committed in Play mode. Finish or drop it first."
+        } else {
+            lockReason = null
         }
     }
 
     val hero = media.firstOrNull { it.type == MediaType.FANART }?.path
         ?: media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
+    val isRetroArch = launchConfig.emulatorKey.equals("RETROARCH", ignoreCase = true)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -136,38 +135,85 @@ fun GameDetailScreen(
                     Text("Scrape artwork")
                 }
             }
+
             Spacer(Modifier.height(16.dp))
-            Text("Emulator override", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = emulatorKey,
-                onValueChange = { emulatorKey = it },
-                label = { Text("Emulator key") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = core,
-                onValueChange = { core = it },
-                label = { Text("Core (RetroArch)") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = configPath,
-                onValueChange = { configPath = it },
-                label = { Text("Custom config path") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedButton(
-                onClick = {
-                    viewModel.saveConfig(
-                        emulatorKey.ifBlank { null },
-                        core.ifBlank { null },
-                        configPath.ifBlank { null },
-                    )
+            Text("Launch", style = MaterialTheme.typography.titleMedium)
+            Text(
+                buildString {
+                    append("System default: ${launchConfig.systemEmulatorLabel}")
+                    if (launchConfig.systemCoreLabel.isNotBlank() &&
+                        launchConfig.systemCoreLabel != "Not set"
+                    ) {
+                        append(" · ${launchConfig.systemCoreLabel}")
+                    }
                 },
-                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Save config")
+                Column(Modifier.weight(1f)) {
+                    Text("Per-game override")
+                    Text(
+                        "Use a different emulator/core for this game only",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = launchConfig.useOverride,
+                    onCheckedChange = viewModel::setUseOverride,
+                )
             }
+
+            EmulatorDropdown(
+                choices = launchConfig.emulatorChoices,
+                selectedKey = launchConfig.emulatorKey,
+                onSelected = viewModel::setEmulatorKey,
+                enabled = launchConfig.useOverride,
+            )
+            if (isRetroArch) {
+                if (launchConfig.coreChoices.isNotEmpty()) {
+                    CoreDropdown(
+                        choices = launchConfig.coreChoices,
+                        selectedCore = launchConfig.core,
+                        onSelected = viewModel::setCore,
+                        enabled = launchConfig.useOverride,
+                    )
+                }
+                OutlinedTextField(
+                    value = launchConfig.core,
+                    onValueChange = viewModel::setCore,
+                    enabled = launchConfig.useOverride,
+                    label = { Text("Core filename") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
+            OutlinedTextField(
+                value = launchConfig.customConfigPath,
+                onValueChange = viewModel::setCustomConfigPath,
+                enabled = launchConfig.useOverride,
+                label = { Text("Custom config path (optional)") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
+            if (launchConfig.useOverride) {
+                OutlinedButton(
+                    onClick = viewModel::saveLaunchConfig,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text("Save override")
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             Text("Notes", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(

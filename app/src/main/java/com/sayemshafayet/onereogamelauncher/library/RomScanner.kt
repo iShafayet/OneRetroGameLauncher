@@ -208,12 +208,9 @@ class RomScanner @Inject constructor(
                     child.isFile -> {
                         val rel = if (prefix.isEmpty()) name else "$prefix/$name"
                         val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-                        // Prefer a real filesystem path for RetroArch when we can derive it;
-                        // keep content:// as the authoritative storage key otherwise.
-                        val fsPath = runCatching {
-                            DocumentsContract.getDocumentId(child.uri)
-                        }.getOrNull()?.let { SafPathResolver.documentIdToFilesystemPath(it) }
-                        val storage = fsPath?.takeIf { File(it).canRead() } ?: child.uri.toString()
+                        // Always keep the SAF document URI as the storage key. Derived
+                        // filesystem paths are often unreadable by RetroArch under scoped storage.
+                        val storage = child.uri.toString()
                         out += FoundFile(
                             name = name,
                             relativePath = rel,

@@ -90,25 +90,6 @@ class EmulatorLauncher @Inject constructor(
     fun profileForKey(key: String): StandaloneEmulatorProfile? =
         SUPPORTED_PROFILES.firstOrNull { it.key.equals(key, ignoreCase = true) }
 
-    fun installedForKey(key: String): ResolvedEmulator? {
-        val profile = profileForKey(key) ?: return null
-        if (key.equals("RETROARCH", ignoreCase = true)) {
-            val pkg = retroArchLauncher.resolvePackage(null) ?: return null
-            return ResolvedEmulator(
-                key = "RETROARCH",
-                packageName = pkg,
-                activityClass = RetroArchLauncher.ACTIVITY,
-                profile = StandaloneEmulatorProfile("RETROARCH", "RetroArch", "RETROARCH"),
-            )
-        }
-        return resolveInstalled(profile)
-    }
-
-    fun installedProfiles(): List<ResolvedEmulator> =
-        (listOf("RETROARCH") + SUPPORTED_PROFILES.map { it.key })
-            .distinct()
-            .mapNotNull { installedForKey(it) }
-
     fun resolveLaunch(
         game: GameEntity,
         system: SystemEntity?,
@@ -116,21 +97,25 @@ class EmulatorLauncher @Inject constructor(
         gameConfig: GameConfigEntity?,
         settings: OrglSettings,
     ): ResolvedEmulator? {
-        val overrideKey = gameConfig?.emulatorKey?.takeIf { it.isNotBlank() }
-        if (overrideKey != null) {
-            installedForKey(overrideKey)?.let { return it }
+        if (gameConfig?.useOverride == true) {
+            gameConfig.emulatorKey?.takeIf { it.isNotBlank() }?.let { key ->
+                installedForKey(key, settings.preferredRetroArchPackage)?.let { return it }
+            }
         }
 
-        val systemDefault = system?.defaultEmulatorKey?.takeIf { it.isNotBlank() }
-        if (!systemDefault.isNullOrBlank()) {
-            installedForKey(systemDefault)?.let { return it }
+        system?.defaultEmulatorKey?.takeIf { it.isNotBlank() }?.let { key ->
+            installedForKey(key, settings.preferredRetroArchPackage)?.let { return it }
         }
 
-        val retroCommand = systemDef?.commands?.firstOrNull {
-            it.template.contains("%EMULATOR_RETROARCH%")
+        if (systemDef != null) {
+            val regex = Regex("""%EMULATOR_([A-Z0-9_-]+)%""")
+            for (cmd in systemDef.commands) {
+                val key = regex.find(cmd.template)?.groupValues?.getOrNull(1) ?: continue
+                installedForKey(key, settings.preferredRetroArchPackage)?.let { return it }
+            }
         }
-        if (retroCommand != null && retroArchLauncher.resolvePackage(settings.preferredRetroArchPackage) != null) {
-            val pkg = retroArchLauncher.resolvePackage(settings.preferredRetroArchPackage)!!
+
+        retroArchLauncher.resolvePackage(settings.preferredRetroArchPackage)?.let { pkg ->
             return ResolvedEmulator(
                 key = "RETROARCH",
                 packageName = pkg,
@@ -140,6 +125,20 @@ class EmulatorLauncher @Inject constructor(
         }
 
         return null
+    }
+
+    fun installedForKey(key: String, preferredRetroArchPackage: String? = null): ResolvedEmulator? {
+        if (key.equals("RETROARCH", ignoreCase = true)) {
+            val pkg = retroArchLauncher.resolvePackage(preferredRetroArchPackage) ?: return null
+            return ResolvedEmulator(
+                key = "RETROARCH",
+                packageName = pkg,
+                activityClass = RetroArchLauncher.ACTIVITY,
+                profile = StandaloneEmulatorProfile("RETROARCH", "RetroArch", "RETROARCH"),
+            )
+        }
+        val profile = profileForKey(key) ?: return null
+        return resolveInstalled(profile)
     }
 
     /**

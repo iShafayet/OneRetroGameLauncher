@@ -229,6 +229,7 @@ class LibraryRepository @Inject constructor(
 
     suspend fun saveGameConfig(
         gameId: Long,
+        useOverride: Boolean,
         emulatorKey: String?,
         coreOverride: String?,
         customConfigPath: String?,
@@ -236,6 +237,7 @@ class LibraryRepository @Inject constructor(
         gameConfigDao.upsert(
             GameConfigEntity(
                 gameId = gameId,
+                useOverride = useOverride,
                 emulatorKey = emulatorKey?.ifBlank { null },
                 coreOverride = coreOverride?.ifBlank { null },
                 customConfigPath = customConfigPath?.ifBlank { null },

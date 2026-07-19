@@ -80,6 +80,8 @@ data class GameEntity(
 )
 data class GameConfigEntity(
     @PrimaryKey val gameId: Long,
+    /** When true, [emulatorKey] / [coreOverride] override the system defaults. */
+    val useOverride: Boolean = false,
     val emulatorKey: String? = null,
     val coreOverride: String? = null,
     val customConfigPath: String? = null,

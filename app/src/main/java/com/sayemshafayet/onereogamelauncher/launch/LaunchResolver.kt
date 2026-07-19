@@ -36,7 +36,18 @@ class LaunchResolver @Inject constructor(
             settings = orgSettings,
         ) ?: return null
 
-        val romPath = resolveRomPath(game.romPath)
+        val isRa = resolved.key.equals("RETROARCH", ignoreCase = true)
+        val romResolved = if (isRa) {
+            RetroArchRomPaths.resolve(
+                romPath = game.romPath,
+                romPathsJson = game.romPathsJson,
+                systemFolder = system?.folderName.orEmpty(),
+                romsTreeUri = orgSettings.romsDirUri,
+                romsDirPath = orgSettings.romsDirPath,
+            )
+        } else {
+            RetroArchRomPaths.ResolvedRom(romExtra = resolveRomPath(game.romPath))
+        }
         val core = resolveCore(
             resolvedKey = resolved.key,
             gameConfig = gameConfig,
@@ -45,15 +56,18 @@ class LaunchResolver @Inject constructor(
             settings = orgSettings,
         )
         val customConfig = gameConfig?.customConfigPath?.takeIf { it.isNotBlank() }
+            ?.takeIf { gameConfig.useOverride }
 
         return LaunchPlan(
             emulatorKey = resolved.key,
             packageName = resolved.packageName,
             activityClass = resolved.activityClass,
             core = core,
-            romPath = romPath,
+            romPath = romResolved.romExtra,
             customConfig = customConfig,
-            isRetroArch = resolved.key.equals("RETROARCH", ignoreCase = true),
+            isRetroArch = isRa,
+            grantTreeUri = romResolved.grantTreeUri,
+            grantDocumentUri = romResolved.grantDocumentUri,
         )
     }
 
@@ -71,6 +85,8 @@ class LaunchResolver @Inject constructor(
                 coreFileName = core,
                 preferredPackage = preferredRetroArchPackage.ifBlank { plan.packageName },
                 customConfigPath = plan.customConfig,
+                grantTreeUri = plan.grantTreeUri,
+                grantDocumentUri = plan.grantDocumentUri,
             )
         }
         val resolved = emulatorLauncher.installedForKey(plan.emulatorKey)
@@ -94,7 +110,9 @@ class LaunchResolver @Inject constructor(
         settings: OrglSettings,
     ): String? {
         if (!resolvedKey.equals("RETROARCH", ignoreCase = true)) return null
-        gameConfig?.coreOverride?.takeIf { it.isNotBlank() }?.let { return it }
+        if (gameConfig?.useOverride == true) {
+            gameConfig.coreOverride?.takeIf { it.isNotBlank() }?.let { return it }
+        }
         system?.defaultCore?.takeIf { it.isNotBlank() }?.let { return it }
         return systemDef?.let { systemConfigLoader.firstRetroArchCore(it) }
     }

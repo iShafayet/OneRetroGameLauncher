@@ -132,6 +132,33 @@ class SystemConfigLoader @Inject constructor(
             .firstOrNull { it.template.contains("%EMULATOR_RETROARCH%") }
             ?.let { extractExtra(it.template, "LIBRETRO") }
 
+    /** Distinct RetroArch cores advertised for this system (label → core filename). */
+    fun retroArchCoresForSystem(system: SystemDef): List<Pair<String, String>> {
+        val seen = linkedSetOf<String>()
+        val out = mutableListOf<Pair<String, String>>()
+        for (cmd in system.commands) {
+            if (!cmd.template.contains("%EMULATOR_RETROARCH%")) continue
+            val core = extractExtra(cmd.template, "LIBRETRO") ?: continue
+            if (!seen.add(core)) continue
+            val label = cmd.label.ifBlank { core.removeSuffix("_libretro_android.so").removeSuffix("_libretro.so") }
+            out += label to core
+        }
+        return out
+    }
+
+    /** Emulator keys referenced by this system's commands (key → command label). */
+    fun emulatorOptionsForSystem(system: SystemDef): List<Pair<String, String>> {
+        val seen = linkedSetOf<String>()
+        val out = mutableListOf<Pair<String, String>>()
+        val regex = Regex("""%EMULATOR_([A-Z0-9_-]+)%""")
+        for (cmd in system.commands) {
+            val key = regex.find(cmd.template)?.groupValues?.getOrNull(1) ?: continue
+            if (!seen.add(key)) continue
+            out += key to cmd.label.ifBlank { key }
+        }
+        return out
+    }
+
     fun extractExtra(template: String, extraName: String): String? {
         val pattern = Regex("""%EXTRA_${extraName}%=([^\s%]+)""", RegexOption.IGNORE_CASE)
         return pattern.find(template)?.groupValues?.getOrNull(1)

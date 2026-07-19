@@ -8,4 +8,6 @@ data class LaunchPlan(
     val romPath: String,
     val customConfig: String?,
     val isRetroArch: Boolean,
+    val grantTreeUri: String? = null,
+    val grantDocumentUri: String? = null,
 )

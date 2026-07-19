@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -50,6 +51,7 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 @Composable
 fun SystemGamesScreen(
     onGameClick: (Long) -> Unit,
+    onEmulatorSettings: (Long) -> Unit,
     onBack: () -> Unit,
     viewModel: SystemGamesViewModel = hiltViewModel(),
 ) {
@@ -69,6 +71,9 @@ fun SystemGamesScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onEmulatorSettings(viewModel.systemId) }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Emulator settings")
+                    }
                     IconButton(onClick = viewModel::toggleLayout) {
                         if (layout == GameListLayout.GRID) {
                             Icon(Icons.Default.ViewList, contentDescription = "List view")

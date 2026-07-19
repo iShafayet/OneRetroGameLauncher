@@ -147,6 +147,8 @@ class RetroArchLauncher @Inject constructor(
         coreFileName: String,
         preferredPackage: String?,
         customConfigPath: String? = null,
+        grantTreeUri: String? = null,
+        grantDocumentUri: String? = null,
     ): String? {
         val preferred = preferredPackage?.takeIf { it.isNotBlank() }
         val installed = installedPackages()
@@ -177,7 +179,9 @@ class RetroArchLauncher @Inject constructor(
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
             )
             putExtra("ROM", romPath)
             putExtra("LIBRETRO", corePath)
@@ -190,43 +194,72 @@ class RetroArchLauncher @Inject constructor(
             putExtra("QUITFOCUS", "")
         }
 
-        grantUriIfNeeded(intent, pkg, romPath)
+        grantAccess(pkg, intent, romPath, grantTreeUri, grantDocumentUri)
 
         return try {
             context.startActivity(intent)
             Log.i(TAG, "Launched pkg=$pkg core=$corePath rom=$romPath")
-            if (!isLikelyFilesystemPath(romPath)) {
-                "Launched RetroArch but ROM path is not a real file path ($romPath). " +
-                    "Move ROMs to shared storage when possible."
-            } else {
-                null
-            }
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch RetroArch", e)
             e.message?.takeIf { it.isNotBlank() } ?: "Could not start RetroArch"
         }
     }
 
-    private fun grantUriIfNeeded(intent: Intent, pkg: String, romPath: String) {
-        if (!romPath.startsWith("content:", ignoreCase = true) &&
-            !romPath.startsWith("saf:", ignoreCase = true)
-        ) {
-            return
-        }
-        runCatching {
-            val uriString = if (romPath.startsWith("saf:", ignoreCase = true)) {
-                romPath.removePrefix("saf:").removePrefix("saf://").let {
-                    if (it.startsWith("content:")) it else romPath
+    private fun grantAccess(
+        pkg: String,
+        intent: Intent,
+        romPath: String,
+        grantTreeUri: String?,
+        grantDocumentUri: String?,
+    ) {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        fun grant(uriString: String?) {
+            if (uriString.isNullOrBlank()) return
+            runCatching {
+                val uri = Uri.parse(uriString)
+                if (!uri.scheme.equals("content", ignoreCase = true)) return@runCatching
+                context.grantUriPermission(pkg, uri, flags)
+                intent.addFlags(flags)
+                // ClipData is the reliable way to pass grants across apps on modern Android.
+                if (intent.clipData == null) {
+                    intent.clipData = android.content.ClipData.newRawUri("rom", uri)
                 }
-            } else {
-                romPath
+            }.onFailure { Log.w(TAG, "grantUriPermission failed for $uriString", it) }
+        }
+
+        grant(grantTreeUri)
+        grant(grantDocumentUri)
+
+        when {
+            romPath.startsWith("content:", ignoreCase = true) -> grant(romPath)
+            romPath.startsWith("saf://", ignoreCase = true) -> {
+                // Decode tree portion back to content:// for granting
+                val encoded = romPath.removePrefix("saf://").substringBefore('/')
+                val tree = decodeSafTree(encoded)
+                grant(tree)
             }
-            val uri = Uri.parse(uriString)
-            if (uri.scheme.equals("content", ignoreCase = true)) {
-                context.grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    private fun decodeSafTree(encoded: String): String? {
+        if (encoded.isBlank()) return null
+        return buildString(encoded.length) {
+            var i = 0
+            while (i < encoded.length) {
+                if (encoded[i] == '%' && i + 2 < encoded.length) {
+                    val hex = encoded.substring(i + 1, i + 3)
+                    val value = hex.toIntOrNull(16)
+                    if (value != null) {
+                        append(value.toChar())
+                        i += 3
+                        continue
+                    }
+                }
+                append(encoded[i])
+                i++
             }
-        }.onFailure { Log.w(TAG, "Could not grant URI to $pkg: $romPath", it) }
+        }.takeIf { it.startsWith("content:", ignoreCase = true) }
     }
 
     data class PackagePaths(

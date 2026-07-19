@@ -47,6 +47,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeWizardScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.SystemEmulatorSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -195,8 +196,14 @@ fun ModeShell(
             composable(Routes.SETUP_SYSTEM) {
                 SystemGamesScreen(
                     onGameClick = { navController.navigate(Routes.setupGame(it)) },
+                    onEmulatorSettings = { systemId ->
+                        navController.navigate(Routes.setupSystemEmulator(systemId))
+                    },
                     onBack = { navController.popBackStack() },
                 )
+            }
+            composable(Routes.SETUP_SYSTEM_EMULATOR) {
+                SystemEmulatorSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETUP_GAME) {
                 GameDetailScreen(onBack = { navController.popBackStack() })
