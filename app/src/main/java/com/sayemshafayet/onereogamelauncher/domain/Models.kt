@@ -1,0 +1,78 @@
+package com.sayemshafayet.onereogamelauncher.domain
+
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+enum class AppMode { SETUP, PLAY }
+
+enum class CommitmentStatus { ACTIVE, FINISHED, DROPPED }
+
+enum class MediaType {
+    BOX_2D, BOX_3D, SCREENSHOT, TITLE, MARQUEE, VIDEO, FANART, UNKNOWN;
+
+    companion object {
+        fun fromEsDeFolder(name: String): MediaType = when (name.lowercase()) {
+            "covers", "box2d", "boxfront" -> BOX_2D
+            "3dboxes", "box3d" -> BOX_3D
+            "screenshots", "miximages" -> SCREENSHOT
+            "titlescreens", "titles" -> TITLE
+            "marquees", "logos" -> MARQUEE
+            "videos" -> VIDEO
+            "fanart" -> FANART
+            else -> UNKNOWN
+        }
+    }
+}
+
+enum class LaunchSeverity { OK, WARN, ERROR }
+
+data class LaunchCheck(
+    val id: String,
+    val label: String,
+    val severity: LaunchSeverity,
+    val detail: String,
+    val fixGuidance: String? = null,
+)
+
+data class SystemDef(
+    val name: String,
+    val fullName: String,
+    val folder: String,
+    val extensions: Set<String>,
+    val platform: String,
+    val commands: List<SystemCommand>,
+)
+
+data class SystemCommand(
+    val label: String,
+    val template: String,
+)
+
+data class ScrapeProgress(
+    val currentTitle: String,
+    val index: Int,
+    val total: Int,
+)
+
+data class ScanProgress(
+    val systemName: String,
+    val gamesFound: Int,
+    val systemsDone: Int,
+    val systemsTotal: Int,
+)
+
+data class HltbEstimate(
+    val gameId: Long?,
+    val title: String,
+    val mainHours: Double?,
+    val mainExtraHours: Double?,
+    val completionistHours: Double?,
+)
+
+data class RaProgress(
+    val gameId: Int?,
+    val title: String?,
+    val earned: Int,
+    val total: Int,
+    val softcoreEarned: Int = 0,
+    val recentUnlocks: List<String> = emptyList(),
+)
