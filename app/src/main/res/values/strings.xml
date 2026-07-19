@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">One Retro Game Launcher</string>
+    <string name="app_name_short">ORGL</string>
+    <string name="scrape_channel_name">Artwork scraping</string>
+    <string name="scrape_notification_title">Scraping artwork</string>
+    <string name="scrape_cancel">Cancel</string>
+</resources>
