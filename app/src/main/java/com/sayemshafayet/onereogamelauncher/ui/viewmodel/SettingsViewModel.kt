@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
@@ -14,6 +15,7 @@ import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class SettingsHubUi(
     val romsPath: String = "",
@@ -39,6 +42,7 @@ data class SettingsHubUi(
     val hltbEnabled: Boolean = true,
     val scanning: Boolean = false,
     val scanMessage: String? = null,
+    val orglIncompatibleAlert: String? = null,
 )
 
 @HiltViewModel
@@ -112,16 +116,51 @@ class SettingsViewModel @Inject constructor(
     fun onOrglDataFolderPicked(uri: Uri) {
         viewModelScope.launch {
             takePersistable(uri, write = true)
-            val pathHint = SafPathResolver.resolvePath(context, uri)
-            settingsRepository.setOrglDataDir(uri.toString(), pathHint)
-            _ui.update {
-                it.copy(
-                    orglDataPath = pathHint.orEmpty(),
-                    orglDataUri = uri.toString(),
-                    orglDataDisplay = SafPathResolver.displayLabel(uri.toString(), pathHint),
-                )
+            val result = withContext(Dispatchers.IO) {
+                OrglDataDirectory.prepare(context, uri)
+            }
+            when (result) {
+                is OrglDataDirectory.PrepareResult.Ready -> {
+                    val pathHint = SafPathResolver.resolvePath(context, uri)
+                    settingsRepository.setOrglDataDir(uri.toString(), pathHint)
+                    _ui.update {
+                        it.copy(
+                            orglDataPath = pathHint.orEmpty(),
+                            orglDataUri = uri.toString(),
+                            orglDataDisplay = SafPathResolver.displayLabel(uri.toString(), pathHint),
+                            scanMessage = if (result.reusedExisting) {
+                                "Linked existing ORGL data folder (spec v${OrglDataDirectory.SPEC_VERSION})."
+                            } else {
+                                "ORGL data folder ready (${OrglDataDirectory.META_FILE_NAME} created)."
+                            },
+                            orglIncompatibleAlert = null,
+                        )
+                    }
+                }
+                is OrglDataDirectory.PrepareResult.Incompatible -> {
+                    _ui.update {
+                        it.copy(
+                            orglIncompatibleAlert = OrglDataDirectory.incompatibleMessage(
+                                result.foundVersion,
+                            ),
+                            scanMessage = null,
+                        )
+                    }
+                }
+                is OrglDataDirectory.PrepareResult.Failed -> {
+                    _ui.update {
+                        it.copy(
+                            scanMessage = result.message,
+                            orglIncompatibleAlert = null,
+                        )
+                    }
+                }
             }
         }
+    }
+
+    fun dismissOrglIncompatibleAlert() {
+        _ui.update { it.copy(orglIncompatibleAlert = null) }
     }
 
     fun onEsdeDataFolderPicked(uri: Uri) {
@@ -134,11 +173,40 @@ class SettingsViewModel @Inject constructor(
                     esdeDataPath = pathHint.orEmpty(),
                     esdeDataUri = uri.toString(),
                     esdeDataDisplay = SafPathResolver.displayLabel(uri.toString(), pathHint),
+                    scanMessage = null,
                 )
             }
             // Re-resolve media/metadata from ES-DE without rewriting anything.
             if (_ui.value.romsUri.isNotBlank() || _ui.value.romsPath.isNotBlank()) {
                 rescan()
+            }
+        }
+    }
+
+    fun unlinkEsde() {
+        viewModelScope.launch {
+            _ui.update { it.copy(scanning = true, scanMessage = null) }
+            runCatching {
+                val removed = libraryRepository.purgeEsdeLinkedMedia()
+                settingsRepository.clearEsdeDataDir()
+                removed
+            }.onSuccess { removed ->
+                _ui.update {
+                    it.copy(
+                        scanning = false,
+                        esdeDataPath = "",
+                        esdeDataUri = "",
+                        esdeDataDisplay = "Not set",
+                        scanMessage = "ES-DE unlinked. Removed $removed cached media entries.",
+                    )
+                }
+            }.onFailure { e ->
+                _ui.update {
+                    it.copy(
+                        scanning = false,
+                        scanMessage = e.message ?: "Could not unlink ES-DE",
+                    )
+                }
             }
         }
     }
@@ -158,14 +226,18 @@ class SettingsViewModel @Inject constructor(
                 libraryRepository.ensureCatalogLoaded()
                 libraryRepository.scanLibrary()
             }.onSuccess { result ->
+                val esdeLinked = _ui.value.esdeDataUri.isNotBlank() || _ui.value.esdeDataPath.isNotBlank()
                 _ui.update {
                     it.copy(
                         scanning = false,
                         scanMessage = when {
                             result.gamesFound > 0 ->
                                 "Found ${result.gamesFound} games across ${result.systemsScanned} systems" +
-                                    (if (result.mediaLinked > 0) ", linked ${result.mediaLinked} media files"
-                                    else ", 0 media linked — check ES-DE data folder contains downloaded_media/")
+                                    when {
+                                        result.mediaLinked > 0 -> ", linked ${result.mediaLinked} media files"
+                                        esdeLinked -> ", 0 media linked — check the ES-DE data folder contains downloaded_media/"
+                                        else -> ", 0 media linked — scrape artwork or link ES-DE for fallback media"
+                                    }
                             result.systemsScanned == 0 ->
                                 "No system folders found under the selected directory. " +
                                     "Pick the ROMs root that contains nes/, snes/, psx/, …"

@@ -31,16 +31,17 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 @Composable
 fun SettingsScreen(
+    onOpenLibraryFolders: () -> Unit,
     onOpenEsde: () -> Unit,
     onOpenScreenScraper: () -> Unit,
     onOpenRetroAchievements: () -> Unit,
     onOpenHltb: () -> Unit,
     onOpenRetroArch: () -> Unit,
-    onOpenCredits: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
+    val esdeLinked = ui.esdeDataUri.isNotBlank() || ui.esdeDataPath.isNotBlank()
 
     Column(
         Modifier
@@ -48,18 +49,42 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-
-        Text("Integrations", style = MaterialTheme.typography.titleMedium)
+        Text("Library", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
         SettingsNavRow(
-            title = "ES-DE / Library",
+            title = "Folders",
             subtitle = buildString {
                 append("ROMs: ${ui.romsDisplay}")
                 append(" · ORGL: ${ui.orglDataDisplay}")
-                append(" · ES-DE: ${ui.esdeDataDisplay}")
             },
+            onClick = onOpenLibraryFolders,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { viewModel.rescan() },
+            enabled = !ui.scanning && (ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (ui.scanning) CircularProgressIndicator(modifier = Modifier.height(20.dp))
+            else Text("Rescan library")
+        }
+        scanProgress?.let {
+            Text(
+                "Scanning ${it.systemName}… ${it.gamesFound} games (${it.systemsDone}/${it.systemsTotal})",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        ui.scanMessage?.let {
+            Text(it, modifier = Modifier.padding(top = 8.dp))
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Integrations", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        SettingsNavRow(
+            title = "ES-DE",
+            subtitle = if (esdeLinked) "Linked · ${ui.esdeDataDisplay}" else "Optional media fallback",
             onClick = onOpenEsde,
         )
         SettingsNavRow(
@@ -83,7 +108,7 @@ fun SettingsScreen(
             onClick = onOpenRetroArch,
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         androidx.compose.foundation.layout.Row(
@@ -97,33 +122,7 @@ fun SettingsScreen(
                 )
             }
         }
-
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = { viewModel.rescan() },
-            enabled = !ui.scanning,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (ui.scanning) CircularProgressIndicator(modifier = Modifier.height(20.dp))
-            else Text("Rescan library")
-        }
-        scanProgress?.let {
-            Text(
-                "Scanning ${it.systemName}… ${it.gamesFound} games (${it.systemsDone}/${it.systemsTotal})",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        ui.scanMessage?.let {
-            Text(it, modifier = Modifier.padding(top = 8.dp))
-        }
-
-        Spacer(Modifier.height(24.dp))
-        SettingsNavRow(
-            title = "Credits",
-            subtitle = "License, data sources, libraries",
-            onClick = onOpenCredits,
-        )
+        Spacer(Modifier.height(8.dp))
     }
 }
 

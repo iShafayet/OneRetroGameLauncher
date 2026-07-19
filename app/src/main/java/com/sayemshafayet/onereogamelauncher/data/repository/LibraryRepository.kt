@@ -174,7 +174,7 @@ class LibraryRepository @Inject constructor(
         }
 
         error(
-            "ROMs folder not configured. Open Settings → ES-DE / Library and browse to your ROMs folder.",
+            "ROMs folder not configured. Open Settings → Folders and browse to your ROMs folder.",
         )
     }
 
@@ -254,6 +254,9 @@ class LibraryRepository @Inject constructor(
             ),
         )
     }
+
+    /** Remove media rows that were linked from the ES-DE data folder. */
+    suspend fun purgeEsdeLinkedMedia(): Int = mediaDao.deleteByProvider("es-de")
 
     suspend fun refreshEmulatorInstallState() {
         val pm = context.packageManager

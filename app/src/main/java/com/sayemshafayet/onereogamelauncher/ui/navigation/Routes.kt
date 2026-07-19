@@ -5,10 +5,12 @@ object Routes {
     const val HOME = "home"
 
     const val SETUP_LIBRARY = "setup/library"
+    const val SETUP_ABOUT = "setup/about"
     const val SETUP_SYSTEM = "setup/system/{systemId}"
     const val SETUP_SYSTEM_EMULATOR = "setup/system/{systemId}/emulator"
     const val SETUP_GAME = "setup/game/{gameId}"
     const val SETUP_SETTINGS = "setup/settings"
+    const val SETUP_SETTINGS_FOLDERS = "setup/settings/folders"
     const val SETUP_SETTINGS_ESDE = "setup/settings/esde"
     const val SETUP_SETTINGS_SCREENSCRAPER = "setup/settings/screenscraper"
     const val SETUP_SETTINGS_RA = "setup/settings/retroachievements"

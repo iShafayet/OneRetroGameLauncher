@@ -2,11 +2,13 @@ package com.sayemshafayet.onereogamelauncher.ui.shell
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -36,10 +38,12 @@ import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.JournalScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
@@ -83,21 +87,37 @@ fun ModeShell(
         Routes.SETUP_SETTINGS,
         Routes.SETUP_SCRAPE,
     )
-    val showSetupBar = !isPlay && (
-        currentRoute in setupTabs ||
-            currentRoute?.startsWith("setup/settings/") == true ||
-            currentRoute?.startsWith("setup/scrape") == true
+    val immersiveRoutes = setOf(
+        Routes.SETUP_ABOUT,
+        Routes.SETUP_SETTINGS_CREDITS,
     )
-    // System / game detail: hide Setup↔Play bar so the screen TopAppBar owns the space.
-    val hideModeSwitcher = currentRoute?.startsWith("setup/system/") == true ||
-        currentRoute?.startsWith("setup/game/") == true
+    val showSetupBar = !isPlay &&
+        currentRoute !in immersiveRoutes &&
+        (
+            currentRoute in setupTabs ||
+                currentRoute?.startsWith("setup/settings/") == true ||
+                currentRoute?.startsWith("setup/scrape") == true
+            )
+    // ORGL Setup/Play top bar only on primary hubs — sub-screens use their own TopAppBar.
+    val modeSwitcherRoutes = setupTabs + setOf(Routes.PLAY_PICKER, Routes.PLAY_FOCUS)
+    val hideModeSwitcher = currentRoute !in modeSwitcherRoutes
 
     Scaffold(
         topBar = {
             if (!hideModeSwitcher) {
                 TopAppBar(
-                    title = { Text(if (isPlay) "Play" else "Setup") },
+                    title = { Text(if (isPlay) "Play" else "ORGL") },
                     actions = {
+                        if (!isPlay) {
+                            IconButton(
+                                onClick = { navController.navigate(Routes.SETUP_ABOUT) },
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "About ORGL",
+                                )
+                            }
+                        }
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(end = 8.dp)) {
                             SegmentedButton(
                                 selected = !isPlay,
@@ -193,6 +213,12 @@ fun ModeShell(
             composable(Routes.SETUP_LIBRARY) {
                 LibraryScreen(onSystemClick = { navController.navigate(Routes.setupSystem(it)) })
             }
+            composable(Routes.SETUP_ABOUT) {
+                AboutScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
+                )
+            }
             composable(Routes.SETUP_SYSTEM) {
                 SystemGamesScreen(
                     onGameClick = { navController.navigate(Routes.setupGame(it)) },
@@ -210,13 +236,20 @@ fun ModeShell(
             }
             composable(Routes.SETUP_SETTINGS) {
                 SettingsScreen(
+                    onOpenLibraryFolders = {
+                        navController.navigate(Routes.SETUP_SETTINGS_FOLDERS)
+                    },
                     onOpenEsde = { navController.navigate(Routes.SETUP_SETTINGS_ESDE) },
-                    onOpenScreenScraper = { navController.navigate(Routes.SETUP_SETTINGS_SCREENSCRAPER) },
+                    onOpenScreenScraper = {
+                        navController.navigate(Routes.SETUP_SETTINGS_SCREENSCRAPER)
+                    },
                     onOpenRetroAchievements = { navController.navigate(Routes.SETUP_SETTINGS_RA) },
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
-                    onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                 )
+            }
+            composable(Routes.SETUP_SETTINGS_FOLDERS) {
+                LibraryFoldersScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETUP_SETTINGS_ESDE) {
                 EsdeSettingsScreen(onBack = { navController.popBackStack() })

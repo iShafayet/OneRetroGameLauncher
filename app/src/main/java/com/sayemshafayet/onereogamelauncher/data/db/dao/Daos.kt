@@ -247,6 +247,9 @@ interface MediaDao {
     @Query("DELETE FROM media WHERE gameId = :gameId")
     suspend fun deleteForGame(gameId: Long)
 
+    @Query("DELETE FROM media WHERE provider = :provider")
+    suspend fun deleteByProvider(provider: String): Int
+
     @Query("SELECT COUNT(*) FROM media WHERE gameId = :gameId")
     suspend fun countForGame(gameId: Long): Int
 

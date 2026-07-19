@@ -144,6 +144,14 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    suspend fun clearEsdeDataDir() {
+        context.dataStore.edit {
+            it.remove(Keys.esdeDataDirUri)
+            it.remove(Keys.esdeDataDirPath)
+            it.remove(Keys.appDataDirUri)
+        }
+    }
+
     /** @deprecated Use [setEsdeDataDir]. */
     suspend fun setAppDataDirUri(uri: String) {
         setEsdeDataDir(uri, null)

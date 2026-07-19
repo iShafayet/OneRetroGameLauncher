@@ -95,7 +95,7 @@ fun ScrapeScreen(
         }
         if (stats.totalGames == 0) {
             Text(
-                "Scan your library first (Settings → ES-DE / Library).",
+                "Scan your library first (Settings → Folders).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )

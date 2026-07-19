@@ -132,7 +132,7 @@ class RomScanner @Inject constructor(
     ): RomScanResult = withContext(Dispatchers.IO) {
         // Mirror DroidArcade ValidationEngine: always walk via DocumentFile, never java.io.File.
         val root = DocumentFile.fromTreeUri(context, treeUri)
-            ?: error("Cannot open ROMs folder URI — re-pick the folder in Settings → ES-DE / Library")
+            ?: error("Cannot open ROMs folder URI — re-pick the folder in Settings → Folders")
         require(root.isDirectory) { "ROMs URI is not a folder" }
 
         val systemDirs = root.listFiles()

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
@@ -55,12 +57,28 @@ fun OnboardingScreen(
     val state by viewModel.state.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
 
-    val folderPicker = rememberLauncherForActivityResult(
+    val romsPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
-        uri?.let { picked ->
-            viewModel.onFolderPicked(picked)
-        }
+        uri?.let { viewModel.onRomsFolderPicked(it) }
+    }
+    val orglPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onOrglFolderPicked(it) }
+    }
+
+    state.orglIncompatibleAlert?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissOrglIncompatibleAlert,
+            title = { Text("Incompatible ORGL folder") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissOrglIncompatibleAlert) {
+                    Text("Choose another folder")
+                }
+            },
+        )
     }
 
     Box(
@@ -98,13 +116,20 @@ fun OnboardingScreen(
                     )
                     when (page) {
                         0 -> WelcomeStep()
-                        1 -> FolderStep(
+                        1 -> RomsFolderStep(
                             uri = state.romsUri,
                             pathHint = state.romsPath,
-                            onPick = { folderPicker.launch(null) },
+                            onPick = { romsPicker.launch(null) },
                         )
-                        2 -> CredentialsTeaseStep()
-                        3 -> DoneStep(
+                        2 -> OrglFolderStep(
+                            uri = state.orglUri,
+                            pathHint = state.orglPath,
+                            reused = state.orglReused,
+                            error = state.orglError,
+                            onPick = { orglPicker.launch(null) },
+                        )
+                        3 -> CredentialsTeaseStep()
+                        4 -> DoneStep(
                             scanning = state.scanning,
                             scanProgress = scanProgress,
                             scanError = state.scanError,
@@ -116,7 +141,7 @@ fun OnboardingScreen(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (page == 3 && state.scanning) {
+                    if (page == 4 && state.scanning) {
                         CircularProgressIndicator(color = AmberAccent)
                         Spacer(Modifier.height(12.dp))
                         Text(
@@ -131,14 +156,15 @@ fun OnboardingScreen(
 
                     val ctaEnabled = when (page) {
                         1 -> state.romsUri != null
-                        3 -> !state.scanning
+                        2 -> state.orglUri != null
+                        4 -> !state.scanning && state.romsUri != null && state.orglUri != null
                         else -> true
                     }
 
                     Button(
                         onClick = {
                             when (page) {
-                                3 -> viewModel.finishOnboarding(onFinished)
+                                4 -> viewModel.finishOnboarding(onFinished)
                                 else -> viewModel.nextPage()
                             }
                         },
@@ -154,14 +180,14 @@ fun OnboardingScreen(
                         Text(
                             when (page) {
                                 0 -> "Let's finish some games"
-                                1 -> "Continue"
-                                2 -> "Skip for now"
+                                1, 2 -> "Continue"
+                                3 -> "Skip for now"
                                 else -> if (state.scanning) "Scanning…" else "Enter ORGL"
                             },
                         )
                     }
 
-                    if (page in 1..2) {
+                    if (page in 1..3) {
                         TextButton(onClick = { viewModel.prevPage() }) {
                             Text("Back", color = Mist.copy(alpha = 0.7f))
                         }
@@ -201,7 +227,7 @@ private fun WelcomeStep() {
 }
 
 @Composable
-private fun FolderStep(
+private fun RomsFolderStep(
     uri: String?,
     pathHint: String?,
     onPick: () -> Unit,
@@ -214,7 +240,7 @@ private fun FolderStep(
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        "Pick the ROMs root — one subfolder per system (nes, snes, …). Read-only. Set ORGL’s data folder (and optional ES-DE data) later in Settings.",
+        "Pick the ROMs root — one subfolder per system (nes, snes, …). Read-only. ORGL never writes here.",
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.85f),
     )
@@ -234,6 +260,68 @@ private fun FolderStep(
             style = MaterialTheme.typography.bodySmall,
             color = Mist.copy(alpha = 0.7f),
         )
+    }
+}
+
+@Composable
+private fun OrglFolderStep(
+    uri: String?,
+    pathHint: String?,
+    reused: Boolean,
+    error: String?,
+    onPick: () -> Unit,
+) {
+    Spacer(Modifier.height(24.dp))
+    Text(
+        "ORGL data folder",
+        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
+        color = Mist,
+    )
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Required. Scraped artwork and ORGL-owned files live here (downloaded_media/). " +
+            "You can reuse a folder from a previous install — we’ll keep what’s already there.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = Mist.copy(alpha = 0.85f),
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        "ORGL writes a small ${OrglDataDirectory.META_FILE_NAME} marker (spec version " +
+            "${OrglDataDirectory.SPEC_VERSION}) so future installs stay compatible.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.7f),
+    )
+    Spacer(Modifier.height(24.dp))
+    OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            if (uri == null) "Choose ORGL data folder" else "Change folder",
+            color = Mist,
+        )
+    }
+    if (pathHint != null) {
+        Spacer(Modifier.height(12.dp))
+        Text("Resolved path", color = AmberAccent, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(pathHint, style = MaterialTheme.typography.bodyMedium, color = Mist.copy(alpha = 0.85f))
+    } else if (uri != null) {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Folder linked via SAF.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Mist.copy(alpha = 0.7f),
+        )
+    }
+    if (uri != null && reused) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Existing ORGL data detected — reusing scraped media and files from this folder.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AmberAccent,
+        )
+    }
+    error?.let {
+        Spacer(Modifier.height(12.dp))
+        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
