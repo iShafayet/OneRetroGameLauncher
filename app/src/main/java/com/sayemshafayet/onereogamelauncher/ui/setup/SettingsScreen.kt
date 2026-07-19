@@ -1,8 +1,5 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,8 +19,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
-import com.sayemshafayet.onereogamelauncher.flavor.StoreFlavorLabel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 @Composable
@@ -41,6 +35,8 @@ fun SettingsScreen(
     onOpenScreenScraper: () -> Unit,
     onOpenRetroAchievements: () -> Unit,
     onOpenHltb: () -> Unit,
+    onOpenRetroArch: () -> Unit,
+    onOpenCredits: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
@@ -81,6 +77,11 @@ fun SettingsScreen(
             subtitle = if (ui.hltbEnabled) "Enabled" else "Disabled",
             onClick = onOpenHltb,
         )
+        SettingsNavRow(
+            title = "RetroArch",
+            subtitle = ui.retroArchPkg.ifBlank { "Not set" },
+            onClick = onOpenRetroArch,
+        )
 
         Spacer(Modifier.height(16.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
@@ -96,17 +97,6 @@ fun SettingsScreen(
                 )
             }
         }
-
-        Spacer(Modifier.height(16.dp))
-        Text("RetroArch", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = ui.retroArchPkg,
-            onValueChange = viewModel::setRetroArchPackage,
-            label = { Text("Preferred package") },
-            supportingText = { Text("com.retroarch.aarch64 · com.retroarch · com.retroarch.ra32") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
 
         Spacer(Modifier.height(16.dp))
         Button(
@@ -129,10 +119,10 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-        Text(
-            StoreFlavorLabel.CREDITS,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SettingsNavRow(
+            title = "Credits",
+            subtitle = "License, data sources, libraries",
+            onClick = onOpenCredits,
         )
     }
 }

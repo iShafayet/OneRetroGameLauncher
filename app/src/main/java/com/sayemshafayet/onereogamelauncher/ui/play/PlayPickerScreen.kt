@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
+import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerViewModel
 
 @Composable
@@ -59,12 +59,10 @@ fun PlayPickerScreen(
             )
         }
         item {
-            OutlinedTextField(
+            SearchField(
                 value = query,
                 onValueChange = viewModel::setQuery,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search to commit…") },
-                singleLine = true,
+                placeholder = "Search to commit…",
             )
         }
         if (results.isNotEmpty()) {

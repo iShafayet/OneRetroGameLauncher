@@ -18,7 +18,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,11 +36,13 @@ import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.JournalScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
@@ -70,7 +71,6 @@ fun ModeShell(
 ) {
     val settings by shellViewModel.settings.collectAsState(initial = AppSettings())
     val activeCommitment by mainViewModel.activeCommitment.collectAsState()
-    val scope = rememberCoroutineScope()
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
@@ -85,49 +85,54 @@ fun ModeShell(
         currentRoute in setupTabs ||
             currentRoute?.startsWith("setup/settings/") == true
     )
+    // System / game detail: hide Setup↔Play bar so the screen TopAppBar owns the space.
+    val hideModeSwitcher = currentRoute?.startsWith("setup/system/") == true ||
+        currentRoute?.startsWith("setup/game/") == true
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (isPlay) "Play" else "Setup") },
-                actions = {
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(end = 8.dp)) {
-                        SegmentedButton(
-                            selected = !isPlay,
-                            onClick = {
-                                shellViewModel.setMode(AppMode.SETUP)
-                                navController.navigate(Routes.SETUP_LIBRARY) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+            if (!hideModeSwitcher) {
+                TopAppBar(
+                    title = { Text(if (isPlay) "Play" else "Setup") },
+                    actions = {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(end = 8.dp)) {
+                            SegmentedButton(
+                                selected = !isPlay,
+                                onClick = {
+                                    shellViewModel.setMode(AppMode.SETUP)
+                                    navController.navigate(Routes.SETUP_LIBRARY) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        ) { Text("Setup") }
-                        SegmentedButton(
-                            selected = isPlay,
-                            onClick = {
-                                shellViewModel.setMode(AppMode.PLAY)
-                                val dest = if (activeCommitment != null) {
-                                    Routes.PLAY_FOCUS
-                                } else {
-                                    Routes.PLAY_PICKER
-                                }
-                                navController.navigate(dest) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            ) { Text("Setup") }
+                            SegmentedButton(
+                                selected = isPlay,
+                                onClick = {
+                                    shellViewModel.setMode(AppMode.PLAY)
+                                    val dest = if (activeCommitment != null) {
+                                        Routes.PLAY_FOCUS
+                                    } else {
+                                        Routes.PLAY_PICKER
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        ) { Text("Play") }
-                    }
-                },
-            )
+                                    navController.navigate(dest) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            ) { Text("Play") }
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
             if (showSetupBar) {
@@ -157,7 +162,8 @@ fun ModeShell(
                         label = { Text("Scrape") },
                     )
                     NavigationBarItem(
-                        selected = currentRoute == Routes.SETUP_SETTINGS,
+                        selected = currentRoute == Routes.SETUP_SETTINGS ||
+                            currentRoute?.startsWith("setup/settings/") == true,
                         onClick = {
                             navController.navigate(Routes.SETUP_SETTINGS) {
                                 popUpTo(Routes.SETUP_LIBRARY) { saveState = true }
@@ -199,6 +205,8 @@ fun ModeShell(
                     onOpenScreenScraper = { navController.navigate(Routes.SETUP_SETTINGS_SCREENSCRAPER) },
                     onOpenRetroAchievements = { navController.navigate(Routes.SETUP_SETTINGS_RA) },
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
+                    onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
+                    onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                 )
             }
             composable(Routes.SETUP_SETTINGS_ESDE) {
@@ -212,6 +220,12 @@ fun ModeShell(
             }
             composable(Routes.SETUP_SETTINGS_HLTB) {
                 HltbSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SETUP_SETTINGS_RETROARCH) {
+                RetroArchSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SETUP_SETTINGS_CREDITS) {
+                CreditsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETUP_SCRAPE) { ScrapeScreen() }
 

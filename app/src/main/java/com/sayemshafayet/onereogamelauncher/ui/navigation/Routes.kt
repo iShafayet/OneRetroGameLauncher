@@ -12,6 +12,8 @@ object Routes {
     const val SETUP_SETTINGS_SCREENSCRAPER = "setup/settings/screenscraper"
     const val SETUP_SETTINGS_RA = "setup/settings/retroachievements"
     const val SETUP_SETTINGS_HLTB = "setup/settings/hltb"
+    const val SETUP_SETTINGS_RETROARCH = "setup/settings/retroarch"
+    const val SETUP_SETTINGS_CREDITS = "setup/settings/credits"
     const val SETUP_SCRAPE = "setup/scrape"
 
     const val PLAY_HOME = "play/home"

@@ -40,7 +40,11 @@ data class AppSettings(
     val hltbEnabled: Boolean = true,
     val onboardingDone: Boolean = false,
     val appMode: AppMode = AppMode.SETUP,
+    /** Grid vs list for system game browsing. */
+    val gameListLayout: GameListLayout = GameListLayout.GRID,
 )
+
+enum class GameListLayout { GRID, LIST }
 
 val AppSettings.romsRootPath: String? get() = romsDirPath
 val AppSettings.romsRootUri: String? get() = romsDirUri
@@ -81,6 +85,7 @@ class SettingsRepository @Inject constructor(
         val hltbEnabled = booleanPreferencesKey("hltb_enabled")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
         val appMode = stringPreferencesKey("app_mode")
+        val gameListLayout = stringPreferencesKey("game_list_layout")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -108,6 +113,9 @@ class SettingsRepository @Inject constructor(
             appMode = runCatching {
                 AppMode.valueOf(p[Keys.appMode] ?: AppMode.SETUP.name)
             }.getOrDefault(AppMode.SETUP),
+            gameListLayout = runCatching {
+                GameListLayout.valueOf(p[Keys.gameListLayout] ?: GameListLayout.GRID.name)
+            }.getOrDefault(GameListLayout.GRID),
         )
     }
 
@@ -179,6 +187,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setAppMode(mode: AppMode) {
         context.dataStore.edit { it[Keys.appMode] = mode.name }
+    }
+
+    suspend fun setGameListLayout(layout: GameListLayout) {
+        context.dataStore.edit { it[Keys.gameListLayout] = layout.name }
     }
 }
 
