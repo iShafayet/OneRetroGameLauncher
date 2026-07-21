@@ -97,6 +97,7 @@ class LaunchResolver @Inject constructor(
                 customConfigPath = plan.customConfig,
                 grantTreeUri = plan.grantTreeUri,
                 grantDocumentUri = plan.grantDocumentUri,
+                grantDocumentUris = plan.grantDocumentUris,
             )
         }
         val resolved = emulatorLauncher.installedForKey(plan.emulatorKey)

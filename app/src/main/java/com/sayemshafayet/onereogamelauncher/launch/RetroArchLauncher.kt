@@ -123,6 +123,7 @@ class RetroArchLauncher @Inject constructor(
             romPath.isBlank() -> false
             isLikelyFilesystemPath(romPath) -> File(romPath).let { it.exists() && it.isFile }
             romPath.startsWith("content:", ignoreCase = true) -> true
+            romPath.startsWith("saf://", ignoreCase = true) -> true
             else -> false
         }
         checks += if (reachable) {
@@ -150,14 +151,19 @@ class RetroArchLauncher @Inject constructor(
         customConfigPath: String? = null,
         grantTreeUri: String? = null,
         grantDocumentUri: String? = null,
+        grantDocumentUris: List<String> = emptyList(),
     ): String? {
         val preferred = preferredPackage?.takeIf { it.isNotBlank() }
         val installed = installedPackages()
         if (installed.isEmpty()) return "RetroArch is not installed"
-        if (preferred != null && preferred !in installed) {
-            return "Preferred RetroArch ($preferred) is not installed"
-        }
-        val pkg = resolvePackage(preferred) ?: return "RetroArch is not installed"
+        val pkg = when {
+            preferred != null && preferred in installed -> preferred
+            preferred != null -> {
+                Log.w(TAG, "Preferred RetroArch ($preferred) missing; falling back to $installed")
+                resolvePackage(null)
+            }
+            else -> resolvePackage(null)
+        } ?: return "RetroArch is not installed"
         if (preferred == null && installed.size > 1) {
             Log.w(TAG, "Multiple RetroArch packages $installed — using $pkg")
         }
@@ -195,7 +201,7 @@ class RetroArchLauncher @Inject constructor(
             putExtra("QUITFOCUS", "")
         }
 
-        grantAccess(pkg, intent, romPath, grantTreeUri, grantDocumentUri)
+        grantAccess(pkg, intent, romPath, grantTreeUri, grantDocumentUri, grantDocumentUris)
 
         return try {
             context.startActivity(intent)
@@ -213,8 +219,13 @@ class RetroArchLauncher @Inject constructor(
         romPath: String,
         grantTreeUri: String?,
         grantDocumentUri: String?,
+        grantDocumentUris: List<String>,
     ) {
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        val docUris = linkedSetOf<String>()
+        grantDocumentUris.forEach { if (it.isNotBlank()) docUris += it }
+        grantDocumentUri?.takeIf { it.isNotBlank() }?.let { docUris += it }
+
         fun grant(uriString: String?) {
             if (uriString.isNullOrBlank()) return
             runCatching {
@@ -222,24 +233,35 @@ class RetroArchLauncher @Inject constructor(
                 if (!uri.scheme.equals("content", ignoreCase = true)) return@runCatching
                 context.grantUriPermission(pkg, uri, flags)
                 intent.addFlags(flags)
-                // ClipData is the reliable way to pass grants across apps on modern Android.
-                if (intent.clipData == null) {
-                    intent.clipData = android.content.ClipData.newRawUri("rom", uri)
-                }
             }.onFailure { Log.w(TAG, "grantUriPermission failed for $uriString", it) }
         }
 
         grant(grantTreeUri)
-        grant(grantDocumentUri)
+        docUris.forEach { grant(it) }
 
         when {
-            romPath.startsWith("content:", ignoreCase = true) -> grant(romPath)
+            romPath.startsWith("content:", ignoreCase = true) -> {
+                docUris += romPath
+                grant(romPath)
+            }
             romPath.startsWith("saf://", ignoreCase = true) -> {
-                // Decode tree portion back to content:// for granting
                 val encoded = romPath.removePrefix("saf://").substringBefore('/')
                 val tree = decodeSafTree(encoded)
                 grant(tree)
             }
+        }
+
+        val contentOnly = docUris.mapNotNull { uriString ->
+            runCatching {
+                Uri.parse(uriString).takeIf { it.scheme.equals("content", ignoreCase = true) }
+            }.getOrNull()
+        }
+        if (contentOnly.isNotEmpty()) {
+            runCatching {
+                val clip = android.content.ClipData.newRawUri("rom", contentOnly.first())
+                contentOnly.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+                intent.clipData = clip
+            }.onFailure { Log.w(TAG, "Failed to attach ClipData for URI grants", it) }
         }
     }
 

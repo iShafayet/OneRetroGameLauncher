@@ -133,4 +133,25 @@ class EmulatorLauncherProfilesTest {
         assertEquals(StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS, profile.launchMode)
         assertTrue(profile.pathExtraKeys.contains("bootPath"))
     }
+
+    @Test
+    fun melonDsUsesLaunchRomActionAndUriExtra() {
+        val profile = EmulatorLauncher.SUPPORTED_PROFILES.first { it.key == "MELONDS" }
+        assertEquals("me.magnum.melonds.LAUNCH_ROM", profile.intentAction)
+        assertEquals(listOf("uri"), profile.pathExtraKeys)
+    }
+
+    @Test
+    fun dolphinUsesAutoStartFileAndLeanback() {
+        val profile = EmulatorLauncher.SUPPORTED_PROFILES.first { it.key == "DOLPHIN" }
+        assertEquals(listOf("AutoStartFile"), profile.pathExtraKeys)
+        assertTrue(profile.categories.contains(android.content.Intent.CATEGORY_LEANBACK_LAUNCHER))
+    }
+
+    @Test
+    fun ppssppUsesViewWithData() {
+        val profile = EmulatorLauncher.SUPPORTED_PROFILES.first { it.key == "PPSSPP" }
+        assertEquals(StandaloneEmulatorProfile.LaunchMode.VIEW_URI, profile.launchMode)
+        assertTrue(profile.putPathAsData)
+    }
 }

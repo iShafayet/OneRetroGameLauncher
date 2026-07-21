@@ -100,27 +100,14 @@ object RetroArchRomPaths {
         romsDirPath: String?,
         romsTreeUri: String?,
     ): String? {
-        // romPathsJson entry is usually relative to the system folder (SAF scan).
-        firstRomPathsEntry(romPathsJson)?.let { entry ->
-            val normalized = entry.replace('\\', '/').trimStart('/')
-            if (normalized.isNotBlank() && !normalized.startsWith("content:", ignoreCase = true)) {
-                if (RetroArchLauncher.isLikelyFilesystemPath(normalized)) {
-                    relativeUnderRoot(normalized, romsDirPath)?.let { return it }
-                } else {
-                    // Relative within system folder
-                    val folder = systemFolder.trim('/').trim()
-                    return if (folder.isBlank()) normalized else "$folder/$normalized"
-                }
-            }
-        }
-
+        // Prefer the playable primary (romPath). romPathsJson often lists companion
+        // discs for .m3u playlists — using its first entry would boot the wrong file.
         if (romPath.startsWith("content:", ignoreCase = true)) {
             relativeFromContentUri(romPath)?.let { return it }
         }
 
         if (RetroArchLauncher.isLikelyFilesystemPath(romPath)) {
             relativeUnderRoot(romPath, romsDirPath)?.let { return it }
-            // Fallback: …/ROMs/<system>/file from path segments when path hint missing
             if (systemFolder.isNotBlank()) {
                 val marker = "/${systemFolder.trim('/')}/"
                 val idx = romPath.replace('\\', '/').indexOf(marker, ignoreCase = true)
@@ -132,9 +119,55 @@ object RetroArchRomPaths {
             }
         }
 
-        // Last resort from tree URI + document id comparison already handled above
+        // Fallback: relative entries from scan metadata (usually relative to system folder).
+        primaryRelativeFromRomPathsJson(romPath, romPathsJson, systemFolder, romsDirPath)?.let {
+            return it
+        }
+
         if (!romsTreeUri.isNullOrBlank() && romPath.startsWith("content:", ignoreCase = true)) {
             relativeFromContentUri(romPath)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Pick a relative path from [romPathsJson], preferring an entry that matches the
+     * primary playable file's name when present (e.g. the `.m3u` itself).
+     */
+    internal fun primaryRelativeFromRomPathsJson(
+        romPath: String,
+        romPathsJson: String,
+        systemFolder: String,
+        romsDirPath: String?,
+    ): String? {
+        val entries = romPathsEntries(romPathsJson)
+        if (entries.isEmpty()) return null
+
+        val primaryName = romPath.substringBeforeLast('?')
+            .substringAfterLast('/')
+            .substringAfterLast('\\')
+            .takeIf { it.isNotBlank() && !it.equals("document", ignoreCase = true) }
+
+        val ordered = buildList {
+            if (!primaryName.isNullOrBlank()) {
+                entries.filter {
+                    !it.startsWith("content:", ignoreCase = true) &&
+                        it.replace('\\', '/').substringAfterLast('/')
+                            .equals(primaryName, ignoreCase = true)
+                }.forEach { add(it) }
+            }
+            entries.forEach { if (it !in this) add(it) }
+        }
+
+        for (entry in ordered) {
+            val normalized = entry.replace('\\', '/').trimStart('/')
+            if (normalized.isBlank() || normalized.startsWith("content:", ignoreCase = true)) continue
+            if (RetroArchLauncher.isLikelyFilesystemPath(normalized)) {
+                relativeUnderRoot(normalized, romsDirPath)?.let { return it }
+                continue
+            }
+            val folder = systemFolder.trim('/').trim()
+            return if (folder.isBlank()) normalized else "$folder/$normalized"
         }
         return null
     }
@@ -190,12 +223,15 @@ object RetroArchRomPaths {
         return abs.removePrefix(root).trimStart('/').takeIf { it.isNotBlank() }
     }
 
-    private fun firstRomPathsEntry(romPathsJson: String): String? =
+    private fun romPathsEntries(romPathsJson: String): List<String> =
         runCatching {
             val arr = JSONArray(romPathsJson)
-            if (arr.length() == 0) return@runCatching null
-            arr.optString(0).takeIf { it.isNotBlank() }
-        }.getOrNull()
+            buildList {
+                for (i in 0 until arr.length()) {
+                    arr.optString(i).takeIf { it.isNotBlank() }?.let { add(it) }
+                }
+            }
+        }.getOrDefault(emptyList())
 
     /** URL-encode helper kept for tests / alternate encodings. */
     fun urlEncodePathSegment(value: String): String =

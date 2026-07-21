@@ -22,17 +22,26 @@ data class StandaloneEmulatorProfile(
     val key: String,
     val displayName: String,
     val findRuleKey: String,
+    /** Intent action; defaults depend on [launchMode]. */
+    val intentAction: String? = null,
+    val categories: List<String> = emptyList(),
+    /** String extras that receive the resolved ROM path / content URI. */
     val pathExtraKeys: List<String> = emptyList(),
-    val launchMode: LaunchMode = if (pathExtraKeys.isNotEmpty()) {
+    val booleanExtras: Map<String, Boolean> = emptyMap(),
+    /** When true, also set Intent data to the ROM URI (ES-DE `%DATA%=%ROMSAF%`). */
+    val putPathAsData: Boolean = false,
+    val clearTask: Boolean = true,
+    val launchMode: LaunchMode = if (pathExtraKeys.isNotEmpty() && !putPathAsData) {
         LaunchMode.MAIN_WITH_EXTRAS
     } else {
         LaunchMode.VIEW_URI
     },
-    val booleanExtras: Map<String, Boolean> = emptyMap(),
     val mimeType: String = "*/*",
 ) {
     enum class LaunchMode {
+        /** ACTION_VIEW (or custom) with Intent data set to the ROM URI. */
         VIEW_URI,
+        /** ACTION_MAIN (or custom) with path extras; data usually unset. */
         MAIN_WITH_EXTRAS,
     }
 }
@@ -58,7 +67,7 @@ class EmulatorLauncher @Inject constructor(
                 key = "DUCKSTATION",
                 displayName = "DuckStation",
                 findRuleKey = "DUCKSTATION",
-                pathExtraKeys = listOf("bootPath", "filename"),
+                pathExtraKeys = listOf("bootPath"),
                 booleanExtras = mapOf("resumeState" to false),
             ),
             StandaloneEmulatorProfile("AETHERSX2", "AetherSX2", "AETHERSX2", pathExtraKeys = listOf("bootPath")),
@@ -68,13 +77,66 @@ class EmulatorLauncher @Inject constructor(
                 findRuleKey = "AETHERSX2",
                 pathExtraKeys = listOf("bootPath"),
             ),
-            StandaloneEmulatorProfile("DOLPHIN", "Dolphin", "DOLPHIN", pathExtraKeys = listOf("AutoStartISO", "SelectedFile")),
-            StandaloneEmulatorProfile("MELONDS", "melonDS", "MELONDS", pathExtraKeys = listOf("PATH", "RomPath")),
+            // ES-DE: MAIN + LEANBACK_LAUNCHER + EXTRA_AutoStartFile=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "DOLPHIN",
+                displayName = "Dolphin",
+                findRuleKey = "DOLPHIN",
+                categories = listOf(Intent.CATEGORY_LEANBACK_LAUNCHER),
+                pathExtraKeys = listOf("AutoStartFile"),
+            ),
+            // ES-DE: ACTION=me.magnum.melonds.LAUNCH_ROM + EXTRA_uri=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "MELONDS",
+                displayName = "melonDS",
+                findRuleKey = "MELONDS",
+                intentAction = "me.magnum.melonds.LAUNCH_ROM",
+                pathExtraKeys = listOf("uri"),
+                clearTask = true,
+                launchMode = StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS,
+            ),
             StandaloneEmulatorProfile("LEMURROID", "Lemuroid", "LEMURROID", launchMode = StandaloneEmulatorProfile.LaunchMode.VIEW_URI),
-            StandaloneEmulatorProfile("PPSSPP", "PPSSPP", "PPSSPP", pathExtraKeys = listOf("args", "file")),
-            StandaloneEmulatorProfile("M64PLUS-FZ", "Mupen64Plus FZ", "M64PLUS-FZ", pathExtraKeys = listOf("filePath")),
-            StandaloneEmulatorProfile("YABASANSHIRO-2", "Yaba Sanshiro 2", "YABASANSHIRO-2", pathExtraKeys = listOf("org.uoyabause.android.FileNameUri")),
-            StandaloneEmulatorProfile("FLYCAST", "Flycast", "FLYCAST", pathExtraKeys = listOf("gameUri")),
+            // ES-DE: ACTION_VIEW + CATEGORY_DEFAULT + DATA=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "PPSSPP",
+                displayName = "PPSSPP",
+                findRuleKey = "PPSSPP",
+                intentAction = Intent.ACTION_VIEW,
+                categories = listOf(Intent.CATEGORY_DEFAULT),
+                putPathAsData = true,
+                clearTask = false,
+                launchMode = StandaloneEmulatorProfile.LaunchMode.VIEW_URI,
+            ),
+            // ES-DE: ACTION_VIEW + DATA=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "M64PLUS-FZ",
+                displayName = "Mupen64Plus FZ",
+                findRuleKey = "M64PLUS-FZ",
+                intentAction = Intent.ACTION_VIEW,
+                putPathAsData = true,
+                clearTask = false,
+                launchMode = StandaloneEmulatorProfile.LaunchMode.VIEW_URI,
+            ),
+            // ES-DE: ACTION_VIEW + EXTRA_org.uoyabause.android.FileNameUri=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "YABASANSHIRO-2",
+                displayName = "Yaba Sanshiro 2",
+                findRuleKey = "YABASANSHIRO-2",
+                intentAction = Intent.ACTION_VIEW,
+                pathExtraKeys = listOf("org.uoyabause.android.FileNameUri"),
+                clearTask = true,
+                launchMode = StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS,
+            ),
+            // ES-DE: ACTION_VIEW + DATA=%ROMSAF%
+            StandaloneEmulatorProfile(
+                key = "FLYCAST",
+                displayName = "Flycast",
+                findRuleKey = "FLYCAST",
+                intentAction = Intent.ACTION_VIEW,
+                putPathAsData = true,
+                clearTask = false,
+                launchMode = StandaloneEmulatorProfile.LaunchMode.VIEW_URI,
+            ),
         )
 
         private val LEMUROID_PACKAGES = listOf("com.swordfish.lemuroid")
@@ -167,11 +229,56 @@ class EmulatorLauncher @Inject constructor(
             return "Use RetroArchLauncher for RetroArch"
         }
         val path = preferAbsolutePath(romPath, romUri) ?: return "ROM path is not reachable"
-        return when (resolved.profile.launchMode) {
-            StandaloneEmulatorProfile.LaunchMode.VIEW_URI -> launchView(resolved, path)
-            StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS ->
-                launchMain(resolved, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
+        return launchWithProfile(resolved, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
+    }
+
+    private fun launchWithProfile(
+        resolved: ResolvedEmulator,
+        path: String,
+        grantTreeUri: String?,
+        grantDocumentUri: String?,
+        grantDocumentUris: List<String>,
+    ): String? {
+        val profile = resolved.profile
+        val action = profile.intentAction ?: when (profile.launchMode) {
+            StandaloneEmulatorProfile.LaunchMode.VIEW_URI -> Intent.ACTION_VIEW
+            StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS -> Intent.ACTION_MAIN
         }
+        val contentUri = path.takeIf { it.startsWith("content:", ignoreCase = true) }?.let(Uri::parse)
+        val fileUri = when {
+            contentUri != null -> contentUri
+            else -> {
+                val file = File(path)
+                if (profile.putPathAsData || profile.launchMode == StandaloneEmulatorProfile.LaunchMode.VIEW_URI) {
+                    if (!file.exists()) return "ROM file not found: $path"
+                    Uri.fromFile(file)
+                } else {
+                    null
+                }
+            }
+        }
+
+        val intent = Intent(action).apply {
+            setClassName(resolved.packageName, resolved.activityClass)
+            var flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+            if (profile.clearTask) {
+                flags = flags or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            } else {
+                flags = flags or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            addFlags(flags)
+            profile.categories.forEach { addCategory(it) }
+            profile.pathExtraKeys.forEach { putExtra(it, path) }
+            profile.booleanExtras.forEach { (key, value) -> putExtra(key, value) }
+            if (profile.putPathAsData || profile.launchMode == StandaloneEmulatorProfile.LaunchMode.VIEW_URI) {
+                fileUri?.let { setDataAndType(it, profile.mimeType) }
+            }
+        }
+        grantAccess(resolved.packageName, intent, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
+        Log.i(TAG, "Launching ${resolved.key} action=$action path=$path grants=${grantDocumentUris.size}")
+        return startSafely(intent, resolved.packageName, contentUri ?: fileUri)
     }
 
     private fun resolveInstalled(profile: StandaloneEmulatorProfile): ResolvedEmulator? {
@@ -191,50 +298,6 @@ class EmulatorLauncher @Inject constructor(
             }
         }
         return null
-    }
-
-    private fun launchView(resolved: ResolvedEmulator, path: String): String? {
-        val uri = when {
-            path.startsWith("content:", ignoreCase = true) -> Uri.parse(path)
-            else -> {
-                val file = File(path)
-                if (!file.exists()) return "ROM file not found: $path"
-                Uri.fromFile(file)
-            }
-        }
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, resolved.profile.mimeType)
-            setClassName(resolved.packageName, resolved.activityClass)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        return startSafely(intent, resolved.packageName, uri)
-    }
-
-    private fun launchMain(
-        resolved: ResolvedEmulator,
-        path: String,
-        grantTreeUri: String?,
-        grantDocumentUri: String?,
-        grantDocumentUris: List<String>,
-    ): String? {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            setClassName(resolved.packageName, resolved.activityClass)
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
-            )
-            resolved.profile.pathExtraKeys.forEach { putExtra(it, path) }
-            resolved.profile.booleanExtras.forEach { (key, value) -> putExtra(key, value) }
-            // ES-DE AetherSX2/NetherSX2 commands set EXTRA_bootPath=%ROMSAF% only —
-            // they do not set Intent data. Setting data can make some PCSX2 builds
-            // ignore bootPath or open the wrong source.
-        }
-        grantAccess(resolved.packageName, intent, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
-        Log.i(TAG, "Launching ${resolved.key} bootPath=$path grants=${grantDocumentUris.size}")
-        return startSafely(intent, resolved.packageName, path.takeIf { it.startsWith("content:", true) }?.let(Uri::parse))
     }
 
     private fun grantAccess(

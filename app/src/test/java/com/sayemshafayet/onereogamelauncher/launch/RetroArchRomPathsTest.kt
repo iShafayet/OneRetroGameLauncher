@@ -62,4 +62,23 @@ class RetroArchRomPathsTest {
         assertTrue(saf!!.romExtra.startsWith("saf://"))
         assertTrue(saf.romExtra.endsWith("/nes/Mario.nes"))
     }
+
+    @Test
+    fun resolve_m3uPrefersPlaylistNotFirstDiscEntry() {
+        val m3uUri =
+            "content://com.android.externalstorage.documents/tree/primary%3AROMs/" +
+                "document/primary%3AROMs%2Fpsx%2FMetal%20Gear.m3u"
+        val resolved = RetroArchRomPaths.resolve(
+            romPath = m3uUri,
+            romPathsJson = """["Metal Gear (Disc 1).cue","Metal Gear (Disc 2).cue"]""",
+            systemFolder = "psx",
+            romsTreeUri = "content://com.android.externalstorage.documents/tree/primary%3AROMs",
+            romsDirPath = null,
+        )
+        assertTrue(resolved.romExtra.startsWith("saf://"))
+        assertTrue(
+            "Expected .m3u boot path, got: ${resolved.romExtra}",
+            resolved.romExtra.endsWith("/psx/Metal Gear.m3u"),
+        )
+    }
 }
