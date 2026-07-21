@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.JournalScreen
+import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
@@ -110,6 +112,7 @@ fun ModeShell(
         Routes.SETUP_SCRAPE,
         Routes.PLAY_PICKER,
         Routes.PLAY_FOCUS,
+        Routes.PLAY_COMPLETE,
     )
     val canPopBack = navController.previousBackStackEntry != null &&
         currentRoute !in rootRoutes
@@ -119,6 +122,20 @@ fun ModeShell(
 
     GamepadBackHandler(canPopBack = canPopBack) {
         navController.popBackStack()
+    }
+
+    // Keep start destinations stable — tying them to activeCommitment resets the graph when a
+    // run ends and would skip the completion screen.
+    val navStartDestination = if (isPlay) Routes.PLAY_PICKER else Routes.SETUP_LIBRARY
+
+    LaunchedEffect(isPlay, activeCommitment?.id, currentRoute) {
+        if (!isPlay || activeCommitment == null) return@LaunchedEffect
+        if (currentRoute in playFlowRoutes) return@LaunchedEffect
+        if (currentRoute == Routes.PLAY_PICKER) {
+            navController.navigate(Routes.PLAY_FOCUS) {
+                launchSingleTop = true
+            }
+        }
     }
 
     Scaffold(
@@ -178,11 +195,7 @@ fun ModeShell(
         Box(Modifier.padding(padding)) {
         NavHost(
             navController = navController,
-            startDestination = when {
-                isPlay && activeCommitment != null -> Routes.PLAY_FOCUS
-                isPlay -> Routes.PLAY_PICKER
-                else -> Routes.SETUP_LIBRARY
-            },
+            startDestination = navStartDestination,
             modifier = Modifier.fillMaxSize(),
         ) {
             composable(Routes.SETUP_LIBRARY) {
@@ -290,12 +303,29 @@ fun ModeShell(
             }
             composable(Routes.PLAY_FOCUS) {
                 FocusScreen(
-                    onReleased = {
-                        navController.navigate(Routes.PLAY_PICKER) {
+                    onRunCompleted = {
+                        navController.navigate(Routes.PLAY_COMPLETE) {
                             popUpTo(Routes.PLAY_FOCUS) { inclusive = true }
                         }
                     },
                     onOpenJournal = { navController.navigate(Routes.PLAY_JOURNAL) },
+                    onOpenRetroAchievements = { gameId ->
+                        navController.navigate(Routes.gameRetroAchievements(gameId))
+                    },
+                )
+            }
+            composable(Routes.PLAY_COMPLETE) {
+                PlayCompletionScreen(
+                    onStartNewAdventure = {
+                        navController.navigate(Routes.PLAY_PICKER) {
+                            popUpTo(Routes.PLAY_COMPLETE) { inclusive = true }
+                        }
+                    },
+                    onMissingData = {
+                        navController.navigate(Routes.PLAY_PICKER) {
+                            popUpTo(Routes.PLAY_COMPLETE) { inclusive = true }
+                        }
+                    },
                 )
             }
             composable(Routes.PLAY_JOURNAL) {
@@ -305,6 +335,13 @@ fun ModeShell(
         }
     }
 }
+
+private val playFlowRoutes = setOf(
+    Routes.PLAY_FOCUS,
+    Routes.PLAY_COMMIT,
+    Routes.PLAY_COMPLETE,
+    Routes.PLAY_JOURNAL,
+)
 
 private fun setupTabIndex(route: String?): Int = when {
     route == Routes.SETUP_LIBRARY -> 0

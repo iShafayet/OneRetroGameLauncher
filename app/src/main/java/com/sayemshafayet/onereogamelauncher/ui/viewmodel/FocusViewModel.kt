@@ -12,14 +12,20 @@ import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import com.sayemshafayet.onereogamelauncher.domain.HltbEstimate
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
-import com.sayemshafayet.onereogamelauncher.domain.RaProgress
+import com.sayemshafayet.onereogamelauncher.domain.RaButtonState
+import com.sayemshafayet.onereogamelauncher.domain.RaResult
+import com.sayemshafayet.onereogamelauncher.domain.RaVisualState
 import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.play.CollageGenerator
 import com.sayemshafayet.onereogamelauncher.play.CollageInput
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
+import com.sayemshafayet.onereogamelauncher.play.PlayCompletionData
+import com.sayemshafayet.onereogamelauncher.play.PlayCompletionStore
+import com.sayemshafayet.onereogamelauncher.ra.RaSupportEvaluator
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
+import com.sayemshafayet.onereogamelauncher.ra.RomHashCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +45,6 @@ data class FocusUiState(
     val playtimeMs: Long = 0,
     val sessionCount: Int = 0,
     val hltb: HltbEstimate? = null,
-    val ra: RaProgress? = null,
     val launchError: String? = null,
     val loadingExtras: Boolean = false,
     val extrasLoaded: Boolean = false,
@@ -53,11 +58,17 @@ class FocusViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val hltbClient: HowLongToBeatClient,
     private val raClient: RetroAchievementsClient,
+    private val raSupportEvaluator: RaSupportEvaluator,
+    private val romHashCalculator: RomHashCalculator,
     private val collageGenerator: CollageGenerator,
+    private val playCompletionStore: PlayCompletionStore,
     private val playStatsTracker: PlayStatsTracker,
 ) : ViewModel() {
     private val _state = MutableStateFlow(FocusUiState())
     val state: StateFlow<FocusUiState> = _state.asStateFlow()
+
+    private val _raUi = MutableStateFlow(GameRaUiState())
+    val raUi: StateFlow<GameRaUiState> = _raUi.asStateFlow()
 
     val activeCommitment = commitmentRepository.observeActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -69,6 +80,7 @@ class FocusViewModel @Inject constructor(
             commitmentRepository.observeActive().collect { commitment ->
                 if (commitment == null) {
                     _state.value = FocusUiState()
+                    _raUi.value = GameRaUiState()
                     return@collect
                 }
                 refreshFocus(commitment)
@@ -90,6 +102,7 @@ class FocusViewModel @Inject constructor(
                 sessionCount = commitmentRepository.sessionCount(commitment.id),
             )
         }
+        refreshRaStatus(game, system)
         if (!_state.value.extrasLoaded) loadExtras()
     }
 
@@ -111,20 +124,66 @@ class FocusViewModel @Inject constructor(
             val settings = settingsRepository.current()
             _state.update { it.copy(loadingExtras = true) }
             val hltb = if (settings.hltbEnabled) hltbClient.search(game.title) else null
-            val system = _state.value.system
-            val ra = if (settings.retroAchievementsConfigured()) {
-                raClient.fetchProgress(
-                    settings = settings,
-                    romPath = game.romPath,
-                    title = game.title,
-                    systemFolder = system?.folderName,
-                    knownGameId = game.raGameId,
-                    romPathsJson = game.romPathsJson,
+            _state.update { it.copy(hltb = hltb, loadingExtras = false, extrasLoaded = true) }
+        }
+    }
+
+    private fun refreshRaStatus(game: GameEntity?, system: SystemEntity?) {
+        if (game == null) return
+        viewModelScope.launch {
+            _raUi.update { it.copy(loading = true) }
+            val settings = settingsRepository.settings.first()
+            val signedIn = settings.retroAchievementsConfigured()
+            if (!signedIn) {
+                _raUi.value = GameRaUiState(
+                    loading = false,
+                    button = RaButtonState(
+                        visual = RaVisualState.SIGN_IN_REQUIRED,
+                        subtitle = "Sign in under Settings → RetroAchievements",
+                        enabled = true,
+                    ),
                 )
-            } else {
-                null
+                return@launch
             }
-            _state.update { it.copy(hltb = hltb, ra = ra, loadingExtras = false, extrasLoaded = true) }
+
+            val lookupResult = raClient.lookupGame(
+                settings = settings,
+                romPath = game.romPath,
+                title = game.title,
+                systemFolder = system?.folderName,
+                knownGameId = game.raGameId,
+                romPathsJson = game.romPathsJson,
+            )
+            when (lookupResult) {
+                is RaResult.Ok -> libraryRepository.saveRaGameId(game.id, lookupResult.value.gameId)
+                is RaResult.Unsupported -> libraryRepository.clearRaGameId(game.id)
+                is RaResult.Failed -> { /* keep cached id on transient errors */ }
+            }
+
+            val config = libraryRepository.observeGameConfig(game.id).first()
+            val effectiveEmulator = if (config?.useOverride == true && !config.emulatorKey.isNullOrBlank()) {
+                config.emulatorKey
+            } else {
+                system?.defaultEmulatorKey.orEmpty()
+            }
+
+            _raUi.value = GameRaUiState(
+                loading = false,
+                button = raSupportEvaluator.evaluateButton(
+                    signedIn = true,
+                    lookupResult = lookupResult,
+                    effectiveEmulatorKey = effectiveEmulator,
+                    romHashable = romHashCalculator.isHashable(
+                        RomHashCalculator.RomAccess(
+                            romPath = game.romPath,
+                            romPathsJson = game.romPathsJson,
+                            systemFolder = system?.folderName,
+                            romsDirPath = settings.romsDirPath,
+                            romsTreeUri = settings.romsDirUri,
+                        ),
+                    ),
+                ),
+            )
         }
     }
 
@@ -154,23 +213,31 @@ class FocusViewModel @Inject constructor(
                 commitmentRepository.endOpenSession(commitment.id)
                 launchedSession = false
                 refreshStats()
+                val game = _state.value.game
+                val system = _state.value.system
+                if (game != null) {
+                    _state.update {
+                        it.copy(game = libraryRepository.getGame(game.id) ?: game)
+                    }
+                }
+                refreshRaStatus(_state.value.game, system)
             }
         }
     }
 
-    fun finish(stars: Float, review: String?, onCollage: (String?) -> Unit) {
-        release(CommitmentStatus.FINISHED, stars, review, onCollage)
+    fun finish(stars: Float, review: String?, onComplete: () -> Unit) {
+        release(CommitmentStatus.FINISHED, stars, review, onComplete)
     }
 
-    fun drop(stars: Float, review: String?, onCollage: (String?) -> Unit) {
-        release(CommitmentStatus.DROPPED, stars, review, onCollage)
+    fun drop(stars: Float, review: String?, onComplete: () -> Unit) {
+        release(CommitmentStatus.DROPPED, stars, review, onComplete)
     }
 
     private fun release(
         status: CommitmentStatus,
         stars: Float,
         review: String?,
-        onCollage: (String?) -> Unit,
+        onComplete: () -> Unit,
     ) {
         viewModelScope.launch {
             val s = _state.value
@@ -190,9 +257,19 @@ class FocusViewModel @Inject constructor(
                     playtimeHours = hours,
                     sessionCount = s.sessionCount,
                     statusLabel = if (status == CommitmentStatus.FINISHED) "Finished" else "Dropped",
-                    raEarned = s.ra?.earned,
-                    raTotal = s.ra?.total,
+                    raEarned = null,
+                    raTotal = null,
                 ),
+            )
+            playCompletionStore.lastCompletion = PlayCompletionData(
+                collagePath = collagePath,
+                gameTitle = game.title,
+                systemName = s.system?.displayName.orEmpty(),
+                status = status,
+                stars = stars,
+                playtimeMs = s.playtimeMs,
+                sessionCount = s.sessionCount,
+                reviewExcerpt = review?.take(120),
             )
             val result = when (status) {
                 CommitmentStatus.FINISHED -> commitmentRepository.finish(
@@ -209,7 +286,7 @@ class FocusViewModel @Inject constructor(
                 )
                 else -> Result.failure(IllegalStateException())
             }
-            result.onSuccess { onCollage(collagePath) }
+            result.onSuccess { onComplete() }
         }
     }
 }

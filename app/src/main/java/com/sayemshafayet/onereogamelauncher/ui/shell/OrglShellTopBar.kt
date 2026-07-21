@@ -18,6 +18,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
@@ -30,7 +33,6 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
-import com.sayemshafayet.onereogamelauncher.ui.viewmodel.CommitConfirmViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
@@ -132,11 +134,8 @@ fun OrglShellTopBar(
             )
         }
         Routes.PLAY_JOURNAL -> SimpleTopAppBar("Journal", onBack)
-        Routes.PLAY_COMMIT -> backStackEntry?.let { entry ->
-            val viewModel: CommitConfirmViewModel = hiltViewModel(entry)
-            val game by viewModel.game.collectAsState()
-            SimpleTopAppBar(game?.title ?: "Commit", onBack)
-        }
+        Routes.PLAY_COMPLETE -> SimpleTopAppBar("Run complete", onBack = null)
+        Routes.PLAY_COMMIT -> SimpleTopAppBar("Confirm selection", onBack)
         else -> SimpleTopAppBar("", onBack = null)
     }
 }
@@ -149,6 +148,37 @@ private fun HubTopAppBar(
     navController: NavHostController,
     onSetMode: (AppMode) -> Unit,
 ) {
+    var showSetupGuard by remember { mutableStateOf(false) }
+
+    fun switchToSetup() {
+        onSetMode(AppMode.SETUP)
+        navController.navigate(Routes.SETUP_LIBRARY) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    fun requestSetupMode() {
+        if (isPlay && activeCommitment != null) {
+            showSetupGuard = true
+        } else {
+            switchToSetup()
+        }
+    }
+
+    if (showSetupGuard) {
+        PlayToSetupGuardDialog(
+            onDismiss = { showSetupGuard = false },
+            onConfirmed = {
+                showSetupGuard = false
+                switchToSetup()
+            },
+        )
+    }
+
     TopAppBar(
         title = { Text(if (isPlay) "Play" else "ORGL") },
         actions = {
@@ -170,16 +200,7 @@ private fun HubTopAppBar(
             ) {
                 SegmentedButton(
                     selected = !isPlay,
-                    onClick = {
-                        onSetMode(AppMode.SETUP)
-                        navController.navigate(Routes.SETUP_LIBRARY) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onClick = { requestSetupMode() },
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                     modifier = Modifier.focusProperties { canFocus = false },
                 ) { Text("Setup") }

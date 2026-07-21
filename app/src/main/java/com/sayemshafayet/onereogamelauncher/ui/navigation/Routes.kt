@@ -27,6 +27,7 @@ object Routes {
     const val PLAY_FOCUS = "play/focus"
     const val PLAY_JOURNAL = "play/journal"
     const val PLAY_COMMIT = "play/commit/{gameId}"
+    const val PLAY_COMPLETE = "play/complete"
 
     fun setupSystem(systemId: Long) = "setup/system/$systemId"
     fun setupSystemEmulator(systemId: Long) = "setup/system/$systemId/emulator"

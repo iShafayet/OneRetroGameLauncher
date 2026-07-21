@@ -65,7 +65,7 @@ fun OrlgInitialFocus(focusRequester: FocusRequester, enabled: Boolean = true) {
     val gamepadConnected = rememberGamepadConnected()
     LaunchedEffect(gamepadConnected, enabled) {
         if (gamepadConnected && enabled) {
-            focusRequester.requestFocus()
+            runCatching { focusRequester.requestFocus() }
         }
     }
 }

@@ -2,13 +2,14 @@ package com.sayemshafayet.onereogamelauncher.play
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.sayemshafayet.onereogamelauncher.ui.util.ImageBitmapDecoder
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -104,12 +105,21 @@ class CollageGenerator @Inject constructor(
     private fun drawBoxArt(canvas: Canvas, path: String?, top: Int) {
         val rect = Rect(48, top, WIDTH - 48, top + 560)
         val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#2A2A35") }
-        canvas.drawRoundRect(rect.left.toFloat(), rect.top.toFloat(), rect.right.toFloat(), rect.bottom.toFloat(), 24f, 24f, frame)
-        val bmp = path?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() }
+        canvas.drawRoundRect(
+            rect.left.toFloat(),
+            rect.top.toFloat(),
+            rect.right.toFloat(),
+            rect.bottom.toFloat(),
+            24f,
+            24f,
+            frame,
+        )
+        val bmp = ImageBitmapDecoder.decode(context, path)
         if (bmp != null) {
-            val scaled = Bitmap.createScaledBitmap(bmp, rect.width(), rect.height(), true)
-            canvas.drawBitmap(scaled, rect.left.toFloat(), rect.top.toFloat(), null)
-            if (scaled != bmp) scaled.recycle()
+            canvas.save()
+            canvas.clipRect(rect)
+            drawCenterCrop(canvas, bmp, rect)
+            canvas.restore()
             bmp.recycle()
         } else {
             val placeholder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -119,6 +129,19 @@ class CollageGenerator @Inject constructor(
             }
             canvas.drawText("No cover", rect.exactCenterX(), rect.exactCenterY(), placeholder)
         }
+    }
+
+    private fun drawCenterCrop(canvas: Canvas, bitmap: Bitmap, dest: Rect) {
+        val bw = bitmap.width.toFloat()
+        val bh = bitmap.height.toFloat()
+        val dw = dest.width().toFloat()
+        val dh = dest.height().toFloat()
+        val scale = maxOf(dw / bw, dh / bh)
+        val sw = bw * scale
+        val sh = bh * scale
+        val dx = dest.left + (dw - sw) / 2f
+        val dy = dest.top + (dh - sh) / 2f
+        canvas.drawBitmap(bitmap, null, RectF(dx, dy, dx + sw, dy + sh), null)
     }
 
     private fun drawWrappedText(canvas: Canvas, text: String, x: Int, startY: Int, maxWidth: Int, paint: Paint) {
