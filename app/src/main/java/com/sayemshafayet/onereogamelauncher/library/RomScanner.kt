@@ -13,6 +13,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
+import com.sayemshafayet.onereogamelauncher.domain.ScanStage
 import com.sayemshafayet.onereogamelauncher.domain.SystemDef
 import com.sayemshafayet.onereogamelauncher.systems.EsSystemsParser
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.cancellation.CancellationException
 
 data class UnknownFileEntry(
     val systemFolder: String,
@@ -95,6 +98,20 @@ class RomScanner @Inject constructor(
 
     private val _scanProgress = MutableStateFlow<ScanProgress?>(null)
     val scanProgress: StateFlow<ScanProgress?> = _scanProgress.asStateFlow()
+
+    private val cancelRequested = AtomicBoolean(false)
+
+    fun requestCancelScan() {
+        cancelRequested.set(true)
+    }
+
+    fun resetCancelScan() {
+        cancelRequested.set(false)
+    }
+
+    private fun checkCancelled() {
+        if (cancelRequested.get()) throw CancellationException("Library scan cancelled")
+    }
 
     suspend fun scan(
         romsRoot: File,
@@ -256,6 +273,8 @@ class RomScanner @Inject constructor(
         systemDirHint: (String) -> File?,
         resolveGamelistMedia: (String, String) -> String?,
     ): RomScanResult {
+        checkCancelled()
+        try {
         val systems = systemDao.getAll()
         val defsByFolder = systems.associateBy { it.folderName.lowercase() }
 
@@ -290,8 +309,26 @@ class RomScanner @Inject constructor(
                 "names=${systemsToScan.take(15).map { it.folder }}",
         )
 
+        _scanProgress.value = ScanProgress(
+            stage = ScanStage.PREPARING,
+            statusMessage = "Preparing library scan…",
+            systemsTotal = systemsToScan.size,
+        )
+
         for (def in systemsToScan) {
+            checkCancelled()
             val systemEntity = defsByFolder[def.folder.lowercase()] ?: continue
+            _scanProgress.value = ScanProgress(
+                stage = ScanStage.SCANNING_SYSTEM,
+                statusMessage = "Reading ${def.fullName}…",
+                systemName = def.fullName,
+                systemFolder = def.folder,
+                gamesTotal = totalGames,
+                mediaTotal = totalMedia,
+                unknownFiles = unknown.size,
+                systemsDone = systemsDone,
+                systemsTotal = systemsToScan.size,
+            )
             val gamelistByPath = loadGamelist(def.folder)
             val found = listSystemFiles(def.folder, def.extensions)
             Log.i(
@@ -325,7 +362,8 @@ class RomScanner @Inject constructor(
             val keepPaths = mutableListOf<String>()
             val systemDir = systemDirHint(def.folder)
 
-            for (game in scannedGames) {
+            scannedGames.forEachIndexed { index, game ->
+                checkCancelled()
                 keepPaths += game.romPath
                 val existing = existingByPath[game.romPath]
                     ?: existingByPath.values.firstOrNull { it.fileName == game.fileName }
@@ -360,6 +398,20 @@ class RomScanner @Inject constructor(
                     mediaDao.upsertAll(media.map { it.copy(gameId = gameId) })
                     totalMedia += media.size
                 }
+
+                _scanProgress.value = ScanProgress(
+                    stage = ScanStage.SCANNING_SYSTEM,
+                    statusMessage = "Indexing ${def.fullName}…",
+                    systemName = def.fullName,
+                    systemFolder = def.folder,
+                    gamesInCurrentSystem = scannedGames.size,
+                    gamesProcessedInSystem = index + 1,
+                    gamesTotal = totalGames + index + 1,
+                    mediaTotal = totalMedia,
+                    unknownFiles = unknown.size,
+                    systemsDone = systemsDone,
+                    systemsTotal = systemsToScan.size,
+                )
             }
 
             if (keepPaths.isEmpty()) {
@@ -371,14 +423,20 @@ class RomScanner @Inject constructor(
             totalGames += scannedGames.size
             systemsDone++
             _scanProgress.value = ScanProgress(
+                stage = ScanStage.SCANNING_SYSTEM,
+                statusMessage = "Finished ${def.fullName}",
                 systemName = def.fullName,
-                gamesFound = scannedGames.size,
+                systemFolder = def.folder,
+                gamesInCurrentSystem = scannedGames.size,
+                gamesProcessedInSystem = scannedGames.size,
+                gamesTotal = totalGames,
+                mediaTotal = totalMedia,
+                unknownFiles = unknown.size,
                 systemsDone = systemsDone,
                 systemsTotal = systemsToScan.size,
             )
         }
 
-        _scanProgress.value = null
         Log.i(
             TAG,
             "Scan done: systems=$systemsDone games=$totalGames media=$totalMedia " +
@@ -391,6 +449,10 @@ class RomScanner @Inject constructor(
             mediaLinked = totalMedia,
             unknownFiles = unknown,
         )
+        } finally {
+            _scanProgress.value = null
+            cancelRequested.set(false)
+        }
     }
 
     private fun listFilesystemFiles(systemDir: File): List<FoundFile> {

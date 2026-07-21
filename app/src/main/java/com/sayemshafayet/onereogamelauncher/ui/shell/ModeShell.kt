@@ -44,6 +44,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScanScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
@@ -90,6 +91,7 @@ fun ModeShell(
     val immersiveRoutes = setOf(
         Routes.SETUP_ABOUT,
         Routes.SETUP_SETTINGS_CREDITS,
+        Routes.SETUP_LIBRARY_SCAN,
     )
     val showSetupBar = !isPlay &&
         currentRoute !in immersiveRoutes &&
@@ -246,13 +248,23 @@ fun ModeShell(
                     onOpenRetroAchievements = { navController.navigate(Routes.SETUP_SETTINGS_RA) },
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
+                    onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
                 )
             }
             composable(Routes.SETUP_SETTINGS_FOLDERS) {
-                LibraryFoldersScreen(onBack = { navController.popBackStack() })
+                LibraryFoldersScreen(
+                    onBack = { navController.popBackStack() },
+                    onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
+                )
             }
             composable(Routes.SETUP_SETTINGS_ESDE) {
-                EsdeSettingsScreen(onBack = { navController.popBackStack() })
+                EsdeSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
+                )
+            }
+            composable(Routes.SETUP_LIBRARY_SCAN) {
+                LibraryScanScreen(onDone = { navController.popBackStack() })
             }
             composable(Routes.SETUP_SETTINGS_SCREENSCRAPER) {
                 ScreenScraperSettingsScreen(

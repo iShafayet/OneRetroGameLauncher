@@ -9,7 +9,6 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
-import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,8 +52,6 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     private val _ui = MutableStateFlow(SettingsHubUi())
     val ui: StateFlow<SettingsHubUi> = _ui.asStateFlow()
-
-    val scanProgress: StateFlow<ScanProgress?> = libraryRepository.scanProgress
 
     val settings: StateFlow<AppSettings> = settingsRepository.settings.stateIn(
         viewModelScope,
@@ -109,7 +106,6 @@ class SettingsViewModel @Inject constructor(
                     scanMessage = null,
                 )
             }
-            rescan()
         }
     }
 
@@ -176,10 +172,6 @@ class SettingsViewModel @Inject constructor(
                     scanMessage = null,
                 )
             }
-            // Re-resolve media/metadata from ES-DE without rewriting anything.
-            if (_ui.value.romsUri.isNotBlank() || _ui.value.romsPath.isNotBlank()) {
-                rescan()
-            }
         }
     }
 
@@ -216,44 +208,6 @@ class SettingsViewModel @Inject constructor(
         if (write) takeFlags = takeFlags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         runCatching {
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-        }
-    }
-
-    fun rescan() {
-        viewModelScope.launch {
-            _ui.update { it.copy(scanning = true, scanMessage = null) }
-            runCatching {
-                libraryRepository.ensureCatalogLoaded()
-                libraryRepository.scanLibrary()
-            }.onSuccess { result ->
-                val esdeLinked = _ui.value.esdeDataUri.isNotBlank() || _ui.value.esdeDataPath.isNotBlank()
-                _ui.update {
-                    it.copy(
-                        scanning = false,
-                        scanMessage = when {
-                            result.gamesFound > 0 ->
-                                "Found ${result.gamesFound} games across ${result.systemsScanned} systems" +
-                                    when {
-                                        result.mediaLinked > 0 -> ", linked ${result.mediaLinked} media files"
-                                        esdeLinked -> ", 0 media linked — check the ES-DE data folder contains downloaded_media/"
-                                        else -> ", 0 media linked — scrape artwork or link ES-DE for fallback media"
-                                    }
-                            result.systemsScanned == 0 ->
-                                "No system folders found under the selected directory. " +
-                                    "Pick the ROMs root that contains nes/, snes/, psx/, …"
-                            else ->
-                                "Scanned ${result.systemsScanned} systems but found 0 matching ROM files."
-                        },
-                    )
-                }
-            }.onFailure { e ->
-                _ui.update {
-                    it.copy(
-                        scanning = false,
-                        scanMessage = e.message ?: "Scan failed",
-                    )
-                }
-            }
         }
     }
 }

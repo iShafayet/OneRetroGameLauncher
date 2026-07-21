@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,11 +36,12 @@ fun SettingsScreen(
     onOpenRetroAchievements: () -> Unit,
     onOpenHltb: () -> Unit,
     onOpenRetroArch: () -> Unit,
+    onStartScan: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
-    val scanProgress by viewModel.scanProgress.collectAsState()
     val esdeLinked = ui.esdeDataUri.isNotBlank() || ui.esdeDataPath.isNotBlank()
+    val romsConfigured = ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()
 
     Column(
         Modifier
@@ -61,23 +61,18 @@ fun SettingsScreen(
         )
         Spacer(Modifier.height(8.dp))
         Button(
-            onClick = { viewModel.rescan() },
-            enabled = !ui.scanning && (ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()),
+            onClick = onStartScan,
+            enabled = romsConfigured,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (ui.scanning) CircularProgressIndicator(modifier = Modifier.height(20.dp))
-            else Text("Rescan library")
+            Text("Rescan library")
         }
-        scanProgress?.let {
-            Text(
-                "Scanning ${it.systemName}… ${it.gamesFound} games (${it.systemsDone}/${it.systemsTotal})",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        ui.scanMessage?.let {
-            Text(it, modifier = Modifier.padding(top = 8.dp))
-        }
+        Text(
+            "Scans ROMs, ORGL media, and ES-DE metadata/media in one pass.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         Spacer(Modifier.height(20.dp))
         Text("Integrations", style = MaterialTheme.typography.titleMedium)

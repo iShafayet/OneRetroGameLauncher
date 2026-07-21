@@ -35,15 +35,19 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 @Composable
 fun EsdeSettingsScreen(
     onBack: () -> Unit,
+    onStartScan: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
-    val scanProgress by viewModel.scanProgress.collectAsState()
     val linked = ui.esdeDataUri.isNotBlank() || ui.esdeDataPath.isNotBlank()
+    val romsConfigured = ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()
     val esdeDataPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
-        uri?.let { viewModel.onEsdeDataFolderPicked(it) }
+        uri?.let {
+            viewModel.onEsdeDataFolderPicked(it)
+            if (romsConfigured) onStartScan()
+        }
     }
 
     Scaffold(
@@ -95,20 +99,26 @@ fun EsdeSettingsScreen(
             if (linked) {
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { viewModel.rescan() },
-                    enabled = !ui.scanning && (ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()),
+                    onClick = onStartScan,
+                    enabled = romsConfigured,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    if (ui.scanning) CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                    else Text("Rescan to refresh ES-DE media")
+                    Text("Rescan library")
                 }
+                Text(
+                    "ES-DE metadata and media are refreshed as part of the full library scan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { viewModel.unlinkEsde() },
                     enabled = !ui.scanning,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Unlink ES-DE")
+                    if (ui.scanning) CircularProgressIndicator(modifier = Modifier.height(20.dp))
+                    else Text("Unlink ES-DE")
                 }
                 Text(
                     "Unlinking clears the ES-DE folder setting and removes ES-DE-linked media from ORGL’s cache. Your ES-DE install is not modified.",
@@ -118,13 +128,6 @@ fun EsdeSettingsScreen(
                 )
             }
 
-            scanProgress?.let {
-                Text(
-                    "Scanning ${it.systemName}… ${it.gamesFound} (${it.systemsDone}/${it.systemsTotal})",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
             ui.scanMessage?.let {
                 Text(it, modifier = Modifier.padding(top = 8.dp))
             }

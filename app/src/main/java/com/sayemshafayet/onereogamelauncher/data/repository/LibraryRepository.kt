@@ -53,6 +53,10 @@ class LibraryRepository @Inject constructor(
     val activeCommitment = commitmentDao.observeActive()
     val scanProgress = romScanner.scanProgress
 
+    fun requestCancelScan() = romScanner.requestCancelScan()
+
+    fun resetCancelScan() = romScanner.resetCancelScan()
+
     fun observeGamesBySystem(systemId: Long) = gameDao.observeBySystem(systemId)
     fun observeSearch(systemId: Long?, query: String) = gameDao.observeSearch(systemId, query)
     fun observeFavorites() = gameDao.observeFavorites()
@@ -109,6 +113,7 @@ class LibraryRepository @Inject constructor(
     }
 
     suspend fun scanLibrary(): RomScanResult {
+        resetCancelScan()
         ensureCatalogLoaded()
         val current = settings.settings.first()
         val uriString = current.romsDirUri

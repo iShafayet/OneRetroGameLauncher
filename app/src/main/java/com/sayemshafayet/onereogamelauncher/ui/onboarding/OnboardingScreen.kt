@@ -146,7 +146,7 @@ fun OnboardingScreen(
                         Spacer(Modifier.height(12.dp))
                         Text(
                             scanProgress?.let {
-                                "Scanning ${it.systemName}… ${it.gamesFound} games"
+                                "Scanning ${it.systemName}… ${it.gamesTotal} games"
                             } ?: "Preparing library…",
                             color = Mist.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium,

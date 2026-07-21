@@ -84,12 +84,41 @@ data class ScrapeSessionState(
         }
 }
 
+enum class ScanStage {
+    PREPARING,
+    SCANNING_SYSTEM,
+}
+
 data class ScanProgress(
-    val systemName: String,
-    val gamesFound: Int,
-    val systemsDone: Int,
-    val systemsTotal: Int,
-)
+    val stage: ScanStage = ScanStage.PREPARING,
+    val statusMessage: String = "",
+    val systemName: String = "",
+    val systemFolder: String = "",
+    /** Games found in the system currently being processed. */
+    val gamesInCurrentSystem: Int = 0,
+    /** Games processed so far in the current system (for intra-system progress). */
+    val gamesProcessedInSystem: Int = 0,
+    /** Cumulative games across all systems processed so far. */
+    val gamesTotal: Int = 0,
+    /** Cumulative media files linked so far. */
+    val mediaTotal: Int = 0,
+    /** Cumulative unrecognized files so far. */
+    val unknownFiles: Int = 0,
+    val systemsDone: Int = 0,
+    val systemsTotal: Int = 0,
+) {
+    val progressFraction: Float
+        get() {
+            if (systemsTotal <= 0) return 0f
+            val systemFraction = systemsDone.toFloat() / systemsTotal
+            val intra = if (gamesInCurrentSystem > 0) {
+                gamesProcessedInSystem.toFloat() / gamesInCurrentSystem / systemsTotal
+            } else {
+                0f
+            }
+            return (systemFraction + intra).coerceIn(0f, 1f)
+        }
+}
 
 data class HltbEstimate(
     val gameId: Long?,
