@@ -10,7 +10,7 @@
 
     <!-- Cold start: dark frame instantly, then hand off to Compose splash. -->
     <style name="Theme.ORGL.Launch" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/ink_deep</item>
+        <item name="windowSplashScreenBackground">@color/logo_navy</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.ORGL</item>
     </style>

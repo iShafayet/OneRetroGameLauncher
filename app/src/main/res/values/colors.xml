@@ -4,5 +4,7 @@
     <color name="ink_deep">#FF0B1C24</color>
     <color name="ink_mid">#FF122A35</color>
     <color name="amber_accent">#FFE8A838</color>
-    <color name="ic_launcher_background">#FF0B1C24</color>
+    <!-- Matches .local/logo.jpeg navy edge. -->
+    <color name="ic_launcher_background">#FF1B1B38</color>
+    <color name="logo_navy">#FF1B1B38</color>
 </resources>

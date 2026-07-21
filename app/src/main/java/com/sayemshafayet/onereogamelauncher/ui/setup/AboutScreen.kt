@@ -1,5 +1,6 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -14,8 +16,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.R
 
 @Composable
 fun AboutScreen(
@@ -29,6 +35,15 @@ fun AboutScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+            Image(
+                painter = painterResource(R.drawable.orgl_logo),
+                contentDescription = "One Retro Game Launcher",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .fillMaxWidth(0.72f)
+                    .widthIn(max = 280.dp),
+            )
             Text("One Retro Game Launcher", style = MaterialTheme.typography.headlineMedium)
             Text(
                 "ORGL is a deliberate front-end for people who love retro games — and want to finish them.",
