@@ -10,9 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,56 +32,70 @@ import com.sayemshafayet.onereogamelauncher.ui.util.formatDate
 import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.JournalViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
+    onBack: () -> Unit,
     viewModel: JournalViewModel = hiltViewModel(),
 ) {
     val entries by viewModel.entries.collectAsState()
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Journal", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        if (entries.isEmpty()) {
-            Text(
-                "Finished and dropped games appear here with your reviews.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Journal") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
             )
-        }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(entries, key = { it.commitmentId }) { entry ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                ) {
-                    GameCoverImage(
-                        path = entry.collagePath,
-                        modifier = Modifier
-                            .height(80.dp)
-                            .width(64.dp),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(entry.gameTitle, style = MaterialTheme.typography.titleMedium)
-                        Text(entry.systemDisplayName, style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            when (entry.status) {
-                                CommitmentStatus.FINISHED -> "Finished"
-                                CommitmentStatus.DROPPED -> "Dropped"
-                                else -> entry.status.name
-                            } + " · " + formatDate(entry.releasedAt),
-                            style = MaterialTheme.typography.bodySmall,
+        },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+            if (entries.isEmpty()) {
+                Text(
+                    "Finished and dropped games appear here with your reviews.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(entries, key = { it.commitmentId }) { entry ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                    ) {
+                        GameCoverImage(
+                            path = entry.collagePath,
+                            modifier = Modifier
+                                .height(80.dp)
+                                .width(64.dp),
                         )
-                        entry.stars?.let {
-                            Text(starsLabel(it), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        entry.reviewText?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.gameTitle, style = MaterialTheme.typography.titleMedium)
+                            Text(entry.systemDisplayName, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                when (entry.status) {
+                                    CommitmentStatus.FINISHED -> "Finished"
+                                    CommitmentStatus.DROPPED -> "Dropped"
+                                    else -> entry.status.name
+                                } + " · " + formatDate(entry.releasedAt),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            entry.stars?.let {
+                                Text(starsLabel(it), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            entry.reviewText?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                            }
                         }
                     }
+                    HorizontalDivider()
                 }
-                HorizontalDivider()
             }
         }
     }

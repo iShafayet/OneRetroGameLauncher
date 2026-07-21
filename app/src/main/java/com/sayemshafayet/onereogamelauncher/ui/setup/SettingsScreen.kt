@@ -1,6 +1,5 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 @Composable
@@ -42,6 +45,7 @@ fun SettingsScreen(
     val ui by viewModel.ui.collectAsState()
     val esdeLinked = ui.esdeDataUri.isNotBlank() || ui.esdeDataPath.isNotBlank()
     val romsConfigured = ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()
+    val firstFocus = rememberOrlgFocusRequester()
 
     Column(
         Modifier
@@ -57,7 +61,7 @@ fun SettingsScreen(
                 append("ROMs: ${ui.romsDisplay}")
                 append(" · ORGL: ${ui.orglDataDisplay}")
             },
-            onClick = onOpenLibraryFolders,
+            modifier = Modifier.orlgListFocus(0, firstFocus).orlgFocusable(onOpenLibraryFolders),
         )
         Spacer(Modifier.height(8.dp))
         Button(
@@ -80,27 +84,27 @@ fun SettingsScreen(
         SettingsNavRow(
             title = "ES-DE",
             subtitle = if (esdeLinked) "Linked · ${ui.esdeDataDisplay}" else "Optional media fallback",
-            onClick = onOpenEsde,
+            modifier = Modifier.orlgFocusable(onOpenEsde),
         )
         SettingsNavRow(
             title = "ScreenScraper",
             subtitle = "Under construction — use ES-DE for media",
-            onClick = onOpenScreenScraper,
+            modifier = Modifier.orlgFocusable(onOpenScreenScraper),
         )
         SettingsNavRow(
             title = "RetroAchievements",
             subtitle = if (ui.raConfigured) "Signed in" else "Not configured",
-            onClick = onOpenRetroAchievements,
+            modifier = Modifier.orlgFocusable(onOpenRetroAchievements),
         )
         SettingsNavRow(
             title = "HowLongToBeat",
             subtitle = if (ui.hltbEnabled) "Enabled" else "Disabled",
-            onClick = onOpenHltb,
+            modifier = Modifier.orlgFocusable(onOpenHltb),
         )
         SettingsNavRow(
             title = "RetroArch",
             subtitle = ui.retroArchPkg.ifBlank { "Not set" },
-            onClick = onOpenRetroArch,
+            modifier = Modifier.orlgFocusable(onOpenRetroArch),
         )
 
         Spacer(Modifier.height(20.dp))
@@ -119,13 +123,14 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(8.dp))
     }
+    OrlgInitialFocus(firstFocus)
 }
 
 @Composable
 private fun SettingsNavRow(
     title: String,
     subtitle: String,
-    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     ListItem(
         headlineContent = { Text(title) },
@@ -133,9 +138,7 @@ private fun SettingsNavRow(
         trailingContent = {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
     )
     HorizontalDivider()
 }

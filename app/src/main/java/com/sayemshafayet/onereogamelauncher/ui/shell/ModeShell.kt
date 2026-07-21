@@ -1,6 +1,9 @@
 package com.sayemshafayet.onereogamelauncher.ui.shell
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Image
@@ -9,9 +12,8 @@ import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -21,11 +23,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
+import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -105,7 +114,56 @@ fun ModeShell(
     val modeSwitcherRoutes = setupTabs + setOf(Routes.PLAY_PICKER, Routes.PLAY_FOCUS)
     val hideModeSwitcher = currentRoute !in modeSwitcherRoutes
 
+    val rootRoutes = setOf(
+        Routes.SETUP_LIBRARY,
+        Routes.SETUP_SETTINGS,
+        Routes.SETUP_SCRAPE,
+        Routes.PLAY_PICKER,
+        Routes.PLAY_FOCUS,
+    )
+    val canPopBack = navController.previousBackStackEntry != null &&
+        currentRoute !in rootRoutes
+
+    val setupTabSelectedIndex = setupTabIndex(currentRoute)
+    val showAboutButton = !isPlay && !hideModeSwitcher
+
+    GamepadBackHandler(canPopBack = canPopBack) {
+        navController.popBackStack()
+    }
+
     Scaffold(
+        contentWindowInsets = if (hideModeSwitcher) {
+            // Sub-screens own a TopAppBar; skip status-bar inset here to avoid a double gap.
+            WindowInsets(0, 0, 0, 0)
+        } else {
+            ScaffoldDefaults.contentWindowInsets
+        },
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            when {
+                showSetupBar && GamepadKeys.isShoulderLeft(event) -> {
+                    navigateSetupTab(navController, cycleTabIndex(setupTabSelectedIndex, -1, 3))
+                    true
+                }
+                showSetupBar && GamepadKeys.isShoulderRight(event) -> {
+                    navigateSetupTab(navController, cycleTabIndex(setupTabSelectedIndex, 1, 3))
+                    true
+                }
+                GamepadKeys.isUnassignedFaceButton(event) -> true
+                GamepadKeys.isAbout(event) -> {
+                    if (showAboutButton) navController.navigate(Routes.SETUP_ABOUT)
+                    true
+                }
+                GamepadKeys.isGamepadBack(event) -> {
+                    if (canPopBack) navController.popBackStack()
+                    true
+                }
+                GamepadKeys.isSystemBack(event) -> {
+                    if (canPopBack) navController.popBackStack()
+                    true
+                }
+                else -> false
+            }
+        },
         topBar = {
             if (!hideModeSwitcher) {
                 TopAppBar(
@@ -114,6 +172,7 @@ fun ModeShell(
                         if (!isPlay) {
                             IconButton(
                                 onClick = { navController.navigate(Routes.SETUP_ABOUT) },
+                                modifier = Modifier.focusProperties { canFocus = false },
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.HelpOutline,
@@ -121,7 +180,11 @@ fun ModeShell(
                                 )
                             }
                         }
-                        SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(end = 8.dp)) {
+                        SingleChoiceSegmentedButtonRow(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .focusProperties { canFocus = false },
+                        ) {
                             SegmentedButton(
                                 selected = !isPlay,
                                 onClick = {
@@ -135,6 +198,7 @@ fun ModeShell(
                                     }
                                 },
                                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                                modifier = Modifier.focusProperties { canFocus = false },
                             ) { Text("Setup") }
                             SegmentedButton(
                                 selected = isPlay,
@@ -154,6 +218,7 @@ fun ModeShell(
                                     }
                                 },
                                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                                modifier = Modifier.focusProperties { canFocus = false },
                             ) { Text("Play") }
                         }
                     },
@@ -162,48 +227,22 @@ fun ModeShell(
         },
         bottomBar = {
             if (showSetupBar) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.SETUP_LIBRARY,
-                        onClick = {
-                            navController.navigate(Routes.SETUP_LIBRARY) {
-                                popUpTo(Routes.SETUP_LIBRARY) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.ViewModule, null) },
-                        label = { Text("Library") },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.SETUP_SCRAPE,
-                        onClick = {
-                            navController.navigate(Routes.SETUP_SCRAPE) {
-                                popUpTo(Routes.SETUP_LIBRARY) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Image, null) },
-                        label = { Text("Scrape") },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.SETUP_SETTINGS ||
-                            currentRoute?.startsWith("setup/settings/") == true,
-                        onClick = {
-                            navController.navigate(Routes.SETUP_SETTINGS) {
-                                popUpTo(Routes.SETUP_LIBRARY) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Settings, null) },
-                        label = { Text("Settings") },
-                    )
-                }
+                OrglBottomNavStrip(
+                    labels = listOf("Library", "Scrape", "Settings"),
+                    selectedIndex = setupTabSelectedIndex,
+                    icons = { index, _ ->
+                        when (index) {
+                            0 -> Icon(Icons.Default.ViewModule, contentDescription = null)
+                            1 -> Icon(Icons.Default.Image, contentDescription = null)
+                            else -> Icon(Icons.Default.Settings, contentDescription = null)
+                        }
+                    },
+                    onTabClick = { navigateSetupTab(navController, it) },
+                )
             }
         },
     ) { padding ->
+        Box(Modifier.padding(padding)) {
         NavHost(
             navController = navController,
             startDestination = when {
@@ -211,7 +250,7 @@ fun ModeShell(
                 isPlay -> Routes.PLAY_PICKER
                 else -> Routes.SETUP_LIBRARY
             },
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.fillMaxSize(),
         ) {
             composable(Routes.SETUP_LIBRARY) {
                 LibraryScreen(onSystemClick = { navController.navigate(Routes.setupSystem(it)) })
@@ -330,7 +369,33 @@ fun ModeShell(
                     onOpenJournal = { navController.navigate(Routes.PLAY_JOURNAL) },
                 )
             }
-            composable(Routes.PLAY_JOURNAL) { JournalScreen() }
+            composable(Routes.PLAY_JOURNAL) {
+                JournalScreen(onBack = { navController.popBackStack() })
+            }
         }
+        }
+    }
+}
+
+private fun setupTabIndex(route: String?): Int = when {
+    route == Routes.SETUP_LIBRARY -> 0
+    route == Routes.SETUP_SCRAPE || route?.startsWith("setup/scrape") == true -> 1
+    route == Routes.SETUP_SETTINGS || route?.startsWith("setup/settings/") == true -> 2
+    else -> 0
+}
+
+private fun navigateSetupTab(
+    navController: NavHostController,
+    index: Int,
+) {
+    val destination = when (index) {
+        0 -> Routes.SETUP_LIBRARY
+        1 -> Routes.SETUP_SCRAPE
+        else -> Routes.SETUP_SETTINGS
+    }
+    navController.navigate(destination) {
+        popUpTo(Routes.SETUP_LIBRARY) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }

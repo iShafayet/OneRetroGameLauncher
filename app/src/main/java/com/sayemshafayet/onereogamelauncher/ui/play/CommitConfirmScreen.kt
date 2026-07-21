@@ -16,12 +16,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.CommitConfirmViewModel
 
 @Composable
@@ -33,6 +36,7 @@ fun CommitConfirmScreen(
     val game by viewModel.game.collectAsState()
     val media by viewModel.media.collectAsState()
     val error by viewModel.error.collectAsState()
+    val commitFocus = rememberOrlgFocusRequester()
 
     val cover = media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
         ?: media.firstOrNull()?.path
@@ -69,6 +73,7 @@ fun CommitConfirmScreen(
             onClick = { viewModel.commit(onConfirmed) },
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(commitFocus)
                 .then(PulseModifier(true)),
         ) {
             Text("I'm committing")
@@ -78,4 +83,5 @@ fun CommitConfirmScreen(
             Text("Not yet")
         }
     }
+    OrlgInitialFocus(commitFocus)
 }

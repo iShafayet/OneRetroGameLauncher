@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -45,6 +46,8 @@ import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.components.StarRatingInput
 import com.sayemshafayet.onereogamelauncher.ui.components.pickHeroMedia
 import com.sayemshafayet.onereogamelauncher.ui.util.formatDurationMs
@@ -66,6 +69,7 @@ fun FocusScreen(
     var reviewStatus by remember { mutableStateOf(CommitmentStatus.FINISHED) }
     var stars by remember { mutableFloatStateOf(4f) }
     var reviewText by remember { mutableStateOf("") }
+    val playFocus = rememberOrlgFocusRequester()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -134,6 +138,7 @@ fun FocusScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(64.dp)
+                        .focusRequester(playFocus)
                         .then(PulseModifier(true)),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -172,6 +177,8 @@ fun FocusScreen(
             }
         }
     }
+
+    OrlgInitialFocus(playFocus)
 
     if (showReview) {
         AlertDialog(

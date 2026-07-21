@@ -1,13 +1,12 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
@@ -21,6 +20,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemWithCount
 
@@ -31,6 +34,7 @@ fun LibraryScreen(
 ) {
     val systems by viewModel.visibleSystems.collectAsState()
     val totalGames by viewModel.totalGames.collectAsState()
+    val firstFocus = rememberOrlgFocusRequester()
 
     Column(Modifier.fillMaxSize()) {
         Text(
@@ -47,15 +51,24 @@ fun LibraryScreen(
             contentPadding = PaddingValues(vertical = 4.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(systems, key = { it.system.id }) { row ->
-                SystemRow(row, onClick = { onSystemClick(row.system.id) })
+            itemsIndexed(systems, key = { _, row -> row.system.id }) { index, row ->
+                SystemRow(
+                    row,
+                    modifier = Modifier
+                        .orlgListFocus(index, firstFocus)
+                        .orlgFocusable(onClick = { onSystemClick(row.system.id) }),
+                )
             }
         }
     }
+    OrlgInitialFocus(firstFocus, enabled = systems.isNotEmpty())
 }
 
 @Composable
-private fun SystemRow(row: SystemWithCount, onClick: () -> Unit) {
+private fun SystemRow(
+    row: SystemWithCount,
+    modifier: Modifier = Modifier,
+) {
     ListItem(
         headlineContent = { Text(row.system.displayName) },
         supportingContent = {
@@ -64,9 +77,7 @@ private fun SystemRow(row: SystemWithCount, onClick: () -> Unit) {
         trailingContent = {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
     )
     HorizontalDivider()
 }

@@ -1,6 +1,5 @@
 package com.sayemshafayet.onereogamelauncher.ui.play
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,6 +32,10 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerViewModel
 
 @Composable
@@ -44,6 +48,7 @@ fun PlayPickerScreen(
     val shelf by viewModel.shelf.collectAsState()
     val finalists by viewModel.finalists.collectAsState()
     var surprise by remember { mutableStateOf<GameEntity?>(null) }
+    val firstFocus = rememberOrlgFocusRequester()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -69,45 +74,78 @@ fun PlayPickerScreen(
             item {
                 Text("Results", style = MaterialTheme.typography.titleMedium)
             }
-            items(results, key = { it.id }) { game ->
-                SearchResultRow(game, viewModel, onClick = { onGameSelected(game.id) })
+            itemsIndexed(results, key = { _, game -> game.id }) { index, game ->
+                SearchResultRow(
+                    game = game,
+                    viewModel = viewModel,
+                    onClick = { onGameSelected(game.id) },
+                    modifier = Modifier
+                        .orlgListFocus(index, firstFocus)
+                        .orlgFocusable(onClick = { onGameSelected(game.id) }),
+                )
             }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { viewModel.surpriseMe { surprise = it } }) {
-                    Text("Surprise me")
-                }
-                OutlinedButton(onClick = { viewModel.pickFinalists() }) {
-                    Text("Pick 3 finalists")
+        } else {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = { viewModel.surpriseMe { surprise = it } },
+                        modifier = if (results.isEmpty()) {
+                            Modifier.focusRequester(firstFocus)
+                        } else {
+                            Modifier
+                        },
+                    ) {
+                        Text("Surprise me")
+                    }
+                    OutlinedButton(onClick = { viewModel.pickFinalists() }) {
+                        Text("Pick 3 finalists")
+                    }
                 }
             }
         }
         surprise?.let { game ->
             item {
                 Text("Your surprise pick", style = MaterialTheme.typography.titleMedium)
-                FinalistCard(game, viewModel, onClick = { onGameSelected(game.id) })
+                FinalistCard(
+                    game = game,
+                    viewModel = viewModel,
+                    onClick = { onGameSelected(game.id) },
+                    modifier = Modifier.orlgFocusable(onClick = { onGameSelected(game.id) }),
+                )
             }
         }
         if (finalists.isNotEmpty()) {
             item {
                 Text("Choose a finalist", style = MaterialTheme.typography.titleMedium)
             }
-            items(finalists, key = { it.id }) { game ->
-                FinalistCard(game, viewModel, onClick = { onGameSelected(game.id) })
+            itemsIndexed(finalists, key = { _, game -> game.id }) { index, game ->
+                FinalistCard(
+                    game = game,
+                    viewModel = viewModel,
+                    onClick = { onGameSelected(game.id) },
+                    modifier = Modifier
+                        .orlgListFocus(if (results.isEmpty()) index + 1 else index, firstFocus)
+                        .orlgFocusable(onClick = { onGameSelected(game.id) }),
+                )
             }
         }
         if (shelf.isNotEmpty()) {
             item {
                 Text("From your shelf", style = MaterialTheme.typography.titleMedium)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(shelf, key = { it.id }) { game ->
-                        ShelfTile(game, viewModel, onClick = { onGameSelected(game.id) })
+                    itemsIndexed(shelf, key = { _, game -> game.id }) { index, game ->
+                        ShelfTile(
+                            game = game,
+                            viewModel = viewModel,
+                            onClick = { onGameSelected(game.id) },
+                            modifier = Modifier.orlgFocusable(onClick = { onGameSelected(game.id) }),
+                        )
                     }
                 }
             }
         }
     }
+    OrlgInitialFocus(firstFocus)
 }
 
 @Composable
@@ -115,13 +153,13 @@ private fun SearchResultRow(
     game: GameEntity,
     viewModel: PlayPickerViewModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val media by viewModel.observeMedia(game.id).collectAsState(initial = emptyList())
     val cover = media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -138,13 +176,13 @@ private fun FinalistCard(
     game: GameEntity,
     viewModel: PlayPickerViewModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val media by viewModel.observeMedia(game.id).collectAsState(initial = emptyList())
     val cover = media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
     ) {
         GameCoverImage(cover, Modifier.fillMaxWidth().aspectRatio(16f / 9f))
@@ -158,14 +196,15 @@ private fun ShelfTile(
     game: GameEntity,
     viewModel: PlayPickerViewModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val media by viewModel.observeMedia(game.id).collectAsState(initial = emptyList())
     val cover = media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
     Column(
-        Modifier
+        modifier
             .height(140.dp)
             .aspectRatio(0.7f)
-            .clickable(onClick = onClick),
+            .then(modifier),
     ) {
         GameCoverImage(cover, Modifier.weight(1f).fillMaxWidth())
         Text(game.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)

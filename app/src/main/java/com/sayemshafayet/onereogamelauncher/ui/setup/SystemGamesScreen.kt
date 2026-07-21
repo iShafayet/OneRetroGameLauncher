@@ -1,6 +1,5 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,8 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -44,6 +43,10 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameListFilter
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 
@@ -60,6 +63,7 @@ fun SystemGamesScreen(
     val query by viewModel.searchQuery.collectAsState()
     val filter by viewModel.gameFilter.collectAsState()
     val layout by viewModel.layout.collectAsState()
+    val firstFocus = rememberOrlgFocusRequester()
 
     Scaffold(
         topBar = {
@@ -119,11 +123,14 @@ fun SystemGamesScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(games, key = { it.id }) { game ->
+                        itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
                             GameGridTile(
                                 game = game,
                                 observeMedia = { viewModel.observeMedia(game.id) },
                                 onClick = { onGameClick(game.id) },
+                                modifier = Modifier
+                                    .orlgListFocus(index, firstFocus)
+                                    .orlgFocusable(onClick = { onGameClick(game.id) }),
                             )
                         }
                     }
@@ -133,16 +140,20 @@ fun SystemGamesScreen(
                         contentPadding = PaddingValues(vertical = 8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(games, key = { it.id }) { game ->
+                        itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
                             GameListRow(
                                 game = game,
                                 observeMedia = { viewModel.observeMedia(game.id) },
                                 onClick = { onGameClick(game.id) },
+                                modifier = Modifier
+                                    .orlgListFocus(index, firstFocus)
+                                    .orlgFocusable(onClick = { onGameClick(game.id) }),
                             )
                         }
                     }
                 }
             }
+            OrlgInitialFocus(firstFocus, enabled = games.isNotEmpty())
         }
     }
 }
@@ -152,14 +163,13 @@ private fun GameGridTile(
     game: GameEntity,
     observeMedia: () -> kotlinx.coroutines.flow.Flow<List<com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity>>,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val media by observeMedia().collectAsState(initial = emptyList())
     val cover = coverPath(media)
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
     ) {
         GameCoverImage(
             path = cover,
@@ -182,6 +192,7 @@ private fun GameListRow(
     game: GameEntity,
     observeMedia: () -> kotlinx.coroutines.flow.Flow<List<com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity>>,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val media by observeMedia().collectAsState(initial = emptyList())
     val cover = coverPath(media)
@@ -204,9 +215,7 @@ private fun GameListRow(
         trailingContent = {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
     )
     HorizontalDivider()
 }

@@ -35,8 +35,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -51,6 +49,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -61,6 +61,11 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
+import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
+import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
@@ -122,6 +127,19 @@ fun GameDetailScreen(
     }
 
     Scaffold(
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            when {
+                GamepadKeys.isShoulderLeft(event) -> {
+                    selectedTab = cycleTabIndex(selectedTab, -1, GameDetailTab.entries.size)
+                    true
+                }
+                GamepadKeys.isShoulderRight(event) -> {
+                    selectedTab = cycleTabIndex(selectedTab, 1, GameDetailTab.entries.size)
+                    true
+                }
+                else -> false
+            }
+        },
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
@@ -139,23 +157,10 @@ fun GameDetailScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == GameDetailTab.GAME.ordinal,
-                    onClick = { selectedTab = GameDetailTab.GAME.ordinal },
-                    text = { Text("Game") },
-                )
-                Tab(
-                    selected = selectedTab == GameDetailTab.MEDIA.ordinal,
-                    onClick = { selectedTab = GameDetailTab.MEDIA.ordinal },
-                    text = { Text("Media") },
-                )
-                Tab(
-                    selected = selectedTab == GameDetailTab.CONFIG.ordinal,
-                    onClick = { selectedTab = GameDetailTab.CONFIG.ordinal },
-                    text = { Text("Config") },
-                )
-            }
+            OrglTabStrip(
+                labels = listOf("Game", "Media", "Config"),
+                selectedIndex = selectedTab,
+            )
 
             Box(Modifier.fillMaxSize()) {
                 when (selectedTab) {
@@ -218,6 +223,7 @@ private fun GameTabContent(
     onToggleFinished: () -> Unit,
     onToggleDropped: () -> Unit,
 ) {
+    val launchFocus = rememberOrlgFocusRequester()
     val cover = pickBoxArt(media.associate { it.type to it.path })
     val activityLabel = formatActivityLabel(
         playtimeMs = game.totalOrglPlaytimeMs(commitmentPlaytimeMs),
@@ -273,7 +279,9 @@ private fun GameTabContent(
                 Button(
                     onClick = onLaunch,
                     enabled = launchAllowed,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(launchFocus),
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Text("Launch")
@@ -345,6 +353,7 @@ private fun GameTabContent(
 
         Spacer(Modifier.height(120.dp))
     }
+    OrlgInitialFocus(launchFocus)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
