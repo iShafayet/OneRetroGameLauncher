@@ -10,4 +10,5 @@ data class LaunchPlan(
     val isRetroArch: Boolean,
     val grantTreeUri: String? = null,
     val grantDocumentUri: String? = null,
+    val grantDocumentUris: List<String> = emptyList(),
 )

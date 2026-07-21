@@ -143,9 +143,10 @@ class RomScanner @Inject constructor(
             orglMediaIndex = orglIndex,
             esdeMediaIndex = esdeIndex,
             systemDirHint = { folder -> File(romsRoot, folder) },
-            resolveGamelistMedia = { folder, rel ->
-                val f = File(File(romsRoot, folder), rel.removePrefix("./"))
-                f.takeIf { it.isFile }?.absolutePath
+            resolveGamelistMedia = { folder, entryDir, rel ->
+                RomScanLogic.combineGamelistMediaPath(entryDir, rel)?.let { combined ->
+                    File(File(romsRoot, folder), combined).takeIf { it.isFile }?.absolutePath
+                }
             },
         )
     }
@@ -214,8 +215,10 @@ class RomScanner @Inject constructor(
             orglMediaIndex = orglIndex,
             esdeMediaIndex = esdeIndex,
             systemDirHint = { null },
-            resolveGamelistMedia = { folder, rel ->
-                systemDirs[folder.lowercase()]?.let { resolveDocumentRelative(it, rel) }
+            resolveGamelistMedia = { folder, entryDir, rel ->
+                RomScanLogic.combineGamelistMediaPath(entryDir, rel)?.let { combined ->
+                    systemDirs[folder.lowercase()]?.let { resolveDocumentRelative(it, combined) }
+                }
             },
         )
     }
@@ -271,7 +274,7 @@ class RomScanner @Inject constructor(
         orglMediaIndex: MediaLibrary,
         esdeMediaIndex: MediaLibrary,
         systemDirHint: (String) -> File?,
-        resolveGamelistMedia: (String, String) -> String?,
+        resolveGamelistMedia: (String, String, String) -> String?,
     ): RomScanResult {
         checkCancelled()
         try {
@@ -346,8 +349,7 @@ class RomScanner @Inject constructor(
                 if (file.name.equals("gamelist.xml", ignoreCase = true)) continue
                 if (file.relativePath in hidden || file.storagePath in hidden) continue
                 when {
-                    file.extension == "m3u" -> romFiles += file
-                    file.extension in def.extensions -> romFiles += file
+                    RomScanLogic.isPlayableRom(file.extension, def.extensions) -> romFiles += file
                     file.extension.isNotEmpty() -> unknownInSystem += UnknownFileEntry(
                         systemFolder = def.folder,
                         relativePath = file.relativePath,
@@ -357,7 +359,7 @@ class RomScanner @Inject constructor(
             }
             unknown += unknownInSystem
 
-            val scannedGames = buildScannedGames(romFiles, gamelistByPath, hidden, readTextFile)
+            val scannedGames = buildScannedGames(romFiles, gamelistByPath, hidden, readTextFile, found)
             val existingByPath = gameDao.getBySystem(systemEntity.id).associateBy { it.romPath }
             val keepPaths = mutableListOf<String>()
             val systemDir = systemDirHint(def.folder)
@@ -554,12 +556,13 @@ class RomScanner @Inject constructor(
         gamelistByPath: Map<String, GamelistEntry>,
         hidden: Set<String>,
         readTextFile: (String) -> String?,
+        allFound: List<FoundFile>,
     ): List<ScannedGame> {
         val games = mutableListOf<ScannedGame>()
         val m3uFiles = romFiles.filter { it.extension == "m3u" }
 
         for (m3u in m3uFiles) {
-            val gl = gamelistMatch(gamelistByPath, m3u.relativePath, m3u.name)
+            val gl = RomScanLogic.gamelistMatch(gamelistByPath, m3u.relativePath, m3u.name)
             val discPaths = parseM3uDiscEntries(readTextFile(m3u.storagePath).orEmpty())
             games += ScannedGame(
                 romPath = m3u.storagePath,
@@ -575,39 +578,41 @@ class RomScanner @Inject constructor(
         for (file in romFiles) {
             if (file.extension == "m3u") continue
             if (file.relativePath in hidden || file.storagePath in hidden) continue
-            val gl = gamelistMatch(gamelistByPath, file.relativePath, file.name)
+            val gl = RomScanLogic.gamelistMatch(gamelistByPath, file.relativePath, file.name)
             games += ScannedGame(
                 romPath = file.storagePath,
                 relativePath = file.relativePath,
                 absolutePath = file.storagePath,
                 fileName = file.name,
                 title = gl?.name ?: file.name.substringBeforeLast('.'),
-                romPaths = listOf(file.relativePath),
+                romPaths = descriptorRomPaths(file, readTextFile, allFound),
                 gamelist = gl,
             )
         }
         return games.distinctBy { it.romPath }
     }
 
-    private fun gamelistMatch(
-        gamelistByPath: Map<String, GamelistEntry>,
-        relativePath: String,
-        fileName: String,
-    ): GamelistEntry? {
-        gamelistByPath[relativePath]?.let { return it }
-        val norm = normalizePath(relativePath)
-        gamelistByPath.entries.firstOrNull { normalizePath(it.key) == norm }?.value?.let { return it }
-        gamelistByPath.entries.firstOrNull {
-            val keyNorm = normalizePath(it.key)
-            keyNorm.endsWith(norm) || norm.endsWith(keyNorm)
-        }?.value?.let { return it }
-        val fileStem = fileName.substringBeforeLast('.').lowercase()
-        if (fileStem.isNotBlank()) {
-            return gamelistByPath.entries.firstOrNull { (path, _) ->
-                path.substringAfterLast('/').substringBeforeLast('.').equals(fileStem, ignoreCase = true)
-            }?.value
+    private fun descriptorRomPaths(
+        file: FoundFile,
+        readTextFile: (String) -> String?,
+        allFound: List<FoundFile>,
+    ): List<String> {
+        val paths = mutableListOf(file.relativePath)
+        if (file.storagePath.startsWith("content:", ignoreCase = true)) {
+            paths += file.storagePath
         }
-        return null
+        if (file.extension == "cue") {
+            val text = readTextFile(file.storagePath).orEmpty()
+            val companionRels = DiscDescriptorPaths.companionPathsRelativeTo(file.relativePath, text)
+            paths += companionRels
+            for (rel in companionRels) {
+                allFound.firstOrNull { found ->
+                    found.relativePath.equals(rel, ignoreCase = true) ||
+                        found.name.equals(java.io.File(rel).name, ignoreCase = true)
+                }?.storagePath?.let { paths += it }
+            }
+        }
+        return paths.distinct()
     }
 
     private fun parseM3uDiscEntries(text: String): List<String> =
@@ -683,9 +688,11 @@ class RomScanner @Inject constructor(
         game: ScannedGame,
         gamelist: GamelistEntry?,
         existing: List<MediaEntity>,
-        resolveGamelistMedia: (String, String) -> String?,
+        resolveGamelistMedia: (String, String, String) -> String?,
     ): List<MediaEntity> {
         val gl = gamelist ?: game.gamelist
+        val glEntryDir = gl?.path?.substringBeforeLast('/', "").orEmpty()
+            .ifEmpty { game.relativePath.substringBeforeLast('/', "") }
         val media = linkedMapOf<MediaType, MediaEntity>()
         val systemKeys = listOf(systemName, systemFolder).filter { it.isNotBlank() }
         val baseNames = buildList {
@@ -727,22 +734,22 @@ class RomScanner @Inject constructor(
         fillFromIndex(esdeIndex, provider = "es-de")
         // 5) Gamelist-relative paths under the ROM system folder (read-only)
         gl?.image?.let { raw ->
-            resolveGamelistMedia(systemFolder, raw.removePrefix("./"))?.let {
+            resolveGamelistMedia(systemFolder, glEntryDir, raw)?.let {
                 putIfAbsent(MediaType.BOX_2D, it, "gamelist")
             }
         }
         gl?.thumbnail?.let { raw ->
-            resolveGamelistMedia(systemFolder, raw.removePrefix("./"))?.let {
+            resolveGamelistMedia(systemFolder, glEntryDir, raw)?.let {
                 putIfAbsent(MediaType.BOX_2D, it, "gamelist")
             }
         }
         gl?.marquee?.let { raw ->
-            resolveGamelistMedia(systemFolder, raw.removePrefix("./"))?.let {
+            resolveGamelistMedia(systemFolder, glEntryDir, raw)?.let {
                 putIfAbsent(MediaType.MARQUEE, it, "gamelist")
             }
         }
         gl?.video?.let { raw ->
-            resolveGamelistMedia(systemFolder, raw.removePrefix("./"))?.let {
+            resolveGamelistMedia(systemFolder, glEntryDir, raw)?.let {
                 putIfAbsent(MediaType.VIDEO, it, "gamelist")
             }
         }
@@ -777,9 +784,6 @@ class RomScanner @Inject constructor(
         }.getOrNull()?.let { SafPathResolver.documentIdToFilesystemPath(it) }
         return fsPath?.takeIf { File(it).canRead() } ?: current.uri.toString()
     }
-
-    private fun normalizePath(path: String): String =
-        path.trim().replace('\\', '/').removePrefix("./").trimStart('/')
 
     private fun SystemEntity.toSystemDef(): SystemDef =
         SystemDef(

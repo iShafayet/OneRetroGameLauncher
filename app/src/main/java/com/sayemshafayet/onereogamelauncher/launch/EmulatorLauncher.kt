@@ -22,8 +22,13 @@ data class StandaloneEmulatorProfile(
     val key: String,
     val displayName: String,
     val findRuleKey: String,
-    val launchMode: LaunchMode = LaunchMode.VIEW_URI,
     val pathExtraKeys: List<String> = emptyList(),
+    val launchMode: LaunchMode = if (pathExtraKeys.isNotEmpty()) {
+        LaunchMode.MAIN_WITH_EXTRAS
+    } else {
+        LaunchMode.VIEW_URI
+    },
+    val booleanExtras: Map<String, Boolean> = emptyMap(),
     val mimeType: String = "*/*",
 ) {
     enum class LaunchMode {
@@ -49,7 +54,13 @@ class EmulatorLauncher @Inject constructor(
         private const val TAG = "EmulatorLauncher"
 
         val SUPPORTED_PROFILES = listOf(
-            StandaloneEmulatorProfile("DUCKSTATION", "DuckStation", "DUCKSTATION", pathExtraKeys = listOf("bootPath", "filename")),
+            StandaloneEmulatorProfile(
+                key = "DUCKSTATION",
+                displayName = "DuckStation",
+                findRuleKey = "DUCKSTATION",
+                pathExtraKeys = listOf("bootPath", "filename"),
+                booleanExtras = mapOf("resumeState" to false),
+            ),
             StandaloneEmulatorProfile("AETHERSX2", "AetherSX2", "AETHERSX2", pathExtraKeys = listOf("bootPath")),
             StandaloneEmulatorProfile(
                 key = "NETHERSX2",
@@ -144,14 +155,22 @@ class EmulatorLauncher @Inject constructor(
     /**
      * @return null on success, or error message
      */
-    fun launch(resolved: ResolvedEmulator, romPath: String, romUri: String? = null): String? {
+    fun launch(
+        resolved: ResolvedEmulator,
+        romPath: String,
+        romUri: String? = null,
+        grantTreeUri: String? = null,
+        grantDocumentUri: String? = null,
+        grantDocumentUris: List<String> = emptyList(),
+    ): String? {
         if (resolved.key.equals("RETROARCH", ignoreCase = true)) {
             return "Use RetroArchLauncher for RetroArch"
         }
         val path = preferAbsolutePath(romPath, romUri) ?: return "ROM path is not reachable"
         return when (resolved.profile.launchMode) {
             StandaloneEmulatorProfile.LaunchMode.VIEW_URI -> launchView(resolved, path)
-            StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS -> launchMain(resolved, path)
+            StandaloneEmulatorProfile.LaunchMode.MAIN_WITH_EXTRAS ->
+                launchMain(resolved, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
         }
     }
 
@@ -191,18 +210,73 @@ class EmulatorLauncher @Inject constructor(
         return startSafely(intent, resolved.packageName, uri)
     }
 
-    private fun launchMain(resolved: ResolvedEmulator, path: String): String? {
+    private fun launchMain(
+        resolved: ResolvedEmulator,
+        path: String,
+        grantTreeUri: String?,
+        grantDocumentUri: String?,
+        grantDocumentUris: List<String>,
+    ): String? {
         val intent = Intent(Intent.ACTION_MAIN).apply {
             setClassName(resolved.packageName, resolved.activityClass)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+            )
             resolved.profile.pathExtraKeys.forEach { putExtra(it, path) }
-            if (path.startsWith("content:", ignoreCase = true)) {
-                val uri = Uri.parse(path)
-                setData(uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+            resolved.profile.booleanExtras.forEach { (key, value) -> putExtra(key, value) }
+            // ES-DE AetherSX2/NetherSX2 commands set EXTRA_bootPath=%ROMSAF% only —
+            // they do not set Intent data. Setting data can make some PCSX2 builds
+            // ignore bootPath or open the wrong source.
         }
-        return startSafely(intent, resolved.packageName, null)
+        grantAccess(resolved.packageName, intent, path, grantTreeUri, grantDocumentUri, grantDocumentUris)
+        Log.i(TAG, "Launching ${resolved.key} bootPath=$path grants=${grantDocumentUris.size}")
+        return startSafely(intent, resolved.packageName, path.takeIf { it.startsWith("content:", true) }?.let(Uri::parse))
+    }
+
+    private fun grantAccess(
+        pkg: String,
+        intent: Intent,
+        romPath: String,
+        grantTreeUri: String?,
+        grantDocumentUri: String?,
+        grantDocumentUris: List<String>,
+    ) {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        val docUris = linkedSetOf<String>()
+        grantDocumentUris.forEach { if (it.isNotBlank()) docUris += it }
+        grantDocumentUri?.takeIf { it.isNotBlank() }?.let { docUris += it }
+        if (romPath.startsWith("content:", ignoreCase = true)) docUris += romPath
+
+        fun grant(uriString: String?) {
+            if (uriString.isNullOrBlank()) return
+            runCatching {
+                val uri = Uri.parse(uriString)
+                if (!uri.scheme.equals("content", ignoreCase = true)) return@runCatching
+                context.grantUriPermission(pkg, uri, flags)
+                intent.addFlags(flags)
+            }.onFailure { Log.w(TAG, "grantUriPermission failed for $uriString", it) }
+        }
+
+        grant(grantTreeUri)
+        docUris.forEach { grant(it) }
+
+        // Prefer newRawUri — ClipData.newUri(null, …) NPEs when resolving content MIME types.
+        val contentOnly = docUris.mapNotNull { uriString ->
+            runCatching {
+                Uri.parse(uriString).takeIf { it.scheme.equals("content", ignoreCase = true) }
+            }.getOrNull()
+        }
+        if (contentOnly.isNotEmpty()) {
+            runCatching {
+                val clip = android.content.ClipData.newRawUri("rom", contentOnly.first())
+                contentOnly.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+                intent.clipData = clip
+            }.onFailure { Log.w(TAG, "Failed to attach ClipData for URI grants", it) }
+        }
     }
 
     private fun startSafely(intent: Intent, targetPackage: String, uri: Uri?): String? {

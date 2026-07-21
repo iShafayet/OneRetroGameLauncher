@@ -7,7 +7,6 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.OrglSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,7 +47,13 @@ class LaunchResolver @Inject constructor(
                 romsDirPath = orgSettings.romsDirPath,
             )
         } else {
-            RetroArchRomPaths.ResolvedRom(romExtra = resolveRomPath(game.romPath))
+            StandaloneRomPaths.resolve(
+                romPath = game.romPath,
+                romPathsJson = game.romPathsJson,
+                romsTreeUri = orgSettings.romsDirUri,
+                romsDirPath = orgSettings.romsDirPath,
+                systemFolder = system?.folderName.orEmpty(),
+            )
         }
         val core = resolveCore(
             resolvedKey = resolved.key,
@@ -70,6 +75,7 @@ class LaunchResolver @Inject constructor(
             isRetroArch = isRa,
             grantTreeUri = romResolved.grantTreeUri,
             grantDocumentUri = romResolved.grantDocumentUri,
+            grantDocumentUris = romResolved.grantDocumentUris,
         )
     }
 
@@ -95,15 +101,13 @@ class LaunchResolver @Inject constructor(
         }
         val resolved = emulatorLauncher.installedForKey(plan.emulatorKey)
             ?: return "${plan.emulatorKey} is not installed"
-        return emulatorLauncher.launch(resolved, plan.romPath)
-    }
-
-    private fun resolveRomPath(romPath: String): String {
-        if (RetroArchLauncher.isLikelyFilesystemPath(romPath)) {
-            val file = File(romPath)
-            if (file.isFile) return file.absolutePath
-        }
-        return romPath
+        return emulatorLauncher.launch(
+            resolved = resolved,
+            romPath = plan.romPath,
+            grantTreeUri = plan.grantTreeUri,
+            grantDocumentUri = plan.grantDocumentUri,
+            grantDocumentUris = plan.grantDocumentUris,
+        )
     }
 
     private fun resolveCore(

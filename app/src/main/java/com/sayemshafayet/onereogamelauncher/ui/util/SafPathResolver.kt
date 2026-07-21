@@ -51,12 +51,14 @@ object SafPathResolver {
         }.getOrNull()
         if (!fromContract.isNullOrBlank()) return percentDecode(fromContract)
 
-        // Parse from encoded URI string (works even when contract helpers are awkward)
-        val raw = uri.toString()
+        return resolveTreeDocumentIdString(uri.toString())
+    }
+
+    fun resolveTreeDocumentIdString(treeUriString: String): String? {
         val marker = "/tree/"
-        val idx = raw.indexOf(marker)
+        val idx = treeUriString.indexOf(marker)
         if (idx < 0) return null
-        val encoded = raw.substring(idx + marker.length)
+        val encoded = treeUriString.substring(idx + marker.length)
             .substringBefore('/')
             .substringBefore('?')
             .substringBefore('#')
@@ -70,12 +72,24 @@ object SafPathResolver {
         val volume = split[0]
         val relative = split[1].trimStart('/').trimEnd('/')
         if (relative.isBlank()) return null
-        val path = if (volume.equals("primary", ignoreCase = true)) {
-            "/storage/emulated/0/$relative"
+        val candidates = if (volume.equals("primary", ignoreCase = true)) {
+            listOf(
+                "/storage/emulated/0/$relative",
+                "/sdcard/$relative",
+            )
         } else {
-            "/storage/$volume/$relative"
+            // Removable / custom volumes: Android docs use /storage/<uuid>, but many
+            // devices (and bind mounts) expose the same tree under /mnt/…
+            listOf(
+                "/storage/$volume/$relative",
+                "/mnt/media_rw/$volume/$relative",
+                "/mnt/$volume/$relative",
+            )
         }
-        return normalize(path)
+        val normalized = candidates.map { normalize(it) }
+        return normalized.firstOrNull { path ->
+            File(path).exists()
+        } ?: normalized.firstOrNull()
     }
 
     /**

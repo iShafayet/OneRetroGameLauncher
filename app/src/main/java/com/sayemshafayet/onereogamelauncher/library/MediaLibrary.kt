@@ -66,37 +66,45 @@ class MediaLibrary private constructor(
     private fun buildFolderIndex(system: String, mediaFolder: String): Map<String, String> {
         val out = linkedMapOf<String, String>()
 
-        // SAF first
+        // SAF first — walk nested subfolders (e.g. covers/Set 2 - RA/Game.png)
         val systemDoc = systemDoc(system)
         if (systemDoc != null) {
-            val typeDir = findChildDir(systemDoc, mediaFolder)
-            if (typeDir != null) {
-                typeDir.listFiles().forEach { file ->
-                    if (!file.isFile) return@forEach
-                    val name = file.name ?: return@forEach
-                    val base = name.substringBeforeLast('.')
-                    if (base.isBlank()) return@forEach
-                    val path = storagePathFor(file)
-                    putAllKeys(out, base, path)
-                }
+            findChildDir(systemDoc, mediaFolder)?.let { typeDir ->
+                indexMediaFilesRecursiveDoc(out, typeDir)
             }
         }
 
         // Filesystem fallback (primary storage / readable mounts)
-        if (out.isEmpty() && mediaRootFile != null) {
+        if (mediaRootFile != null) {
             val typeDir = File(File(mediaRootFile, system), mediaFolder)
             if (typeDir.isDirectory) {
-                typeDir.listFiles()?.forEach { file ->
-                    if (!file.isFile) return@forEach
-                    val base = file.nameWithoutExtension
-                    if (base.isBlank()) return@forEach
-                    // Always prefer content-style access when we can; File path only if readable
-                    val path = if (file.canRead()) file.absolutePath else file.absolutePath
-                    putAllKeys(out, base, path)
-                }
+                indexMediaFilesRecursiveFile(out, typeDir)
             }
         }
         return out
+    }
+
+    private fun indexMediaFilesRecursiveDoc(out: MutableMap<String, String>, dir: DocumentFile) {
+        dir.listFiles().forEach { child ->
+            when {
+                child.isFile -> {
+                    val name = child.name ?: return@forEach
+                    val base = name.substringBeforeLast('.')
+                    if (base.isBlank()) return@forEach
+                    putAllKeys(out, base, storagePathFor(child))
+                }
+                child.isDirectory -> indexMediaFilesRecursiveDoc(out, child)
+            }
+        }
+    }
+
+    private fun indexMediaFilesRecursiveFile(out: MutableMap<String, String>, dir: File) {
+        dir.walkTopDown().forEach { file ->
+            if (!file.isFile) return@forEach
+            val base = file.nameWithoutExtension
+            if (base.isBlank()) return@forEach
+            putAllKeys(out, base, file.absolutePath)
+        }
     }
 
     private fun systemDoc(system: String): DocumentFile? {

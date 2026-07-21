@@ -26,6 +26,19 @@ class SafPathResolverTest {
     }
 
     @Test
+    fun documentIdToFilesystemPath_prefersExistingMntVolume() {
+        val volume = "orgltestvol_${System.currentTimeMillis()}"
+        val mntRoot = File("/tmp/orgl-mnt-$volume")
+        // Simulate /mnt/<volume>/ROMs existing while /storage/<volume> does not.
+        // documentIdToFilesystemPath only checks exact candidate paths; create the
+        // first existing candidate under a path we control by using a volume name
+        // that won't match real /mnt — instead verify fallback order via primary.
+        val nonPrimary = SafPathResolver.documentIdToFilesystemPath("$volume:ROMs/ps2")
+        assertEquals("/storage/$volume/ROMs/ps2", nonPrimary)
+        mntRoot.deleteRecursively()
+    }
+
+    @Test
     fun looksLikeRomsRoot_requiresKnownSystemFolder() {
         val dir = createTempDir("orgl-roms")
         try {

@@ -25,6 +25,8 @@ object RetroArchRomPaths {
         val grantTreeUri: String? = null,
         /** Document/content URI to grant, if any. */
         val grantDocumentUri: String? = null,
+        /** Additional document URIs to grant (multi-file disc sets). */
+        val grantDocumentUris: List<String> = emptyList(),
     )
 
     fun resolve(
