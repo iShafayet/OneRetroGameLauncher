@@ -34,3 +34,9 @@ fun formatDate(epochMs: Long?): String {
     return java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.getDefault())
         .format(java.util.Date(epochMs))
 }
+
+fun formatReleaseYear(releaseDate: String?): String? {
+    if (releaseDate.isNullOrBlank()) return null
+    releaseDate.take(4).toIntOrNull()?.let { return it.toString() }
+    return releaseDate.trim().takeIf { it.isNotBlank() }
+}

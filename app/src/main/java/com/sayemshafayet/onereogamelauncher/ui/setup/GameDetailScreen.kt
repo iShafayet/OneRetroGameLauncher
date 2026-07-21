@@ -1,7 +1,10 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -9,8 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,9 +20,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,26 +35,43 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
+import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
+import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
+import com.sayemshafayet.onereogamelauncher.ui.components.GameVideoPlayer
+import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
+import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
+import com.sayemshafayet.onereogamelauncher.ui.util.formatDate
+import com.sayemshafayet.onereogamelauncher.ui.util.formatDurationMs
+import com.sayemshafayet.onereogamelauncher.ui.util.formatReleaseYear
+import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameLaunchConfigUi
 import kotlinx.coroutines.launch
+
+private enum class GameDetailTab { GAME, MEDIA, CONFIG }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,25 +83,23 @@ fun GameDetailScreen(
     val media by viewModel.media.collectAsState()
     val launchConfig by viewModel.launchConfig.collectAsState()
     val activeCommitment by viewModel.activeCommitment.collectAsState()
+    val totalPlaytimeMs by viewModel.totalPlaytimeMs.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    var selectedTab by remember { mutableIntStateOf(GameDetailTab.GAME.ordinal) }
     var notes by remember(game?.description) { mutableStateOf(game?.description.orEmpty()) }
     var launchAllowed by remember { mutableStateOf(true) }
     var lockReason by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(game?.id, activeCommitment?.id) {
         launchAllowed = viewModel.launchAllowed()
-        if (!launchAllowed) {
-            lockReason = "Another game is committed in Play mode. Finish or drop it first."
+        lockReason = if (!launchAllowed) {
+            "Another game is committed in Play mode. Finish or drop it first."
         } else {
-            lockReason = null
+            null
         }
     }
-
-    val hero = media.firstOrNull { it.type == MediaType.FANART }?.path
-        ?: media.firstOrNull { it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D }?.path
-    val isRetroArch = launchConfig.emulatorKey.equals("RETROARCH", ignoreCase = true)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -91,168 +111,523 @@ fun GameDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite() }) {
-                        Icon(
-                            if (game?.favorite == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                        )
-                    }
-                },
             )
         },
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(padding),
         ) {
-            GameCoverImage(
-                path = hero,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
-            )
-            Spacer(Modifier.height(12.dp))
-            game?.let { g ->
-                Text(g.title, style = MaterialTheme.typography.headlineMedium)
-                g.genre?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                g.description?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val onShelf = game?.onShelf == true
-                OutlinedButton(onClick = { viewModel.toggleShelf(!onShelf) }) {
-                    Icon(Icons.Default.StarOutline, contentDescription = null)
-                    Text(if (onShelf) "On shelf" else "Add to shelf")
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text("Launch", style = MaterialTheme.typography.titleMedium)
-            Text(
-                buildString {
-                    append("System default: ${launchConfig.systemEmulatorLabel}")
-                    if (launchConfig.systemCoreLabel.isNotBlank() &&
-                        launchConfig.systemCoreLabel != "Not set"
-                    ) {
-                        append(" · ${launchConfig.systemCoreLabel}")
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Per-game override")
-                    Text(
-                        "Use a different emulator/core for this game only",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = launchConfig.useOverride,
-                    onCheckedChange = viewModel::setUseOverride,
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == GameDetailTab.GAME.ordinal,
+                    onClick = { selectedTab = GameDetailTab.GAME.ordinal },
+                    text = { Text("Game") },
+                )
+                Tab(
+                    selected = selectedTab == GameDetailTab.MEDIA.ordinal,
+                    onClick = { selectedTab = GameDetailTab.MEDIA.ordinal },
+                    text = { Text("Media") },
+                )
+                Tab(
+                    selected = selectedTab == GameDetailTab.CONFIG.ordinal,
+                    onClick = { selectedTab = GameDetailTab.CONFIG.ordinal },
+                    text = { Text("Config") },
                 )
             }
 
-            EmulatorDropdown(
-                choices = launchConfig.emulatorChoices,
-                selectedKey = launchConfig.emulatorKey,
-                onSelected = viewModel::setEmulatorKey,
-                enabled = launchConfig.useOverride,
-            )
-            if (isRetroArch) {
-                if (launchConfig.coreChoices.isNotEmpty()) {
-                    CoreDropdown(
-                        choices = launchConfig.coreChoices,
-                        selectedCore = launchConfig.core,
-                        onSelected = viewModel::setCore,
-                        enabled = launchConfig.useOverride,
-                    )
-                }
-                OutlinedTextField(
-                    value = launchConfig.core,
-                    onValueChange = viewModel::setCore,
-                    enabled = launchConfig.useOverride,
-                    label = { Text("Core filename") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                )
-            }
-            OutlinedTextField(
-                value = launchConfig.customConfigPath,
-                onValueChange = viewModel::setCustomConfigPath,
-                enabled = launchConfig.useOverride,
-                label = { Text("Custom config path (optional)") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
-            if (launchConfig.useOverride) {
-                OutlinedButton(
-                    onClick = viewModel::saveLaunchConfig,
-                    modifier = Modifier.padding(top = 8.dp),
-                ) {
-                    Text("Save override")
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text("Notes", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-            )
-            OutlinedButton(onClick = { viewModel.saveNotes(notes) }) {
-                Text("Save notes")
-            }
-            if (media.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                Text("Media", style = MaterialTheme.typography.titleMedium)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(media, key = { it.id }) { m ->
-                        GameCoverImage(
-                            path = m.path,
-                            modifier = Modifier
-                                .height(100.dp)
-                                .aspectRatio(1f),
+            Box(Modifier.fillMaxSize()) {
+                when (selectedTab) {
+                    GameDetailTab.GAME.ordinal -> game?.let { g ->
+                        GameTabContent(
+                            game = g,
+                            media = media,
+                            totalPlaytimeMs = totalPlaytimeMs,
+                            notes = notes,
+                            onNotesChange = { notes = it },
+                            launchAllowed = launchAllowed,
+                            lockReason = lockReason,
+                            onLaunch = {
+                                scope.launch {
+                                    val err = viewModel.launch()
+                                    if (err != null) snackbar.showSnackbar(err)
+                                    else snackbar.showSnackbar("Launched")
+                                }
+                            },
+                            onSaveNotes = { viewModel.saveNotes(notes) },
+                            onToggleFavorite = viewModel::toggleFavorite,
+                            onToggleFinished = viewModel::toggleFinished,
+                            onToggleDropped = viewModel::toggleDropped,
                         )
                     }
+                    GameDetailTab.MEDIA.ordinal -> game?.let { g ->
+                        MediaTabContent(game = g, media = media)
+                    }
+                    GameDetailTab.CONFIG.ordinal -> ConfigTabContent(
+                        launchConfig = launchConfig,
+                        onUseOverrideChange = viewModel::setUseOverride,
+                        onEmulatorSelected = viewModel::setEmulatorKey,
+                        onCoreSelected = viewModel::setCore,
+                        onCoreTextChange = viewModel::setCore,
+                        onCustomConfigChange = viewModel::setCustomConfigPath,
+                        onSaveOverride = viewModel::saveLaunchConfig,
+                    )
                 }
             }
-            Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = {
-                    scope.launch {
-                        val err = viewModel.launch()
-                        if (err != null) snackbar.showSnackbar(err) else snackbar.showSnackbar("Launched")
-                    }
-                },
-                enabled = launchAllowed && game != null,
-                modifier = Modifier.fillMaxWidth(),
+        }
+    }
+}
+
+@Composable
+private fun GameTabContent(
+    game: GameEntity,
+    media: List<MediaEntity>,
+    totalPlaytimeMs: Long,
+    notes: String,
+    onNotesChange: (String) -> Unit,
+    launchAllowed: Boolean,
+    lockReason: String?,
+    onLaunch: () -> Unit,
+    onSaveNotes: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onToggleFinished: () -> Unit,
+    onToggleDropped: () -> Unit,
+) {
+    val cover = pickBoxArt(media.associate { it.type to it.path })
+    val playtimeLabel = if (totalPlaytimeMs > 0) {
+        formatDurationMs(totalPlaytimeMs)
+    } else if (game.playcount > 0) {
+        "${game.playcount} launches"
+    } else {
+        "Not tracked"
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            GameCoverImage(
+                path = cover,
+                modifier = Modifier
+                    .width(120.dp)
+                    .aspectRatio(0.75f),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Text("Play")
-            }
-            lockReason?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    game.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                MetadataLine("Genre", game.genre)
+                MetadataLine("Developer", game.developer)
+                MetadataLine("Publisher", game.publisher)
+                formatReleaseYear(game.releaseDate)?.let { year ->
+                    MetadataLine("Released", year)
+                }
             }
         }
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(
+                    onClick = onLaunch,
+                    enabled = launchAllowed,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Text("Launch")
+                }
+                lockReason?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    StatBlock("Last played", formatDate(game.lastPlayed))
+                    StatBlock("Playtime", playtimeLabel)
+                }
+
+                StatusChips(
+                    favorite = game.favorite,
+                    completedStatus = game.completedStatus,
+                    onToggleFavorite = onToggleFavorite,
+                    onToggleFinished = onToggleFinished,
+                    onToggleDropped = onToggleDropped,
+                )
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Notes", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Personal notes for this game",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = onNotesChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                    placeholder = { Text("Add your thoughts…") },
+                )
+                OutlinedButton(onClick = onSaveNotes) {
+                    Text("Save notes")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(120.dp))
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StatusChips(
+    favorite: Boolean,
+    completedStatus: GameCompletedStatus?,
+    onToggleFavorite: () -> Unit,
+    onToggleFinished: () -> Unit,
+    onToggleDropped: () -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = favorite,
+            onClick = onToggleFavorite,
+            label = { Text("Favorite") },
+            leadingIcon = {
+                Icon(
+                    if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    modifier = Modifier.height(18.dp),
+                )
+            },
+        )
+        FilterChip(
+            selected = completedStatus == GameCompletedStatus.FINISHED,
+            onClick = onToggleFinished,
+            label = { Text("Done") },
+        )
+        FilterChip(
+            selected = completedStatus == GameCompletedStatus.DROPPED,
+            onClick = onToggleDropped,
+            label = { Text("Dropped") },
+        )
+    }
+}
+
+@Composable
+private fun MetadataLine(label: String, value: String?) {
+    if (value.isNullOrBlank()) return
+    Column {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun StatBlock(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.Start) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(value, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun MediaTabContent(
+    game: GameEntity,
+    media: List<MediaEntity>,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        if (media.isEmpty()) {
+            Text(
+                "No media found for this game.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text("Artwork & video", style = MaterialTheme.typography.titleMedium)
+            media.sortedBy { it.type.ordinal }.forEach { item ->
+                MediaItemCard(item)
+            }
+        }
+
+        MetadataSection(game)
+
+        Spacer(Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun MediaItemCard(item: MediaEntity) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            mediaTypeLabel(item.type),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when (item.type) {
+            MediaType.VIDEO -> {
+                GameVideoPlayer(
+                    path = item.path,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f),
+                )
+            }
+            MediaType.FANART -> {
+                GameCoverImage(
+                    path = item.path,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f),
+                )
+            }
+            MediaType.MARQUEE, MediaType.TITLE -> {
+                GameCoverImage(
+                    path = item.path,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                )
+            }
+            else -> {
+                GameCoverImage(
+                    path = item.path,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(if (item.type == MediaType.SCREENSHOT) 16f / 9f else 0.75f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataSection(game: GameEntity) {
+    val hasMetadata = listOfNotNull(
+        game.description,
+        game.genre,
+        game.developer,
+        game.publisher,
+        formatReleaseYear(game.releaseDate),
+        game.players,
+        game.rating?.let { starsLabel(it) },
+    ).any { it.isNotBlank() }
+
+    if (!hasMetadata) return
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("Metadata", style = MaterialTheme.typography.titleMedium)
+            game.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                Text(desc, style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            }
+            MetadataRow("Genre", game.genre)
+            MetadataRow("Developer", game.developer)
+            MetadataRow("Publisher", game.publisher)
+            MetadataRow("Release", formatReleaseYear(game.releaseDate))
+            MetadataRow("Players", game.players)
+            game.rating?.let { rating ->
+                MetadataRow("Rating", starsLabel(rating))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataRow(label: String, value: String?) {
+    if (value.isNullOrBlank()) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.4f),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(0.6f),
+        )
+    }
+}
+
+@Composable
+private fun ConfigTabContent(
+    launchConfig: GameLaunchConfigUi,
+    onUseOverrideChange: (Boolean) -> Unit,
+    onEmulatorSelected: (String) -> Unit,
+    onCoreSelected: (String) -> Unit,
+    onCoreTextChange: (String) -> Unit,
+    onCustomConfigChange: (String) -> Unit,
+    onSaveOverride: () -> Unit,
+) {
+    val isRetroArch = launchConfig.emulatorKey.equals("RETROARCH", ignoreCase = true)
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Launch configuration", style = MaterialTheme.typography.titleMedium)
+        Text(
+            buildString {
+                append("System default: ${launchConfig.systemEmulatorLabel}")
+                if (launchConfig.systemCoreLabel.isNotBlank() &&
+                    launchConfig.systemCoreLabel != "Not set"
+                ) {
+                    append(" · ${launchConfig.systemCoreLabel}")
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Per-game override")
+                        Text(
+                            "Use a different emulator or core for this game only",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = launchConfig.useOverride,
+                        onCheckedChange = onUseOverrideChange,
+                    )
+                }
+
+                EmulatorDropdown(
+                    choices = launchConfig.emulatorChoices,
+                    selectedKey = launchConfig.emulatorKey,
+                    onSelected = onEmulatorSelected,
+                    enabled = launchConfig.useOverride,
+                )
+
+                if (isRetroArch) {
+                    if (launchConfig.coreChoices.isNotEmpty()) {
+                        CoreDropdown(
+                            choices = launchConfig.coreChoices,
+                            selectedCore = launchConfig.core,
+                            onSelected = onCoreSelected,
+                            enabled = launchConfig.useOverride,
+                        )
+                    }
+                    OutlinedTextField(
+                        value = launchConfig.core,
+                        onValueChange = onCoreTextChange,
+                        enabled = launchConfig.useOverride,
+                        label = { Text("Core filename") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                OutlinedTextField(
+                    value = launchConfig.customConfigPath,
+                    onValueChange = onCustomConfigChange,
+                    enabled = launchConfig.useOverride,
+                    label = { Text("Custom config path (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (launchConfig.useOverride) {
+                    OutlinedButton(onClick = onSaveOverride) {
+                        Text("Save override")
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(48.dp))
     }
 }

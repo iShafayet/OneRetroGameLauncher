@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameConfigEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
@@ -65,6 +66,9 @@ class GameDetailViewModel @Inject constructor(
     private val _launchConfig = MutableStateFlow(GameLaunchConfigUi())
     val launchConfig: StateFlow<GameLaunchConfigUi> = _launchConfig.asStateFlow()
 
+    private val _totalPlaytimeMs = MutableStateFlow(0L)
+    val totalPlaytimeMs: StateFlow<Long> = _totalPlaytimeMs.asStateFlow()
+
     private var systemCache: SystemEntity? = null
 
     init {
@@ -75,7 +79,10 @@ class GameDetailViewModel @Inject constructor(
         }
         viewModelScope.launch {
             game.collect { g ->
-                if (g != null) reloadChoices(g.systemId)
+                if (g != null) {
+                    reloadChoices(g.systemId)
+                    _totalPlaytimeMs.value = commitmentRepository.totalPlaytimeMsForGame(gameId)
+                }
             }
         }
     }
@@ -95,8 +102,32 @@ class GameDetailViewModel @Inject constructor(
         viewModelScope.launch { libraryRepository.toggleFavorite(gameId) }
     }
 
-    fun toggleShelf(on: Boolean) {
-        viewModelScope.launch { libraryRepository.setOnShelf(gameId, on) }
+    fun toggleFinished() {
+        viewModelScope.launch {
+            val g = libraryRepository.getGame(gameId) ?: return@launch
+            if (g.completedStatus == GameCompletedStatus.FINISHED) {
+                libraryRepository.updateGameMetadata(gameId, clearCompleted = true)
+            } else {
+                libraryRepository.updateGameMetadata(
+                    gameId,
+                    completedStatus = GameCompletedStatus.FINISHED,
+                )
+            }
+        }
+    }
+
+    fun toggleDropped() {
+        viewModelScope.launch {
+            val g = libraryRepository.getGame(gameId) ?: return@launch
+            if (g.completedStatus == GameCompletedStatus.DROPPED) {
+                libraryRepository.updateGameMetadata(gameId, clearCompleted = true)
+            } else {
+                libraryRepository.updateGameMetadata(
+                    gameId,
+                    completedStatus = GameCompletedStatus.DROPPED,
+                )
+            }
+        }
     }
 
     fun setUseOverride(enabled: Boolean) {

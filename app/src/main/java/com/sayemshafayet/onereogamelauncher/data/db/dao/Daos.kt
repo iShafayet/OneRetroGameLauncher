@@ -213,6 +213,15 @@ interface PlaySessionDao {
 
     @Query("SELECT COALESCE(SUM(durationMs), 0) FROM play_sessions WHERE commitmentId = :commitmentId")
     suspend fun totalDurationMs(commitmentId: Long): Long
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(ps.durationMs), 0) FROM play_sessions ps
+        INNER JOIN commitments c ON ps.commitmentId = c.id
+        WHERE c.gameId = :gameId
+        """,
+    )
+    suspend fun totalDurationMsForGame(gameId: Long): Long
 }
 
 @Dao

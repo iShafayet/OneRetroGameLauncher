@@ -8,7 +8,11 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VideogameAsset
 import androidx.compose.material3.Icon
@@ -95,6 +99,51 @@ fun pickBoxArt(paths: Map<MediaType, String>): String? =
         ?: paths[MediaType.SCREENSHOT]
         ?: paths[MediaType.MARQUEE]
         ?: paths.values.firstOrNull()
+
+fun mediaTypeLabel(type: MediaType): String = when (type) {
+    MediaType.BOX_2D -> "Box art"
+    MediaType.BOX_3D -> "3D box"
+    MediaType.SCREENSHOT -> "Screenshot"
+    MediaType.TITLE -> "Title screen"
+    MediaType.MARQUEE -> "Marquee"
+    MediaType.VIDEO -> "Video"
+    MediaType.FANART -> "Fan art"
+    MediaType.UNKNOWN -> "Media"
+}
+
+@Composable
+fun GameVideoPlayer(
+    path: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val uri = remember(path) {
+        when {
+            path.startsWith("content:", ignoreCase = true) ||
+                path.startsWith("file:", ignoreCase = true) -> Uri.parse(path)
+            else -> {
+                val file = File(path)
+                if (file.canRead()) Uri.fromFile(file) else Uri.parse(path)
+            }
+        }
+    }
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    setMediaController(MediaController(ctx).also { it.setAnchorView(this) })
+                    setVideoURI(uri)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            update = { it.setVideoURI(uri) },
+        )
+    }
+}
 
 @Composable
 fun PulseModifier(enabled: Boolean): Modifier {

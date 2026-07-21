@@ -129,6 +129,9 @@ class CommitmentRepository @Inject constructor(
     suspend fun totalPlaytimeMs(commitmentId: Long): Long =
         playSessionDao.totalDurationMs(commitmentId)
 
+    suspend fun totalPlaytimeMsForGame(gameId: Long): Long =
+        playSessionDao.totalDurationMsForGame(gameId)
+
     suspend fun sessionCount(commitmentId: Long): Int =
         playSessionDao.forCommitment(commitmentId).count { it.endedAt != null }
 
