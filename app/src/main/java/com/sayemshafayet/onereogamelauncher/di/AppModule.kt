@@ -41,5 +41,12 @@ object AppModule {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(2, TimeUnit.MINUTES)
             .writeTimeout(2, TimeUnit.MINUTES)
+            .addInterceptor { chain ->
+                chain.proceed(
+                    chain.request().newBuilder()
+                        .header("User-Agent", "OneRetroGameLauncher/1.0.0-beta (Android)")
+                        .build(),
+                )
+            }
             .build()
 }

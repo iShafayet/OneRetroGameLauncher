@@ -231,6 +231,17 @@ class LibraryRepository @Inject constructor(
         gameDao.update(game.copy(orglPlaytimeMs = game.orglPlaytimeMs + durationMs))
     }
 
+    suspend fun saveRaGameId(gameId: Long, raGameId: Int) {
+        val game = gameDao.getById(gameId) ?: return
+        gameDao.update(game.copy(raGameId = raGameId))
+    }
+
+    suspend fun clearRaGameId(gameId: Long) {
+        val game = gameDao.getById(gameId) ?: return
+        if (game.raGameId == null) return
+        gameDao.update(game.copy(raGameId = null))
+    }
+
     suspend fun updateGameMetadata(
         gameId: Long,
         title: String? = null,

@@ -7,6 +7,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigured
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import com.sayemshafayet.onereogamelauncher.domain.HltbEstimate
@@ -20,7 +21,6 @@ import com.sayemshafayet.onereogamelauncher.play.CollageInput
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -111,12 +111,15 @@ class FocusViewModel @Inject constructor(
             val settings = settingsRepository.current()
             _state.update { it.copy(loadingExtras = true) }
             val hltb = if (settings.hltbEnabled) hltbClient.search(game.title) else null
-            val ra = if (settings.retroAchievementsUser.isNotBlank()) {
+            val system = _state.value.system
+            val ra = if (settings.retroAchievementsConfigured()) {
                 raClient.fetchProgress(
                     settings = settings,
-                    romFile = File(game.romPath).takeIf { it.isFile },
+                    romPath = game.romPath,
                     title = game.title,
+                    systemFolder = system?.folderName,
                     knownGameId = game.raGameId,
+                    romPathsJson = game.romPathsJson,
                 )
             } else {
                 null

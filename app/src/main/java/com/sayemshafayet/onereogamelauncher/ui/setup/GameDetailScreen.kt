@@ -66,6 +66,7 @@ import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.GameVideoPlayer
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
+import com.sayemshafayet.onereogamelauncher.ui.components.RetroAchievementsButton
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
@@ -76,6 +77,7 @@ import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
 import com.sayemshafayet.onereogamelauncher.ui.util.totalOrglPlaytimeMs
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameLaunchConfigUi
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameRaUiState
 import kotlinx.coroutines.launch
 
 private enum class GameDetailTab { GAME, MEDIA, CONFIG }
@@ -84,6 +86,7 @@ private enum class GameDetailTab { GAME, MEDIA, CONFIG }
 @Composable
 fun GameDetailScreen(
     onBack: () -> Unit,
+    onOpenRetroAchievements: (Long) -> Unit,
     viewModel: GameDetailViewModel = hiltViewModel(),
 ) {
     val game by viewModel.game.collectAsState()
@@ -91,13 +94,14 @@ fun GameDetailScreen(
     val launchConfig by viewModel.launchConfig.collectAsState()
     val activeCommitment by viewModel.activeCommitment.collectAsState()
     val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
+    val raUi by viewModel.raUi.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.onReturnFromEmulator()
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.onScreenResume()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -164,6 +168,8 @@ fun GameDetailScreen(
                             onNotesChange = { notes = it },
                             launchAllowed = launchAllowed,
                             lockReason = lockReason,
+                            raUi = raUi,
+                            onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
                             onLaunch = {
                                 scope.launch {
                                     val err = viewModel.launch()
@@ -204,6 +210,8 @@ private fun GameTabContent(
     onNotesChange: (String) -> Unit,
     launchAllowed: Boolean,
     lockReason: String?,
+    raUi: GameRaUiState,
+    onOpenRetroAchievements: () -> Unit,
     onLaunch: () -> Unit,
     onSaveNotes: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -277,6 +285,13 @@ private fun GameTabContent(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
+
+                RetroAchievementsButton(
+                    state = raUi.button,
+                    loading = raUi.loading,
+                    onClick = onOpenRetroAchievements,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
                 HorizontalDivider()
 

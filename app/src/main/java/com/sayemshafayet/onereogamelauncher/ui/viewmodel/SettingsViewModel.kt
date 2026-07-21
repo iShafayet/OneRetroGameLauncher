@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigured
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
@@ -76,8 +77,7 @@ class SettingsViewModel @Inject constructor(
                         themeMode = s.themeMode,
                         retroArchPkg = s.preferredRetroArchPackage,
                         ssConfigured = s.screenScraperUser.isNotBlank(),
-                        raConfigured = s.retroAchievementsUser.isNotBlank() &&
-                            s.retroAchievementsPassword.isNotBlank(),
+                        raConfigured = s.retroAchievementsConfigured(),
                         hltbEnabled = s.hltbEnabled,
                     )
                 }

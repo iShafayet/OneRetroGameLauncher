@@ -9,6 +9,7 @@ object Routes {
     const val SETUP_SYSTEM = "setup/system/{systemId}"
     const val SETUP_SYSTEM_EMULATOR = "setup/system/{systemId}/emulator"
     const val SETUP_GAME = "setup/game/{gameId}"
+    const val SETUP_GAME_RA = "setup/game/{gameId}/retroachievements"
     const val SETUP_SETTINGS = "setup/settings"
     const val SETUP_SETTINGS_FOLDERS = "setup/settings/folders"
     const val SETUP_LIBRARY_SCAN = "setup/library/scan"
@@ -30,5 +31,6 @@ object Routes {
     fun setupSystem(systemId: Long) = "setup/system/$systemId"
     fun setupSystemEmulator(systemId: Long) = "setup/system/$systemId/emulator"
     fun setupGame(gameId: Long) = "setup/game/$gameId"
+    fun gameRetroAchievements(gameId: Long) = "setup/game/$gameId/retroachievements"
     fun playCommit(gameId: Long) = "play/commit/$gameId"
 }

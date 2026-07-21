@@ -41,6 +41,7 @@ import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.GameRetroAchievementsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
@@ -234,7 +235,18 @@ fun ModeShell(
                 SystemEmulatorSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETUP_GAME) {
-                GameDetailScreen(onBack = { navController.popBackStack() })
+                GameDetailScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenRetroAchievements = { gameId ->
+                        navController.navigate(Routes.gameRetroAchievements(gameId))
+                    },
+                )
+            }
+            composable(Routes.SETUP_GAME_RA) {
+                GameRetroAchievementsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenSettings = { navController.navigate(Routes.SETUP_SETTINGS_RA) },
+                )
             }
             composable(Routes.SETUP_SETTINGS) {
                 SettingsScreen(

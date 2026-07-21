@@ -33,8 +33,9 @@ data class AppSettings(
     val screenScraperDevid: String = "",
     val screenScraperDevpassword: String = "",
     val retroAchievementsUser: String = "",
+    /** RA account password (Connect API — same as RetroArch). */
     val retroAchievementsPassword: String = "",
-    /** Cached Connect API token from login2; not shown in UI. */
+    /** Cached Connect API token from login2. */
     val retroAchievementsToken: String = "",
     val preferredRetroArchPackage: String = "",
     val hltbEnabled: Boolean = true,
@@ -57,9 +58,9 @@ val AppSettings.screenScraperDevPassword: String get() = screenScraperDevpasswor
 /** @deprecated Use [esdeDataDirUri]. */
 val AppSettings.appDataDirUri: String? get() = esdeDataDirUri
 
-/** @deprecated Use [retroAchievementsPassword] / token flow. */
-val AppSettings.retroAchievementsApiKey: String
-    get() = retroAchievementsToken.ifBlank { retroAchievementsPassword }
+/** True when username and password are configured. */
+fun AppSettings.retroAchievementsConfigured(): Boolean =
+    retroAchievementsUser.isNotBlank() && retroAchievementsPassword.isNotBlank()
 
 @Singleton
 class SettingsRepository @Inject constructor(
@@ -92,7 +93,6 @@ class SettingsRepository @Inject constructor(
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
-        val password = p[Keys.raPassword].orEmpty().ifBlank { p[Keys.raApiKey].orEmpty() }
         AppSettings(
             romsDirUri = p[Keys.romsDirUri],
             romsDirPath = p[Keys.romsDirPath],
@@ -108,7 +108,7 @@ class SettingsRepository @Inject constructor(
             screenScraperDevid = p[Keys.ssDevid].orEmpty(),
             screenScraperDevpassword = p[Keys.ssDevPass].orEmpty(),
             retroAchievementsUser = p[Keys.raUser].orEmpty(),
-            retroAchievementsPassword = password,
+            retroAchievementsPassword = p[Keys.raPassword].orEmpty(),
             retroAchievementsToken = p[Keys.raToken].orEmpty(),
             preferredRetroArchPackage = p[Keys.raPackage].orEmpty(),
             hltbEnabled = p[Keys.hltbEnabled] ?: true,
@@ -174,8 +174,8 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit {
             it[Keys.raUser] = user
             it[Keys.raPassword] = password
-            it.remove(Keys.raToken)
             it.remove(Keys.raApiKey)
+            it.remove(Keys.raToken)
         }
     }
 

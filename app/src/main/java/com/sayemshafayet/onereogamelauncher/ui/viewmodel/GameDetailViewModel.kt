@@ -10,11 +10,18 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigured
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.RaButtonState
+import com.sayemshafayet.onereogamelauncher.domain.RaResult
+import com.sayemshafayet.onereogamelauncher.domain.RaVisualState
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
+import com.sayemshafayet.onereogamelauncher.ra.RaSupportEvaluator
+import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
+import com.sayemshafayet.onereogamelauncher.ra.RomHashCalculator
 import com.sayemshafayet.onereogamelauncher.scrape.ScrapeForegroundService
 import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -50,6 +58,9 @@ class GameDetailViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val emulatorLauncher: EmulatorLauncher,
     private val systemConfigLoader: SystemConfigLoader,
+    private val raClient: RetroAchievementsClient,
+    private val raSupportEvaluator: RaSupportEvaluator,
+    private val romHashCalculator: RomHashCalculator,
 ) : ViewModel() {
     val gameId: Long = savedStateHandle.get<String>("gameId")?.toLongOrNull() ?: 0L
 
@@ -71,6 +82,9 @@ class GameDetailViewModel @Inject constructor(
     private val _commitmentPlaytimeMs = MutableStateFlow(0L)
     val commitmentPlaytimeMs: StateFlow<Long> = _commitmentPlaytimeMs.asStateFlow()
 
+    private val _raUi = MutableStateFlow(GameRaUiState())
+    val raUi: StateFlow<GameRaUiState> = _raUi.asStateFlow()
+
     private var systemCache: SystemEntity? = null
 
     init {
@@ -84,15 +98,78 @@ class GameDetailViewModel @Inject constructor(
                 if (g != null) {
                     reloadChoices(g.systemId)
                     refreshCommitmentPlaytime()
+                    refreshRaStatus(g)
                 }
             }
         }
+        viewModelScope.launch {
+            launchConfig.collect { refreshRaStatus(game.value) }
+        }
     }
 
-    fun onReturnFromEmulator() {
+    private fun refreshRaStatus(game: GameEntity?) {
+        if (game == null) return
+        viewModelScope.launch {
+            _raUi.update { it.copy(loading = true) }
+            val settings = settingsRepository.settings.first()
+            val signedIn = settings.retroAchievementsConfigured()
+            if (!signedIn) {
+                _raUi.value = GameRaUiState(
+                    loading = false,
+                    button = RaButtonState(
+                        visual = RaVisualState.SIGN_IN_REQUIRED,
+                        subtitle = "Sign in under Settings → RetroAchievements",
+                        enabled = true,
+                    ),
+                )
+                return@launch
+            }
+
+            val lookupResult = raClient.lookupGame(
+                settings = settings,
+                romPath = game.romPath,
+                title = game.title,
+                systemFolder = systemCache?.folderName,
+                knownGameId = game.raGameId,
+                romPathsJson = game.romPathsJson,
+            )
+            when (lookupResult) {
+                is RaResult.Ok -> libraryRepository.saveRaGameId(gameId, lookupResult.value.gameId)
+                is RaResult.Unsupported -> libraryRepository.clearRaGameId(gameId)
+                is RaResult.Failed -> { /* keep cached id on transient errors */ }
+            }
+
+            val effectiveEmulator = if (_launchConfig.value.useOverride) {
+                _launchConfig.value.emulatorKey
+            } else {
+                systemCache?.defaultEmulatorKey ?: _launchConfig.value.emulatorKey
+            }
+
+            _raUi.value = GameRaUiState(
+                loading = false,
+                button = raSupportEvaluator.evaluateButton(
+                    signedIn = true,
+                    lookupResult = lookupResult,
+                    effectiveEmulatorKey = effectiveEmulator,
+                    romHashable = romHashCalculator.isHashable(
+                        RomHashCalculator.RomAccess(
+                            romPath = game.romPath,
+                            romPathsJson = game.romPathsJson,
+                            systemFolder = systemCache?.folderName,
+                            romsDirPath = settings.romsDirPath,
+                            romsTreeUri = settings.romsDirUri,
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun onScreenResume() {
         viewModelScope.launch {
             playStatsTracker.onAppForeground()
             refreshCommitmentPlaytime()
+            refreshRaStatus(game.value)
         }
     }
 
