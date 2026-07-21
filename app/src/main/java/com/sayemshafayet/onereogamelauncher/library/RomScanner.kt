@@ -111,7 +111,17 @@ class RomScanner @Inject constructor(
         scanInternal(
             systemFolderExists = { folder -> File(romsRoot, folder).isDirectory },
             listSystemFiles = { folder, _ -> listFilesystemFiles(File(romsRoot, folder)) },
-            loadGamelist = { folder -> loadGamelistFile(File(romsRoot, folder), "gamelist.xml") },
+            loadGamelist = { folder ->
+                val rom = GamelistSources.loadFromRomFolder(File(romsRoot, folder), gamelistParser)
+                val esde = GamelistSources.loadFromEsdeDataDir(
+                    context,
+                    esdeDataDirUri,
+                    esdeDataDirPath,
+                    folder,
+                    gamelistParser,
+                )
+                GamelistSources.merge(esde, rom)
+            },
             readTextFile = { path -> runCatching { File(path).readText() }.getOrNull() },
             orglMediaIndex = orglIndex,
             esdeMediaIndex = esdeIndex,
@@ -162,18 +172,19 @@ class RomScanner @Inject constructor(
             },
             loadGamelist = { folder ->
                 val dir = systemDirs[folder.lowercase()]
-                if (dir == null) {
+                val rom = if (dir == null) {
                     emptyMap()
                 } else {
-                    val gamelistDoc = findDocumentFile(dir, "gamelist.xml")
-                    if (gamelistDoc == null) {
-                        emptyMap()
-                    } else {
-                        context.contentResolver.openInputStream(gamelistDoc.uri)?.use { stream ->
-                            runCatching { gamelistParser.parse(stream) }.getOrDefault(emptyList())
-                        }?.associateBy { it.path }.orEmpty()
-                    }
+                    GamelistSources.loadFromRomFolderSaf(context, dir, folder, gamelistParser)
                 }
+                val esde = GamelistSources.loadFromEsdeDataDir(
+                    context,
+                    esdeDataDirUri,
+                    esdeDataDirPath,
+                    folder,
+                    gamelistParser,
+                )
+                GamelistSources.merge(esde, rom)
             },
             readTextFile = { path ->
                 when {
@@ -397,13 +408,6 @@ class RomScanner @Inject constructor(
         return out
     }
 
-    private fun loadGamelistFile(systemDir: File, name: String): Map<String, GamelistEntry> {
-        val gamelistFile = File(systemDir, name)
-        if (!gamelistFile.isFile) return emptyMap()
-        return runCatching { gamelistParser.parseFile(gamelistFile) }
-            .getOrDefault(emptyList())
-            .associateBy { it.path }
-    }
 
     private fun collectM3uHiddenPaths(
         files: List<FoundFile>,
@@ -493,7 +497,7 @@ class RomScanner @Inject constructor(
         val m3uFiles = romFiles.filter { it.extension == "m3u" }
 
         for (m3u in m3uFiles) {
-            val gl = gamelistMatch(gamelistByPath, m3u.relativePath)
+            val gl = gamelistMatch(gamelistByPath, m3u.relativePath, m3u.name)
             val discPaths = parseM3uDiscEntries(readTextFile(m3u.storagePath).orEmpty())
             games += ScannedGame(
                 romPath = m3u.storagePath,
@@ -509,7 +513,7 @@ class RomScanner @Inject constructor(
         for (file in romFiles) {
             if (file.extension == "m3u") continue
             if (file.relativePath in hidden || file.storagePath in hidden) continue
-            val gl = gamelistMatch(gamelistByPath, file.relativePath)
+            val gl = gamelistMatch(gamelistByPath, file.relativePath, file.name)
             games += ScannedGame(
                 romPath = file.storagePath,
                 relativePath = file.relativePath,
@@ -526,13 +530,22 @@ class RomScanner @Inject constructor(
     private fun gamelistMatch(
         gamelistByPath: Map<String, GamelistEntry>,
         relativePath: String,
+        fileName: String,
     ): GamelistEntry? {
         gamelistByPath[relativePath]?.let { return it }
         val norm = normalizePath(relativePath)
-        return gamelistByPath.entries.firstOrNull { normalizePath(it.key) == norm }?.value
-            ?: gamelistByPath.entries.firstOrNull {
-                normalizePath(it.key).endsWith(norm) || norm.endsWith(normalizePath(it.key))
+        gamelistByPath.entries.firstOrNull { normalizePath(it.key) == norm }?.value?.let { return it }
+        gamelistByPath.entries.firstOrNull {
+            val keyNorm = normalizePath(it.key)
+            keyNorm.endsWith(norm) || norm.endsWith(keyNorm)
+        }?.value?.let { return it }
+        val fileStem = fileName.substringBeforeLast('.').lowercase()
+        if (fileStem.isNotBlank()) {
+            return gamelistByPath.entries.firstOrNull { (path, _) ->
+                path.substringAfterLast('/').substringBeforeLast('.').equals(fileStem, ignoreCase = true)
             }?.value
+        }
+        return null
     }
 
     private fun parseM3uDiscEntries(text: String): List<String> =
@@ -559,25 +572,35 @@ class RomScanner @Inject constructor(
             },
         ).toString()
         // ORGL-owned fields win when present; fall back to ES-DE gamelist / scan defaults.
+        val derivedTitle = scanned.fileName.substringBeforeLast('.')
+        val existingTitle = existing?.title?.takeIf { it.isNotBlank() }
+        val title = when {
+            existingTitle == null -> gl?.name?.takeIf { it.isNotBlank() } ?: scanned.title
+            gl?.name?.isNotBlank() == true &&
+                existingTitle.equals(derivedTitle, ignoreCase = true) -> gl.name
+            else -> existingTitle
+        }
         return GameEntity(
             id = existing?.id ?: 0L,
             systemId = systemId,
-            title = existing?.title?.takeIf { it.isNotBlank() }
-                ?: gl?.name
-                ?: scanned.title,
+            title = title,
             romPath = scanned.romPath,
             romPathsJson = romPathsJson,
             fileName = scanned.fileName,
             favorite = existing?.favorite ?: gl?.favorite ?: false,
-            description = existing?.description ?: gl?.desc,
+            description = pickMetadata(existing?.description, gl?.desc),
+            notes = existing?.notes,
             rating = existing?.rating ?: gl?.rating,
-            releaseDate = existing?.releaseDate ?: gl?.releasedate,
-            developer = existing?.developer ?: gl?.developer,
-            publisher = existing?.publisher ?: gl?.publisher,
-            genre = existing?.genre ?: gl?.genre,
-            players = existing?.players ?: gl?.players,
-            playcount = existing?.playcount ?: gl?.playcount ?: 0,
-            lastPlayed = existing?.lastPlayed ?: gl?.lastplayed,
+            releaseDate = pickMetadata(existing?.releaseDate, gl?.releasedate),
+            developer = pickMetadata(existing?.developer, gl?.developer),
+            publisher = pickMetadata(existing?.publisher, gl?.publisher),
+            genre = pickMetadata(existing?.genre, gl?.genre),
+            players = pickMetadata(existing?.players, gl?.players),
+            esdePlaycount = gl?.playcount ?: existing?.esdePlaycount ?: 0,
+            esdeLastPlayed = gl?.lastplayed ?: existing?.esdeLastPlayed,
+            orglPlaycount = existing?.orglPlaycount ?: 0,
+            orglLastPlayed = existing?.orglLastPlayed,
+            orglPlaytimeMs = existing?.orglPlaytimeMs ?: 0L,
             completedStatus = existing?.completedStatus,
             onShelf = existing?.onShelf ?: false,
             raGameId = existing?.raGameId,
@@ -586,6 +609,9 @@ class RomScanner @Inject constructor(
             lastScrapedAt = existing?.lastScrapedAt,
         )
     }
+
+    private fun pickMetadata(existing: String?, fromGamelist: String?): String? =
+        existing?.takeIf { it.isNotBlank() } ?: fromGamelist?.takeIf { it.isNotBlank() }
 
     private fun resolveMedia(
         orglIndex: MediaLibrary,

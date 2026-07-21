@@ -103,7 +103,7 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE systemId = :systemId AND romPath = :romPath LIMIT 1")
     suspend fun findByRomPath(systemId: Long, romPath: String): GameEntity?
 
-    @Query("SELECT * FROM games WHERE completedStatus = :status ORDER BY lastPlayed DESC")
+    @Query("SELECT * FROM games WHERE completedStatus = :status ORDER BY MAX(COALESCE(orglLastPlayed, 0), COALESCE(esdeLastPlayed, 0)) DESC")
     fun observeByCompletedStatus(status: GameCompletedStatus): Flow<List<GameEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

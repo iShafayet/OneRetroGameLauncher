@@ -51,7 +51,7 @@ class Converters {
         MediaEntity::class,
         HltbCacheEntity::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

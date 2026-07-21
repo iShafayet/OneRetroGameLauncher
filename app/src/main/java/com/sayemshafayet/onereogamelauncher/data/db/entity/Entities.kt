@@ -49,15 +49,26 @@ data class GameEntity(
     val romPathsJson: String = "[]",
     val fileName: String,
     val favorite: Boolean = false,
+    /** Scraped / gamelist synopsis — not user notes. */
     val description: String? = null,
+    /** User-written notes in ORGL only. */
+    val notes: String? = null,
     val rating: Float? = null,
     val releaseDate: String? = null,
     val developer: String? = null,
     val publisher: String? = null,
     val genre: String? = null,
     val players: String? = null,
-    val playcount: Int = 0,
-    val lastPlayed: Long? = null,
+    /** Launch count imported from ES-DE gamelist (refreshed on scan). */
+    val esdePlaycount: Int = 0,
+    /** Last-played timestamp from ES-DE gamelist (refreshed on scan). */
+    val esdeLastPlayed: Long? = null,
+    /** Launch count recorded by ORGL. */
+    val orglPlaycount: Int = 0,
+    /** Last-played timestamp recorded by ORGL. */
+    val orglLastPlayed: Long? = null,
+    /** Playtime in ms tracked by ORGL (Setup-mode launches). Play-mode sessions are stored separately. */
+    val orglPlaytimeMs: Long = 0,
     val completedStatus: GameCompletedStatus? = null,
     val onShelf: Boolean = false,
     val raGameId: Int? = null,

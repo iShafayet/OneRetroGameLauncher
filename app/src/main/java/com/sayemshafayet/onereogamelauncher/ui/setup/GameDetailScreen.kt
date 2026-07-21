@@ -40,6 +40,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
@@ -63,10 +67,13 @@ import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.GameVideoPlayer
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
+import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
+import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
+import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
 import com.sayemshafayet.onereogamelauncher.ui.util.formatDate
-import com.sayemshafayet.onereogamelauncher.ui.util.formatDurationMs
 import com.sayemshafayet.onereogamelauncher.ui.util.formatReleaseYear
 import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
+import com.sayemshafayet.onereogamelauncher.ui.util.totalOrglPlaytimeMs
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameLaunchConfigUi
 import kotlinx.coroutines.launch
@@ -83,12 +90,21 @@ fun GameDetailScreen(
     val media by viewModel.media.collectAsState()
     val launchConfig by viewModel.launchConfig.collectAsState()
     val activeCommitment by viewModel.activeCommitment.collectAsState()
-    val totalPlaytimeMs by viewModel.totalPlaytimeMs.collectAsState()
+    val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.onReturnFromEmulator()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var selectedTab by remember { mutableIntStateOf(GameDetailTab.GAME.ordinal) }
-    var notes by remember(game?.description) { mutableStateOf(game?.description.orEmpty()) }
+    var notes by remember(game?.notes) { mutableStateOf(game?.notes.orEmpty()) }
     var launchAllowed by remember { mutableStateOf(true) }
     var lockReason by remember { mutableStateOf<String?>(null) }
 
@@ -143,7 +159,7 @@ fun GameDetailScreen(
                         GameTabContent(
                             game = g,
                             media = media,
-                            totalPlaytimeMs = totalPlaytimeMs,
+                            commitmentPlaytimeMs = commitmentPlaytimeMs,
                             notes = notes,
                             onNotesChange = { notes = it },
                             launchAllowed = launchAllowed,
@@ -183,7 +199,7 @@ fun GameDetailScreen(
 private fun GameTabContent(
     game: GameEntity,
     media: List<MediaEntity>,
-    totalPlaytimeMs: Long,
+    commitmentPlaytimeMs: Long,
     notes: String,
     onNotesChange: (String) -> Unit,
     launchAllowed: Boolean,
@@ -195,13 +211,10 @@ private fun GameTabContent(
     onToggleDropped: () -> Unit,
 ) {
     val cover = pickBoxArt(media.associate { it.type to it.path })
-    val playtimeLabel = if (totalPlaytimeMs > 0) {
-        formatDurationMs(totalPlaytimeMs)
-    } else if (game.playcount > 0) {
-        "${game.playcount} launches"
-    } else {
-        "Not tracked"
-    }
+    val activityLabel = formatActivityLabel(
+        playtimeMs = game.totalOrglPlaytimeMs(commitmentPlaytimeMs),
+        launchCount = game.combinedLaunchCount(),
+    )
 
     Column(
         Modifier
@@ -271,8 +284,8 @@ private fun GameTabContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    StatBlock("Last played", formatDate(game.lastPlayed))
-                    StatBlock("Playtime", playtimeLabel)
+                    StatBlock("Last played", formatDate(game.combinedLastPlayed()))
+                    StatBlock("Activity", activityLabel)
                 }
 
                 StatusChips(

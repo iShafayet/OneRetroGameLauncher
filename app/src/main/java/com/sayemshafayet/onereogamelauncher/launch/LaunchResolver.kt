@@ -5,6 +5,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.dao.GameDao
 import com.sayemshafayet.onereogamelauncher.data.db.dao.SystemDao
 import com.sayemshafayet.onereogamelauncher.data.prefs.OrglSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
 import java.io.File
 import javax.inject.Inject
@@ -19,6 +20,7 @@ class LaunchResolver @Inject constructor(
     private val emulatorLauncher: EmulatorLauncher,
     private val retroArchLauncher: RetroArchLauncher,
     private val systemConfigLoader: SystemConfigLoader,
+    private val playStatsTracker: PlayStatsTracker,
 ) {
 
     suspend fun resolve(gameId: Long, settings: OrglSettings? = null): LaunchPlan? {
@@ -74,7 +76,9 @@ class LaunchResolver @Inject constructor(
     suspend fun launch(gameId: Long): String? {
         val settings = settingsRepository.current()
         val plan = resolve(gameId, settings) ?: return "No emulator configured for this game"
-        return execute(plan, settings.preferredRetroArchPackage)
+        val err = execute(plan, settings.preferredRetroArchPackage)
+        if (err == null) playStatsTracker.onLaunchSuccess(gameId)
+        return err
     }
 
     fun execute(plan: LaunchPlan, preferredRetroArchPackage: String = ""): String? {

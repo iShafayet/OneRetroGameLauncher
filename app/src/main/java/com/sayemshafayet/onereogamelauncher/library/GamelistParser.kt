@@ -69,7 +69,7 @@ class GamelistParser @Inject constructor() {
                 when (parser.name) {
                     "path" -> path = readText(parser)
                     "name" -> name = readText(parser).ifBlank { null }
-                    "desc" -> desc = readText(parser).ifBlank { null }
+                    "desc", "description" -> desc = readText(parser).ifBlank { null }
                     "rating" -> rating = readText(parser).toFloatOrNull()
                     "releasedate" -> releasedate = readText(parser).ifBlank { null }
                     "developer" -> developer = readText(parser).ifBlank { null }

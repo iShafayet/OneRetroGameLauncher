@@ -14,6 +14,7 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.domain.RaProgress
 import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
+import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.play.CollageGenerator
 import com.sayemshafayet.onereogamelauncher.play.CollageInput
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
@@ -53,6 +54,7 @@ class FocusViewModel @Inject constructor(
     private val hltbClient: HowLongToBeatClient,
     private val raClient: RetroAchievementsClient,
     private val collageGenerator: CollageGenerator,
+    private val playStatsTracker: PlayStatsTracker,
 ) : ViewModel() {
     private val _state = MutableStateFlow(FocusUiState())
     val state: StateFlow<FocusUiState> = _state.asStateFlow()
@@ -143,6 +145,7 @@ class FocusViewModel @Inject constructor(
 
     fun onReturnFromEmulator() {
         viewModelScope.launch {
+            playStatsTracker.onAppForeground()
             val commitment = _state.value.commitment ?: return@launch
             if (launchedSession) {
                 commitmentRepository.endOpenSession(commitment.id)

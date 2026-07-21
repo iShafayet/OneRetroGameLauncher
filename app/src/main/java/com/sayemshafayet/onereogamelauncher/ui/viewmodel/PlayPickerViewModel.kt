@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,6 @@ class PlayPickerViewModel @Inject constructor(
 
     private suspend fun unplayedGames(): List<GameEntity> {
         val all = libraryRepository.observeSearch(null, "").first()
-        return all.filter { it.completedStatus == null && it.playcount == 0 }
+        return all.filter { it.completedStatus == null && it.combinedLaunchCount() == 0 }
     }
 }

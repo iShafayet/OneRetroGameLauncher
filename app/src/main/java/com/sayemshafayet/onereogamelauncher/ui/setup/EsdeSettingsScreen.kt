@@ -66,7 +66,7 @@ fun EsdeSettingsScreen(
                 .padding(16.dp),
         ) {
             Text(
-                "Optional. Point ORGL at ES-DE’s application data folder to use its downloaded_media/ as a read-only artwork fallback. ORGL never writes to ES-DE.",
+                "Optional. Point ORGL at ES-DE’s application data folder to use its downloaded_media/ artwork and gamelists/ metadata as a read-only fallback. ORGL never writes to ES-DE.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -14,6 +14,7 @@ import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
+import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.scrape.ScrapeForegroundService
 import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,6 +46,7 @@ class GameDetailViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val commitmentRepository: CommitmentRepository,
     private val launchResolver: LaunchResolver,
+    private val playStatsTracker: PlayStatsTracker,
     private val settingsRepository: SettingsRepository,
     private val emulatorLauncher: EmulatorLauncher,
     private val systemConfigLoader: SystemConfigLoader,
@@ -66,8 +68,8 @@ class GameDetailViewModel @Inject constructor(
     private val _launchConfig = MutableStateFlow(GameLaunchConfigUi())
     val launchConfig: StateFlow<GameLaunchConfigUi> = _launchConfig.asStateFlow()
 
-    private val _totalPlaytimeMs = MutableStateFlow(0L)
-    val totalPlaytimeMs: StateFlow<Long> = _totalPlaytimeMs.asStateFlow()
+    private val _commitmentPlaytimeMs = MutableStateFlow(0L)
+    val commitmentPlaytimeMs: StateFlow<Long> = _commitmentPlaytimeMs.asStateFlow()
 
     private var systemCache: SystemEntity? = null
 
@@ -81,10 +83,21 @@ class GameDetailViewModel @Inject constructor(
             game.collect { g ->
                 if (g != null) {
                     reloadChoices(g.systemId)
-                    _totalPlaytimeMs.value = commitmentRepository.totalPlaytimeMsForGame(gameId)
+                    refreshCommitmentPlaytime()
                 }
             }
         }
+    }
+
+    fun onReturnFromEmulator() {
+        viewModelScope.launch {
+            playStatsTracker.onAppForeground()
+            refreshCommitmentPlaytime()
+        }
+    }
+
+    private suspend fun refreshCommitmentPlaytime() {
+        _commitmentPlaytimeMs.value = commitmentRepository.totalPlaytimeMsForGame(gameId)
     }
 
     suspend fun system(): SystemEntity? {
@@ -156,9 +169,9 @@ class GameDetailViewModel @Inject constructor(
         persistLaunchConfig()
     }
 
-    fun saveNotes(description: String) {
+    fun saveNotes(notes: String) {
         viewModelScope.launch {
-            libraryRepository.updateGameMetadata(gameId, description = description)
+            libraryRepository.saveGameNotes(gameId, notes)
         }
     }
 
