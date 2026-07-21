@@ -241,7 +241,7 @@ fun FocusScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Journal") },
+                            text = { Text("History") },
                             onClick = {
                                 showMoreMenu = false
                                 onOpenJournal()

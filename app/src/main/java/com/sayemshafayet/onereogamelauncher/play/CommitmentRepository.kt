@@ -139,6 +139,9 @@ class CommitmentRepository @Inject constructor(
 
     fun observeJournal(): Flow<List<JournalEntryRow>> = journalDao.observeJournal()
 
+    suspend fun getJournalEntry(commitmentId: Long): JournalEntryRow? =
+        journalDao.getEntry(commitmentId)
+
     suspend fun getHistoryForGame(gameId: Long): List<CommitmentEntity> =
         commitmentDao.forGame(gameId).filter {
             it.status == CommitmentStatus.FINISHED || it.status == CommitmentStatus.DROPPED

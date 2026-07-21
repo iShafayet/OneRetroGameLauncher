@@ -36,6 +36,7 @@ fun SettingsScreen(
     onOpenLibraryFolders: () -> Unit,
     onOpenEsde: () -> Unit,
     onOpenScreenScraper: () -> Unit,
+    onOpenScrapeWizard: () -> Unit,
     onOpenRetroAchievements: () -> Unit,
     onOpenHltb: () -> Unit,
     onOpenRetroArch: () -> Unit,
@@ -90,6 +91,11 @@ fun SettingsScreen(
             title = "ScreenScraper",
             subtitle = "Under construction — use ES-DE for media",
             modifier = Modifier.orlgFocusable(onOpenScreenScraper),
+        )
+        SettingsNavRow(
+            title = "Scrape artwork",
+            subtitle = "Batch scrape metadata and media (beta)",
+            modifier = Modifier.orlgFocusable(onOpenScrapeWizard),
         )
         SettingsNavRow(
             title = "RetroAchievements",

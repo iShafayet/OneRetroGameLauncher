@@ -1,7 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.play
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,28 +58,49 @@ import java.io.File
 
 @Composable
 fun PlayCompletionScreen(
-    onStartNewAdventure: () -> Unit,
+    onStartNewAdventure: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
     onMissingData: () -> Unit,
     viewModel: PlayCompletionViewModel = hiltViewModel(),
 ) {
-    val completion = viewModel.completion
+    val completion by viewModel.completion.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val isHistoryView = viewModel.isHistoryView
     val isSaving by viewModel.isSaving.collectAsState()
     val savedToGallery by viewModel.savedToGallery.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
     val newAdventureFocus = rememberOrlgFocusRequester()
+    val backFocus = rememberOrlgFocusRequester()
 
-    LaunchedEffect(completion) {
-        if (completion == null) onMissingData()
+    LaunchedEffect(isLoading, completion) {
+        if (!isLoading && completion == null) onMissingData()
+    }
+
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator()
+        }
+        return
     }
 
     if (completion == null) return
 
-    val finished = completion.status == CommitmentStatus.FINISHED
-    val headline = if (finished) "Run complete!" else "Run ended"
-    val subtitle = if (finished) {
-        "You finished ${completion.gameTitle}. Nice work — that's what Play mode is for."
-    } else {
-        "You dropped ${completion.gameTitle}. No shame — every run teaches you something."
+    val data = completion!!
+
+    val finished = data.status == CommitmentStatus.FINISHED
+    val headline = when {
+        isHistoryView && finished -> "Finished run"
+        isHistoryView && !finished -> "Dropped run"
+        finished -> "Run complete!"
+        else -> "Run ended"
+    }
+    val subtitle = when {
+        isHistoryView -> "${data.gameTitle} · ${data.systemName}"
+        finished -> "You finished ${data.gameTitle}. Nice work — that's what Play mode is for."
+        else -> "You dropped ${data.gameTitle}. No shame — every run teaches you something."
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -112,7 +133,7 @@ fun PlayCompletionScreen(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    completion.collagePath?.let { collagePath ->
+                    data.collagePath?.let { collagePath ->
                         RunCardPreview(
                             path = collagePath,
                             modifier = Modifier
@@ -133,14 +154,14 @@ fun PlayCompletionScreen(
                                 verticalArrangement = Arrangement.Center,
                             ) {
                                 Text(
-                                    completion.gameTitle,
+                                    data.gameTitle,
                                     style = MaterialTheme.typography.titleLarge,
                                     textAlign = TextAlign.Center,
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    completion.systemName,
+                                    data.systemName,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -149,27 +170,27 @@ fun PlayCompletionScreen(
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            completion.gameTitle,
+                            data.gameTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            completion.systemName,
+                            data.systemName,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.secondary,
                         )
                         Text(
-                            starsLabel(completion.stars),
+                            starsLabel(data.stars),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            formatActivityLabel(completion.playtimeMs, completion.sessionCount),
+                            formatActivityLabel(data.playtimeMs, data.sessionCount),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        completion.reviewExcerpt?.takeIf { it.isNotBlank() }?.let {
+                        data.reviewExcerpt?.takeIf { it.isNotBlank() }?.let {
                             Text(
                                 "\"$it\"",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -203,7 +224,7 @@ fun PlayCompletionScreen(
                 }
                 OutlinedButton(
                     onClick = viewModel::saveToGallery,
-                    enabled = completion.collagePath != null && !isSaving && !savedToGallery,
+                    enabled = data.collagePath != null && !isSaving && !savedToGallery,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp),
@@ -225,28 +246,43 @@ fun PlayCompletionScreen(
                         }
                     }
                 }
-                Button(
-                    onClick = {
-                        viewModel.clearCompletion()
-                        onStartNewAdventure()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .focusRequester(newAdventureFocus)
-                        .then(PulseModifier(true)),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = MaterialTheme.colorScheme.onSecondary,
-                    ),
-                ) {
-                    Text("Start a new adventure")
+                if (isHistoryView && onBack != null) {
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                            .focusRequester(backFocus),
+                    ) {
+                        Text("Back to history")
+                    }
+                } else if (onStartNewAdventure != null) {
+                    Button(
+                        onClick = {
+                            viewModel.clearCompletion()
+                            onStartNewAdventure()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                            .focusRequester(newAdventureFocus)
+                            .then(PulseModifier(true)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary,
+                        ),
+                    ) {
+                        Text("Start a new adventure")
+                    }
                 }
             }
         }
     }
 
-    OrlgInitialFocus(newAdventureFocus)
+    OrlgInitialFocus(
+        if (isHistoryView) backFocus else newAdventureFocus,
+        enabled = completion != null,
+    )
 }
 
 @Composable

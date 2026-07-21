@@ -31,6 +31,8 @@ data class JournalEntryRow(
     val stars: Float?,
     val reviewText: String?,
     val collagePath: String?,
+    val playtimeMs: Long,
+    val sessionCount: Int,
 )
 
 @Dao
@@ -281,7 +283,17 @@ interface JournalDao {
             c.status AS status,
             r.stars AS stars,
             r.text AS reviewText,
-            r.collagePath AS collagePath
+            r.collagePath AS collagePath,
+            (
+                SELECT COALESCE(SUM(ps.durationMs), 0)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id
+            ) AS playtimeMs,
+            (
+                SELECT COUNT(*)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id AND ps.endedAt IS NOT NULL
+            ) AS sessionCount
         FROM commitments c
         INNER JOIN games g ON g.id = c.gameId
         INNER JOIN systems s ON s.id = g.systemId
@@ -305,7 +317,17 @@ interface JournalDao {
             c.status AS status,
             r.stars AS stars,
             r.text AS reviewText,
-            r.collagePath AS collagePath
+            r.collagePath AS collagePath,
+            (
+                SELECT COALESCE(SUM(ps.durationMs), 0)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id
+            ) AS playtimeMs,
+            (
+                SELECT COUNT(*)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id AND ps.endedAt IS NOT NULL
+            ) AS sessionCount
         FROM commitments c
         INNER JOIN games g ON g.id = c.gameId
         INNER JOIN systems s ON s.id = g.systemId
@@ -315,6 +337,40 @@ interface JournalDao {
         """,
     )
     suspend fun getJournal(): List<JournalEntryRow>
+
+    @Query(
+        """
+        SELECT
+            c.id AS commitmentId,
+            c.gameId AS gameId,
+            g.title AS gameTitle,
+            s.name AS systemName,
+            s.displayName AS systemDisplayName,
+            c.committedAt AS committedAt,
+            c.releasedAt AS releasedAt,
+            c.status AS status,
+            r.stars AS stars,
+            r.text AS reviewText,
+            r.collagePath AS collagePath,
+            (
+                SELECT COALESCE(SUM(ps.durationMs), 0)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id
+            ) AS playtimeMs,
+            (
+                SELECT COUNT(*)
+                FROM play_sessions ps
+                WHERE ps.commitmentId = c.id AND ps.endedAt IS NOT NULL
+            ) AS sessionCount
+        FROM commitments c
+        INNER JOIN games g ON g.id = c.gameId
+        INNER JOIN systems s ON s.id = g.systemId
+        LEFT JOIN reviews r ON r.commitmentId = c.id
+        WHERE c.id = :commitmentId AND c.status IN ('FINISHED', 'DROPPED')
+        LIMIT 1
+        """,
+    )
+    suspend fun getEntry(commitmentId: Long): JournalEntryRow?
 }
 
 @Dao

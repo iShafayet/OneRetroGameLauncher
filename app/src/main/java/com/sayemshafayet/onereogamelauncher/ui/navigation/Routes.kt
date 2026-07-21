@@ -19,13 +19,13 @@ object Routes {
     const val SETUP_SETTINGS_HLTB = "setup/settings/hltb"
     const val SETUP_SETTINGS_RETROARCH = "setup/settings/retroarch"
     const val SETUP_SETTINGS_CREDITS = "setup/settings/credits"
-    const val SETUP_SCRAPE = "setup/scrape"
+    const val SETUP_HISTORY = "setup/history"
+    const val SETUP_HISTORY_RUN = "setup/history/run/{commitmentId}"
     const val SETUP_SCRAPE_WIZARD = "setup/scrape/wizard"
 
     const val PLAY_HOME = "play/home"
     const val PLAY_PICKER = "play/picker"
     const val PLAY_FOCUS = "play/focus"
-    const val PLAY_JOURNAL = "play/journal"
     const val PLAY_COMMIT = "play/commit/{gameId}"
     const val PLAY_COMPLETE = "play/complete"
 
@@ -34,4 +34,5 @@ object Routes {
     fun setupGame(gameId: Long) = "setup/game/$gameId"
     fun gameRetroAchievements(gameId: Long) = "setup/game/$gameId/retroachievements"
     fun playCommit(gameId: Long) = "play/commit/$gameId"
+    fun historyRun(commitmentId: Long) = "setup/history/run/$commitmentId"
 }

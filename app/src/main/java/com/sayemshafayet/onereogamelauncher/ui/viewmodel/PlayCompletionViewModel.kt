@@ -1,10 +1,13 @@
 package com.sayemshafayet.onereogamelauncher.ui.viewmodel
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionData
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionStore
+import com.sayemshafayet.onereogamelauncher.play.toPlayCompletionData
 import com.sayemshafayet.onereogamelauncher.ui.util.GallerySaver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,11 +20,21 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class PlayCompletionViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val completionStore: PlayCompletionStore,
+    private val commitmentRepository: CommitmentRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
-    val completion: PlayCompletionData?
-        get() = completionStore.lastCompletion
+    private val historyCommitmentId: Long? =
+        savedStateHandle.get<String>("commitmentId")?.toLongOrNull()
+
+    val isHistoryView: Boolean = historyCommitmentId != null
+
+    private val _completion = MutableStateFlow<PlayCompletionData?>(null)
+    val completion: StateFlow<PlayCompletionData?> = _completion.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -32,8 +45,18 @@ class PlayCompletionViewModel @Inject constructor(
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            _completion.value = when (val id = historyCommitmentId) {
+                null -> completionStore.lastCompletion
+                else -> commitmentRepository.getJournalEntry(id)?.toPlayCompletionData()
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun saveToGallery() {
-        val data = completion ?: return
+        val data = _completion.value ?: return
         val path = data.collagePath
         if (path.isNullOrBlank()) {
             _saveMessage.value = "No run card was generated"
@@ -58,6 +81,8 @@ class PlayCompletionViewModel @Inject constructor(
     }
 
     fun clearCompletion() {
-        completionStore.lastCompletion = null
+        if (!isHistoryView) {
+            completionStore.lastCompletion = null
+        }
     }
 }

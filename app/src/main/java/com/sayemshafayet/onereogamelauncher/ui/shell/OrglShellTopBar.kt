@@ -41,7 +41,7 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 private val hubRoutes = setOf(
     Routes.SETUP_LIBRARY,
     Routes.SETUP_SETTINGS,
-    Routes.SETUP_SCRAPE,
+    Routes.SETUP_HISTORY,
     Routes.PLAY_PICKER,
     Routes.PLAY_FOCUS,
 )
@@ -54,6 +54,7 @@ fun OrglShellTopBar(
     currentRoute: String?,
     isPlay: Boolean,
     activeCommitment: CommitmentEntity?,
+    canPopBack: Boolean,
     onSetMode: (AppMode) -> Unit,
 ) {
     val onBack: () -> Unit = { navController.popBackStack(); Unit }
@@ -133,7 +134,11 @@ fun OrglShellTopBar(
                 backEnabled = wizard.step != ScrapeWizardStep.PROGRESS || !session.running,
             )
         }
-        Routes.PLAY_JOURNAL -> SimpleTopAppBar("Journal", onBack)
+        Routes.SETUP_HISTORY -> SimpleTopAppBar(
+            "History",
+            onBack = if (canPopBack) onBack else null,
+        )
+        Routes.SETUP_HISTORY_RUN -> SimpleTopAppBar("Run card", onBack)
         Routes.PLAY_COMPLETE -> SimpleTopAppBar("Run complete", onBack = null)
         Routes.PLAY_COMMIT -> SimpleTopAppBar("Confirm selection", onBack)
         else -> SimpleTopAppBar("", onBack = null)

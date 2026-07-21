@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,7 +36,6 @@ import com.sayemshafayet.onereogamelauncher.domain.AppMode
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
-import com.sayemshafayet.onereogamelauncher.ui.play.JournalScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
@@ -44,13 +43,13 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameRetroAchievementsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.HistoryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScanScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
-import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeWizardScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
@@ -88,7 +87,7 @@ fun ModeShell(
     val setupTabs = setOf(
         Routes.SETUP_LIBRARY,
         Routes.SETUP_SETTINGS,
-        Routes.SETUP_SCRAPE,
+        Routes.SETUP_HISTORY,
     )
     val immersiveRoutes = setOf(
         Routes.SETUP_ABOUT,
@@ -109,7 +108,7 @@ fun ModeShell(
     val rootRoutes = setOf(
         Routes.SETUP_LIBRARY,
         Routes.SETUP_SETTINGS,
-        Routes.SETUP_SCRAPE,
+        Routes.SETUP_HISTORY,
         Routes.PLAY_PICKER,
         Routes.PLAY_FOCUS,
         Routes.PLAY_COMPLETE,
@@ -172,18 +171,19 @@ fun ModeShell(
                 currentRoute = currentRoute,
                 isPlay = isPlay,
                 activeCommitment = activeCommitment,
+                canPopBack = canPopBack,
                 onSetMode = shellViewModel::setMode,
             )
         },
         bottomBar = {
             if (showSetupBar) {
                 OrglBottomNavStrip(
-                    labels = listOf("Library", "Scrape", "Settings"),
+                    labels = listOf("Library", "History", "Settings"),
                     selectedIndex = setupTabSelectedIndex,
                     icons = { index, _ ->
                         when (index) {
                             0 -> Icon(Icons.Default.ViewModule, contentDescription = null)
-                            1 -> Icon(Icons.Default.Image, contentDescription = null)
+                            1 -> Icon(Icons.Default.History, contentDescription = null)
                             else -> Icon(Icons.Default.Settings, contentDescription = null)
                         }
                     },
@@ -242,6 +242,7 @@ fun ModeShell(
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
                     onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
+                    onOpenScrapeWizard = { navController.navigate(Routes.SETUP_SCRAPE_WIZARD) },
                 )
             }
             composable(Routes.SETUP_SETTINGS_FOLDERS) {
@@ -277,9 +278,15 @@ fun ModeShell(
             composable(Routes.SETUP_SETTINGS_CREDITS) {
                 CreditsScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.SETUP_SCRAPE) {
-                ScrapeScreen(
-                    onOpenEsde = { navController.navigate(Routes.SETUP_SETTINGS_ESDE) },
+            composable(Routes.SETUP_HISTORY) {
+                HistoryScreen(
+                    onOpenRun = { navController.navigate(Routes.historyRun(it)) },
+                )
+            }
+            composable(Routes.SETUP_HISTORY_RUN) {
+                PlayCompletionScreen(
+                    onBack = { navController.popBackStack() },
+                    onMissingData = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETUP_SCRAPE_WIZARD) {
@@ -308,7 +315,7 @@ fun ModeShell(
                             popUpTo(Routes.PLAY_FOCUS) { inclusive = true }
                         }
                     },
-                    onOpenJournal = { navController.navigate(Routes.PLAY_JOURNAL) },
+                    onOpenJournal = { navController.navigate(Routes.SETUP_HISTORY) },
                     onOpenRetroAchievements = { gameId ->
                         navController.navigate(Routes.gameRetroAchievements(gameId))
                     },
@@ -328,9 +335,6 @@ fun ModeShell(
                     },
                 )
             }
-            composable(Routes.PLAY_JOURNAL) {
-                JournalScreen(onBack = { navController.popBackStack() })
-            }
         }
         }
     }
@@ -340,12 +344,12 @@ private val playFlowRoutes = setOf(
     Routes.PLAY_FOCUS,
     Routes.PLAY_COMMIT,
     Routes.PLAY_COMPLETE,
-    Routes.PLAY_JOURNAL,
+    Routes.SETUP_HISTORY,
 )
 
 private fun setupTabIndex(route: String?): Int = when {
     route == Routes.SETUP_LIBRARY -> 0
-    route == Routes.SETUP_SCRAPE || route?.startsWith("setup/scrape") == true -> 1
+    route == Routes.SETUP_HISTORY || route?.startsWith("setup/history/") == true -> 1
     route == Routes.SETUP_SETTINGS || route?.startsWith("setup/settings/") == true -> 2
     else -> 0
 }
@@ -356,7 +360,7 @@ private fun navigateSetupTab(
 ) {
     val destination = when (index) {
         0 -> Routes.SETUP_LIBRARY
-        1 -> Routes.SETUP_SCRAPE
+        1 -> Routes.SETUP_HISTORY
         else -> Routes.SETUP_SETTINGS
     }
     navController.navigate(destination) {
