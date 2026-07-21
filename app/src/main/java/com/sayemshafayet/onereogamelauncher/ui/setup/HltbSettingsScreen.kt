@@ -54,16 +54,6 @@ fun HltbSettingsScreen(
     val settings by viewModel.settings.collectAsState(initial = AppSettings())
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("HowLongToBeat") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
     ) { padding ->
         Column(
             Modifier

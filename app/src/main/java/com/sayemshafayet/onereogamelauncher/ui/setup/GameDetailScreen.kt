@@ -141,16 +141,6 @@ fun GameDetailScreen(
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { Text(game?.title ?: "Game") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
     ) { padding ->
         Column(
             Modifier

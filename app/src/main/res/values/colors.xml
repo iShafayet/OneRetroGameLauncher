@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0B1C24</color>
+    <!-- Match ui.theme.InkDeep — shown before Compose starts. -->
+    <color name="ink_deep">#FF0B1C24</color>
+    <color name="ink_mid">#FF122A35</color>
+    <color name="amber_accent">#FFE8A838</color>
+    <color name="ic_launcher_background">#FF0B1C24</color>
 </resources>

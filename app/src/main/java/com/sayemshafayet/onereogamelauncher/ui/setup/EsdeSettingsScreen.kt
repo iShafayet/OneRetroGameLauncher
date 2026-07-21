@@ -50,25 +50,12 @@ fun EsdeSettingsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("ES-DE") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-        ) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+    ) {
             Text(
                 "Optional. Point ORGL at ES-DE’s application data folder to use its downloaded_media/ artwork and gamelists/ metadata as a read-only fallback. ORGL never writes to ES-DE.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -131,6 +118,5 @@ fun EsdeSettingsScreen(
             ui.scanMessage?.let {
                 Text(it, modifier = Modifier.padding(top = 8.dp))
             }
-        }
     }
 }

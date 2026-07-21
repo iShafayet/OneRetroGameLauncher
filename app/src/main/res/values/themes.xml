@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ORGL" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ORGL" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ink_deep</item>
+        <item name="android:statusBarColor">@color/ink_deep</item>
+        <item name="android:navigationBarColor">@color/ink_deep</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- Cold start: dark frame instantly, then hand off to Compose splash. -->
+    <style name="Theme.ORGL.Launch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ink_deep</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.ORGL</item>
+    </style>
 </resources>

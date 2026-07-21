@@ -9,20 +9,26 @@ import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val libraryRepository: LibraryRepository,
     private val commitmentRepository: CommitmentRepository,
 ) : ViewModel() {
+    private val _startupReady = MutableStateFlow(false)
+    val startupReady: StateFlow<Boolean> = _startupReady.asStateFlow()
+
     val settings: StateFlow<AppSettings> = settingsRepository.settings.stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
+        SharingStarted.Eagerly,
         AppSettings(),
     )
 
@@ -37,6 +43,14 @@ class MainViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         null,
     )
+
+    init {
+        viewModelScope.launch {
+            libraryRepository.ensureCatalogLoaded()
+            settingsRepository.settings.first()
+            _startupReady.value = true
+        }
+    }
 
     fun ensureCatalog() {
         viewModelScope.launch { libraryRepository.ensureCatalogLoaded() }

@@ -46,20 +46,12 @@ fun LibraryScanScreen(
         viewModel.abort()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Scanning library") },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
             Text(
                 when (ui.outcome) {
                     LibraryScanOutcome.RUNNING -> progress?.statusMessage ?: "Starting scan…"
@@ -146,7 +138,6 @@ fun LibraryScanScreen(
                     Text("Done")
                 }
             }
-        }
     }
 }
 

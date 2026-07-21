@@ -3,29 +3,19 @@ package com.sayemshafayet.onereogamelauncher.ui.shell
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.unit.dp
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
@@ -110,9 +100,9 @@ fun ModeShell(
                 currentRoute?.startsWith("setup/settings/") == true ||
                 currentRoute?.startsWith("setup/scrape") == true
             )
-    // ORGL Setup/Play top bar only on primary hubs — sub-screens use their own TopAppBar.
+    // Primary hubs use the mode switcher in the shell top bar; all routes share that bar slot.
     val modeSwitcherRoutes = setupTabs + setOf(Routes.PLAY_PICKER, Routes.PLAY_FOCUS)
-    val hideModeSwitcher = currentRoute !in modeSwitcherRoutes
+    val isHubRoute = currentRoute in modeSwitcherRoutes
 
     val rootRoutes = setOf(
         Routes.SETUP_LIBRARY,
@@ -125,19 +115,13 @@ fun ModeShell(
         currentRoute !in rootRoutes
 
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
-    val showAboutButton = !isPlay && !hideModeSwitcher
+    val showAboutButton = !isPlay && isHubRoute
 
     GamepadBackHandler(canPopBack = canPopBack) {
         navController.popBackStack()
     }
 
     Scaffold(
-        contentWindowInsets = if (hideModeSwitcher) {
-            // Sub-screens own a TopAppBar; skip status-bar inset here to avoid a double gap.
-            WindowInsets(0, 0, 0, 0)
-        } else {
-            ScaffoldDefaults.contentWindowInsets
-        },
         modifier = Modifier.onPreviewKeyEvent { event ->
             when {
                 showSetupBar && GamepadKeys.isShoulderLeft(event) -> {
@@ -165,65 +149,14 @@ fun ModeShell(
             }
         },
         topBar = {
-            if (!hideModeSwitcher) {
-                TopAppBar(
-                    title = { Text(if (isPlay) "Play" else "ORGL") },
-                    actions = {
-                        if (!isPlay) {
-                            IconButton(
-                                onClick = { navController.navigate(Routes.SETUP_ABOUT) },
-                                modifier = Modifier.focusProperties { canFocus = false },
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.HelpOutline,
-                                    contentDescription = "About ORGL",
-                                )
-                            }
-                        }
-                        SingleChoiceSegmentedButtonRow(
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .focusProperties { canFocus = false },
-                        ) {
-                            SegmentedButton(
-                                selected = !isPlay,
-                                onClick = {
-                                    shellViewModel.setMode(AppMode.SETUP)
-                                    navController.navigate(Routes.SETUP_LIBRARY) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                                modifier = Modifier.focusProperties { canFocus = false },
-                            ) { Text("Setup") }
-                            SegmentedButton(
-                                selected = isPlay,
-                                onClick = {
-                                    shellViewModel.setMode(AppMode.PLAY)
-                                    val dest = if (activeCommitment != null) {
-                                        Routes.PLAY_FOCUS
-                                    } else {
-                                        Routes.PLAY_PICKER
-                                    }
-                                    navController.navigate(dest) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                                modifier = Modifier.focusProperties { canFocus = false },
-                            ) { Text("Play") }
-                        }
-                    },
-                )
-            }
+            OrglShellTopBar(
+                navController = navController,
+                backStackEntry = backStack,
+                currentRoute = currentRoute,
+                isPlay = isPlay,
+                activeCommitment = activeCommitment,
+                onSetMode = shellViewModel::setMode,
+            )
         },
         bottomBar = {
             if (showSetupBar) {
@@ -264,10 +197,6 @@ fun ModeShell(
             composable(Routes.SETUP_SYSTEM) {
                 SystemGamesScreen(
                     onGameClick = { navController.navigate(Routes.setupGame(it)) },
-                    onEmulatorSettings = { systemId ->
-                        navController.navigate(Routes.setupSystemEmulator(systemId))
-                    },
-                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETUP_SYSTEM_EMULATOR) {

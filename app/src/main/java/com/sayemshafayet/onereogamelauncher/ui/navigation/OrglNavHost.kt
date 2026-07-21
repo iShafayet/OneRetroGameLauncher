@@ -1,9 +1,6 @@
 package com.sayemshafayet.onereogamelauncher.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,14 +13,12 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
 fun OrglNavHost(
     viewModel: MainViewModel = hiltViewModel(),
 ) {
-    val settings by viewModel.settings.collectAsState()
     val navController = rememberNavController()
-
-    LaunchedEffect(Unit) { viewModel.ensureCatalog() }
+    val onboardingDone = viewModel.settings.value.onboardingDone
 
     NavHost(
         navController = navController,
-        startDestination = if (settings.onboardingDone) Routes.HOME else Routes.ONBOARDING,
+        startDestination = if (onboardingDone) Routes.HOME else Routes.ONBOARDING,
     ) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(

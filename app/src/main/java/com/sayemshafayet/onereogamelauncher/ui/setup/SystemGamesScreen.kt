@@ -16,21 +16,13 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ViewList
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,50 +42,18 @@ import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameListFilter
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SystemGamesScreen(
     onGameClick: (Long) -> Unit,
-    onEmulatorSettings: (Long) -> Unit,
-    onBack: () -> Unit,
     viewModel: SystemGamesViewModel = hiltViewModel(),
 ) {
-    val system by viewModel.system.collectAsState()
     val games by viewModel.games.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
     val filter by viewModel.gameFilter.collectAsState()
     val layout by viewModel.layout.collectAsState()
     val firstFocus = rememberOrlgFocusRequester()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(system?.displayName ?: "Games") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onEmulatorSettings(viewModel.systemId) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Emulator settings")
-                    }
-                    IconButton(onClick = viewModel::toggleLayout) {
-                        if (layout == GameListLayout.GRID) {
-                            Icon(Icons.Default.ViewList, contentDescription = "List view")
-                        } else {
-                            Icon(Icons.Default.GridView, contentDescription = "Grid view")
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
+    Column(Modifier.fillMaxSize()) {
             SearchField(
                 value = query,
                 onValueChange = viewModel::setQuery,
@@ -154,7 +114,6 @@ fun SystemGamesScreen(
                 }
             }
             OrlgInitialFocus(firstFocus, enabled = games.isNotEmpty())
-        }
     }
 }
 

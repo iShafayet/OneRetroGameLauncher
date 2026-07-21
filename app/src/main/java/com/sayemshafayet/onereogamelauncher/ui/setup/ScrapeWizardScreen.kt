@@ -65,35 +65,6 @@ fun ScrapeWizardScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        when (wizard.step) {
-                            ScrapeWizardStep.SYSTEMS -> "Select systems"
-                            ScrapeWizardStep.OPTIONS -> "Scrape options"
-                            ScrapeWizardStep.PROGRESS -> "Scraping"
-                        },
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            when (wizard.step) {
-                                ScrapeWizardStep.SYSTEMS -> onBack()
-                                ScrapeWizardStep.OPTIONS -> viewModel.goToSystems()
-                                ScrapeWizardStep.PROGRESS -> {
-                                    if (!session.running) onBack()
-                                }
-                            }
-                        },
-                        enabled = wizard.step != ScrapeWizardStep.PROGRESS || !session.running,
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
     ) { padding ->
         when (wizard.step) {
             ScrapeWizardStep.SYSTEMS -> SystemsStep(
