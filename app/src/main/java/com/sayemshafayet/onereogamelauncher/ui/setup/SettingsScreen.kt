@@ -89,7 +89,7 @@ fun SettingsScreen(
         )
         SettingsNavRow(
             title = "ScreenScraper",
-            subtitle = if (ui.ssConfigured) "Signed in" else "Not configured",
+            subtitle = "Under construction — use ES-DE for media",
             onClick = onOpenScreenScraper,
         )
         SettingsNavRow(

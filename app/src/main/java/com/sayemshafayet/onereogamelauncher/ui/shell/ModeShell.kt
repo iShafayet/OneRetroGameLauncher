@@ -255,7 +255,10 @@ fun ModeShell(
                 EsdeSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETUP_SETTINGS_SCREENSCRAPER) {
-                ScreenScraperSettingsScreen(onBack = { navController.popBackStack() })
+                ScreenScraperSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenEsde = { navController.navigate(Routes.SETUP_SETTINGS_ESDE) },
+                )
             }
             composable(Routes.SETUP_SETTINGS_RA) {
                 RetroAchievementsSettingsScreen(onBack = { navController.popBackStack() })
@@ -271,10 +274,7 @@ fun ModeShell(
             }
             composable(Routes.SETUP_SCRAPE) {
                 ScrapeScreen(
-                    onStartWizard = { navController.navigate(Routes.SETUP_SCRAPE_WIZARD) },
-                    onOpenCredentials = {
-                        navController.navigate(Routes.SETUP_SETTINGS_SCREENSCRAPER)
-                    },
+                    onOpenEsde = { navController.navigate(Routes.SETUP_SETTINGS_ESDE) },
                 )
             }
             composable(Routes.SETUP_SCRAPE_WIZARD) {

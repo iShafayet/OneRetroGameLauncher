@@ -131,9 +131,6 @@ fun GameDetailScreen(
                     Icon(Icons.Default.StarOutline, contentDescription = null)
                     Text(if (onShelf) "On shelf" else "Add to shelf")
                 }
-                OutlinedButton(onClick = { viewModel.scrapeGame() }) {
-                    Text("Scrape artwork")
-                }
             }
 
             Spacer(Modifier.height(16.dp))

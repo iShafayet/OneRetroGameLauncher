@@ -11,26 +11,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 
 @Composable
 fun ScrapeScreen(
-    onStartWizard: () -> Unit,
-    onOpenCredentials: () -> Unit,
-    viewModel: ScrapeViewModel = hiltViewModel(),
+    onOpenEsde: () -> Unit,
 ) {
-    val stats by viewModel.stats.collectAsState()
-    LaunchedEffect(Unit) { viewModel.refreshStats() }
-
     Column(
         Modifier
             .fillMaxSize()
@@ -40,65 +29,21 @@ fun ScrapeScreen(
     ) {
         Text("Scrape", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Download artwork and metadata into your ORGL data folder. ES-DE is never modified.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(8.dp))
-        Text("Library", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "${stats.totalGames} games",
-            style = MaterialTheme.typography.headlineSmall,
+            "Scraping is under construction.",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            "${stats.scrapedGames} scraped by ORGL",
+            "Built-in artwork and metadata scraping isn’t available yet. For now, link your ES-DE data folder — ORGL will use its downloaded_media/ as a read-only fallback so scraped game media shows up in your library.",
             style = MaterialTheme.typography.bodyLarge,
-        )
-        Text(
-            "Last scrape: ${stats.lastScrapeLabel}",
-            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (stats.totalGames > 0) {
-            val pct = (stats.scrapedGames * 100) / stats.totalGames
-            Text(
-                "$pct% coverage",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
         Button(
-            onClick = onStartWizard,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = stats.totalGames > 0,
-        ) {
-            Text("Start scraping wizard")
-        }
-        OutlinedButton(
-            onClick = onOpenCredentials,
+            onClick = onOpenEsde,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                if (stats.ssConfigured) "Scraping credentials"
-                else "Set scraping credentials",
-            )
-        }
-        if (!stats.ssConfigured) {
-            Text(
-                "ScreenScraper credentials are recommended. Without them, ORGL falls back to libretro-thumbnails only.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (stats.totalGames == 0) {
-            Text(
-                "Scan your library first (Settings → Folders).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+            Text("Open ES-DE integration")
         }
     }
 }
