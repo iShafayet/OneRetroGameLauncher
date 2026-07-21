@@ -160,8 +160,14 @@ class SystemConfigLoader @Inject constructor(
     }
 
     fun extractExtra(template: String, extraName: String): String? {
-        val pattern = Regex("""%EXTRA_${extraName}%=([^\s%]+)""", RegexOption.IGNORE_CASE)
-        return pattern.find(template)?.groupValues?.getOrNull(1)
+        // Values may contain %ANDROIDPACKAGE% / %INTERNALDATA% placeholders — do not stop at '%'.
+        val pattern = Regex("""%EXTRA_${extraName}%=(\S+)""", RegexOption.IGNORE_CASE)
+        val raw = pattern.find(template)?.groupValues?.getOrNull(1) ?: return null
+        return if (extraName.equals("LIBRETRO", ignoreCase = true)) {
+            LibretroCorePaths.coreFileNameFromExtra(raw)
+        } else {
+            raw
+        }
     }
 
     private object Xml {

@@ -56,7 +56,7 @@ class EsSystemsParser @Inject constructor() {
     fun defaultCoreFromCommands(commands: List<SystemCommand>): String? {
         for (cmd in commands) {
             val match = LIBRETRO_REGEX.find(cmd.template) ?: continue
-            return match.groupValues[1]
+            return LibretroCorePaths.coreFileNameFromExtra(match.groupValues[1])
         }
         return null
     }
@@ -146,6 +146,7 @@ class EsSystemsParser @Inject constructor() {
 
     companion object {
         private val EMULATOR_REGEX = Regex("""%EMULATOR_([A-Z0-9_-]+)%""")
-        private val LIBRETRO_REGEX = Regex("""%EXTRA_LIBRETRO%=([^\s%]+)""")
+        // Allow %ANDROIDPACKAGE% / %INTERNALDATA% placeholders inside the path.
+        private val LIBRETRO_REGEX = Regex("""%EXTRA_LIBRETRO%=(\S+)""")
     }
 }

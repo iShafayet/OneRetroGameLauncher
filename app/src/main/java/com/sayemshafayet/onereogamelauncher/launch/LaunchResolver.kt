@@ -119,9 +119,15 @@ class LaunchResolver @Inject constructor(
     ): String? {
         if (!resolvedKey.equals("RETROARCH", ignoreCase = true)) return null
         if (gameConfig?.useOverride == true) {
-            gameConfig.coreOverride?.takeIf { it.isNotBlank() }?.let { return it }
+            usableCore(gameConfig.coreOverride)?.let { return it }
         }
-        system?.defaultCore?.takeIf { it.isNotBlank() }?.let { return it }
+        usableCore(system?.defaultCore)?.let { return it }
         return systemDef?.let { systemConfigLoader.firstRetroArchCore(it) }
+    }
+
+    private fun usableCore(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val normalized = RetroArchLauncher.normalizeCoreFileName(raw)
+        return normalized.takeIf { it.endsWith(".so", ignoreCase = true) }
     }
 }

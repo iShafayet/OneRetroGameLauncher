@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import com.sayemshafayet.onereogamelauncher.domain.LaunchCheck
 import com.sayemshafayet.onereogamelauncher.domain.LaunchSeverity
+import com.sayemshafayet.onereogamelauncher.systems.LibretroCorePaths
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -44,7 +45,7 @@ class RetroArchLauncher @Inject constructor(
             }
 
         fun normalizeCoreFileName(coreFileName: String): String {
-            val name = coreFileName.trim()
+            val name = LibretroCorePaths.coreFileNameFromExtra(coreFileName.trim())
             return when (name) {
                 "mame_libretro_android.so", "mame_libretro.so" -> "mamearcade_libretro_android.so"
                 else -> name

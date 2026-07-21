@@ -56,4 +56,25 @@ class EsSystemsParserTest {
         assertEquals(2, entries.size)
         assertEquals("com.retroarch.aarch64", entries[0].packageName)
     }
+
+    @Test
+    fun defaultCoreFromCommands_stripsAndroidPackagePlaceholders() {
+        val xml = """
+            <?xml version="1.0"?>
+            <systemList>
+              <system>
+                <name>nes</name>
+                <fullname>Nintendo Entertainment System</fullname>
+                <path>%ROMPATH%/nes</path>
+                <extension>.nes .NES</extension>
+                <command label="Mesen">%EMULATOR_RETROARCH% %EXTRA_LIBRETRO%=/data/data/%ANDROIDPACKAGE%/cores/mesen_libretro_android.so %EXTRA_ROM%=%ROM%</command>
+                <command label="Nestopia UE">%EMULATOR_RETROARCH% %EXTRA_LIBRETRO%=/data/data/%ANDROIDPACKAGE%/cores/nestopia_libretro_android.so %EXTRA_ROM%=%ROM%</command>
+                <platform>nes</platform>
+              </system>
+            </systemList>
+        """.trimIndent()
+
+        val systems = parser.parseSystems(ByteArrayInputStream(xml.toByteArray()))
+        assertEquals("mesen_libretro_android.so", parser.defaultCoreFromCommands(systems.first().commands))
+    }
 }

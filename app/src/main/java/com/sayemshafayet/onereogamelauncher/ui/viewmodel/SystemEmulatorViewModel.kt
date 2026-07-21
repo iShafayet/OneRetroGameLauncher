@@ -106,7 +106,7 @@ class SystemEmulatorViewModel @Inject constructor(
             ?: choices.firstOrNull { it.installed }?.key
             ?: choices.firstOrNull()?.key
             ?: ""
-        val selectedCore = sys.defaultCore?.takeIf { it.isNotBlank() }
+        val selectedCore = usableCoreFile(sys.defaultCore)
             ?: cores.firstOrNull()?.fileName
             ?: ""
 
@@ -117,6 +117,12 @@ class SystemEmulatorViewModel @Inject constructor(
             emulatorChoices = choices,
             coreChoices = cores,
         )
+    }
+
+    private fun usableCoreFile(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val normalized = com.sayemshafayet.onereogamelauncher.systems.LibretroCorePaths.coreFileNameFromExtra(raw)
+        return normalized.takeIf { it.endsWith(".so", ignoreCase = true) }
     }
 
     private fun buildEmulatorChoices(

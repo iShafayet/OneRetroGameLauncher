@@ -300,15 +300,14 @@ class GameDetailViewModel @Inject constructor(
         val systemEmu = sys.defaultEmulatorKey?.takeIf { it.isNotBlank() }
             ?: choices.firstOrNull { it.installed }?.key
             ?: ""
-        val systemCore = sys.defaultCore?.takeIf { it.isNotBlank() }
+        val systemCore = usableCoreFile(sys.defaultCore)
             ?: cores.firstOrNull()?.fileName
             ?: ""
 
         val cfg = config.value
         val emuKey = cfg?.emulatorKey?.takeIf { it.isNotBlank() }
             ?: systemEmu
-        val core = cfg?.coreOverride?.takeIf { it.isNotBlank() }
-            ?: systemCore
+        val core = usableCoreFile(cfg?.coreOverride) ?: systemCore
 
         _launchConfig.update {
             it.copy(
@@ -325,6 +324,12 @@ class GameDetailViewModel @Inject constructor(
                     ?: systemCore.ifBlank { "Not set" },
             )
         }
+    }
+
+    private fun usableCoreFile(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val normalized = com.sayemshafayet.onereogamelauncher.systems.LibretroCorePaths.coreFileNameFromExtra(raw)
+        return normalized.takeIf { it.endsWith(".so", ignoreCase = true) }
     }
 
     private fun buildEmulatorChoices(
