@@ -24,26 +24,25 @@ fun orglVersionName(props: Properties = loadVersionProperties()): String {
     val minor = props.getProperty("VERSION_MINOR", "0")
     val patch = props.getProperty("VERSION_PATCH", "0")
     val prerelease = props.getProperty("VERSION_PRERELEASE", "alpha")
-    return "$major.$minor.$patch-$prerelease"
+    val build = props.getProperty("VERSION_BUILD", "0")
+    return "$major.$minor.$patch-$prerelease+$build"
 }
 
-fun orglVersionCode(props: Properties = loadVersionProperties()): Int {
-    val major = props.getProperty("VERSION_MAJOR", "0").toInt()
-    val minor = props.getProperty("VERSION_MINOR", "0").toInt()
-    val patch = props.getProperty("VERSION_PATCH", "0").toInt()
-    return major * 1_000_000 + minor * 10_000 + patch
-}
+fun orglVersionCode(props: Properties = loadVersionProperties()): Int =
+    props.getProperty("VERSION_BUILD", "0").toInt()
 
-fun bumpOrglPatchVersion() {
+fun bumpOrglBuildVersion() {
     val props = loadVersionProperties()
-    val patch = props.getProperty("VERSION_PATCH", "0").toInt() + 1
+    val build = props.getProperty("VERSION_BUILD", "0").toInt() + 1
     versionPropertiesFile.writeText(
         """
-        |# ORGL semver — patch auto-increments on debug builds (make build / make run)
+        |# ORGL semver — bump MAJOR/MINOR/PATCH manually when cutting a release.
+        |# VERSION_BUILD is the monotonic Android versionCode (+build in versionName); auto-increments on debug builds.
         |VERSION_MAJOR=${props.getProperty("VERSION_MAJOR", "0")}
         |VERSION_MINOR=${props.getProperty("VERSION_MINOR", "0")}
-        |VERSION_PATCH=$patch
+        |VERSION_PATCH=${props.getProperty("VERSION_PATCH", "0")}
         |VERSION_PRERELEASE=${props.getProperty("VERSION_PRERELEASE", "alpha")}
+        |VERSION_BUILD=$build
         |
         """.trimMargin(),
     )
@@ -169,7 +168,7 @@ tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configur
         } else {
             logger.warn("Expected APK missing: $apk")
         }
-        bumpOrglPatchVersion()
+        bumpOrglBuildVersion()
         logger.lifecycle("Next debug build version: ${orglVersionName()}")
     }
 }

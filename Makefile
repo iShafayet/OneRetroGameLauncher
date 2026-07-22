@@ -15,7 +15,7 @@ FLAVOR        ?= fdroid
 # Capitalize first letter for Gradle task names (fdroid -> Fdroid, play -> Play)
 FLAVOR_CAP    := $(shell printf '%s' "$(FLAVOR)" | sed 's/^./\U&/')
 APK_DEBUG     := app/build/outputs/apk/$(FLAVOR)/debug/app-$(FLAVOR)-debug.apk
-VERSION_NAME  := $(shell grep '^VERSION_MAJOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_MINOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_PATCH=' version.properties | cut -d= -f2)-$(shell grep '^VERSION_PRERELEASE=' version.properties | cut -d= -f2)
+VERSION_NAME  := $(shell grep '^VERSION_MAJOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_MINOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_PATCH=' version.properties | cut -d= -f2)-$(shell grep '^VERSION_PRERELEASE=' version.properties | cut -d= -f2)+$(shell grep '^VERSION_BUILD=' version.properties | cut -d= -f2)
 LOCAL_APK     := .local/apk/orgl-$(FLAVOR)-debug-$(VERSION_NAME).apk
 
 ANDROID_HOME  ?= $(HOME)/Android/Sdk
