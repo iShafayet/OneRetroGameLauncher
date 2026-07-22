@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.flavor.StoreFlavorLabel
 
 @Composable
@@ -49,7 +50,7 @@ fun CreditsScreen(onBack: () -> Unit) {
         Text("See LICENSE in the project root (GNU GPL v3).")
 
         Text(
-            "v1.0.0-beta",
+            "v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

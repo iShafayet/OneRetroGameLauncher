@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -33,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
@@ -195,7 +197,20 @@ private fun HubTopAppBar(
     }
 
     TopAppBar(
-        title = { Text(if (isPlay) "Play" else "ORGL") },
+        title = {
+            if (isPlay) {
+                Text("Play")
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("ORGL")
+                    Text(
+                        text = " ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
         actions = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -2,6 +2,7 @@ package com.sayemshafayet.onereogamelauncher.di
 
 import android.content.Context
 import androidx.room.Room
+import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.data.db.AppDatabase
 import dagger.Module
 import dagger.Provides
@@ -44,7 +45,7 @@ object AppModule {
             .addInterceptor { chain ->
                 chain.proceed(
                     chain.request().newBuilder()
-                        .header("User-Agent", "OneRetroGameLauncher/1.0.0-beta (Android)")
+                        .header("User-Agent", "OneRetroGameLauncher/${BuildConfig.VERSION_NAME} (Android)")
                         .build(),
                 )
             }

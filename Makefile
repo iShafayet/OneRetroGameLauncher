@@ -15,6 +15,8 @@ FLAVOR        ?= fdroid
 # Capitalize first letter for Gradle task names (fdroid -> Fdroid, play -> Play)
 FLAVOR_CAP    := $(shell printf '%s' "$(FLAVOR)" | sed 's/^./\U&/')
 APK_DEBUG     := app/build/outputs/apk/$(FLAVOR)/debug/app-$(FLAVOR)-debug.apk
+VERSION_NAME  := $(shell grep '^VERSION_MAJOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_MINOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_PATCH=' version.properties | cut -d= -f2)-$(shell grep '^VERSION_PRERELEASE=' version.properties | cut -d= -f2)
+LOCAL_APK     := .local/apk/orgl-$(FLAVOR)-debug-$(VERSION_NAME).apk
 
 ANDROID_HOME  ?= $(HOME)/Android/Sdk
 ADB           := $(ANDROID_HOME)/platform-tools/adb
@@ -64,8 +66,9 @@ doctor: ## Check JDK, SDK, adb, and listed AVDs
 compile: ## Compile Kotlin (debug) for FLAVOR
 	$(GRADLEW) :app:compile$(FLAVOR_CAP)DebugKotlin
 
-build: ## Build debug APK for FLAVOR (default: fdroid)
+build: ## Build debug APK for FLAVOR (default: fdroid); copies to .local/apk and bumps patch
 	$(GRADLEW) assemble$(FLAVOR_CAP)Debug
+	@echo "Local copy: $(LOCAL_APK)"
 
 assemble: build ## Alias for build
 

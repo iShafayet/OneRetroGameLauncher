@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,6 +9,55 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val versionPropertiesFile = rootProject.file("version.properties")
+
+fun loadVersionProperties(): Properties {
+    val props = Properties()
+    if (versionPropertiesFile.exists()) {
+        versionPropertiesFile.inputStream().use { props.load(it) }
+    }
+    return props
+}
+
+fun orglVersionName(props: Properties = loadVersionProperties()): String {
+    val major = props.getProperty("VERSION_MAJOR", "0")
+    val minor = props.getProperty("VERSION_MINOR", "0")
+    val patch = props.getProperty("VERSION_PATCH", "0")
+    val prerelease = props.getProperty("VERSION_PRERELEASE", "alpha")
+    return "$major.$minor.$patch-$prerelease"
+}
+
+fun orglVersionCode(props: Properties = loadVersionProperties()): Int {
+    val major = props.getProperty("VERSION_MAJOR", "0").toInt()
+    val minor = props.getProperty("VERSION_MINOR", "0").toInt()
+    val patch = props.getProperty("VERSION_PATCH", "0").toInt()
+    return major * 1_000_000 + minor * 10_000 + patch
+}
+
+fun bumpOrglPatchVersion() {
+    val props = loadVersionProperties()
+    val patch = props.getProperty("VERSION_PATCH", "0").toInt() + 1
+    versionPropertiesFile.writeText(
+        """
+        |# ORGL semver — patch auto-increments on debug builds (make build / make run)
+        |VERSION_MAJOR=${props.getProperty("VERSION_MAJOR", "0")}
+        |VERSION_MINOR=${props.getProperty("VERSION_MINOR", "0")}
+        |VERSION_PATCH=$patch
+        |VERSION_PRERELEASE=${props.getProperty("VERSION_PRERELEASE", "alpha")}
+        |
+        """.trimMargin(),
+    )
+}
+
+fun storeFlavorFromAssembleTask(taskName: String): String? = when {
+    taskName.contains("Fdroid", ignoreCase = true) -> "fdroid"
+    taskName.contains("Play", ignoreCase = true) -> "play"
+    else -> null
+}
+
+val orglVersion = orglVersionName()
+val orglVersionCodeValue = orglVersionCode()
+
 android {
     namespace = "com.sayemshafayet.onereogamelauncher"
     compileSdk = 36
@@ -15,8 +66,8 @@ android {
         applicationId = "com.sayemshafayet.onereogamelauncher"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0-beta"
+        versionCode = orglVersionCodeValue
+        versionName = orglVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -102,4 +153,23 @@ dependencies {
     testImplementation("net.sf.kxml:kxml2:2.3.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configureEach {
+    doLast {
+        val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
+        val version = orglVersionName()
+        val apk = layout.buildDirectory.file("outputs/apk/$flavor/debug/app-$flavor-debug.apk").get().asFile
+        if (apk.exists()) {
+            val destDir = rootProject.file(".local/apk")
+            destDir.mkdirs()
+            val dest = destDir.resolve("orgl-$flavor-debug-$version.apk")
+            apk.copyTo(dest, overwrite = true)
+            logger.lifecycle("Copied APK to ${dest.relativeTo(rootProject.projectDir)}")
+        } else {
+            logger.warn("Expected APK missing: $apk")
+        }
+        bumpOrglPatchVersion()
+        logger.lifecycle("Next debug build version: ${orglVersionName()}")
+    }
 }
