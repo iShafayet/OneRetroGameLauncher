@@ -63,6 +63,9 @@ class LibraryRepository @Inject constructor(
     fun observeShelf() = gameDao.observeShelf()
     fun observeGame(gameId: Long) = gameDao.observeById(gameId)
     fun observeMedia(gameId: Long) = mediaDao.observeForGame(gameId)
+
+    suspend fun mediaForGame(gameId: Long) = mediaDao.forGame(gameId)
+
     fun observeGameConfig(gameId: Long) = gameConfigDao.observe(gameId)
     fun observeEmulators() = emulatorProfileDao.observeAll()
 

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
+import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigured
@@ -43,6 +44,8 @@ data class SettingsHubUi(
     val scanning: Boolean = false,
     val scanMessage: String? = null,
     val orglIncompatibleAlert: String? = null,
+    val syncing: Boolean = false,
+    val syncMessage: String? = null,
 )
 
 @HiltViewModel
@@ -50,6 +53,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val libraryRepository: LibraryRepository,
+    private val orglExternalSync: OrglExternalSync,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(SettingsHubUi())
     val ui: StateFlow<SettingsHubUi> = _ui.asStateFlow()
@@ -119,16 +123,20 @@ class SettingsViewModel @Inject constructor(
                 is OrglDataDirectory.PrepareResult.Ready -> {
                     val pathHint = SafPathResolver.resolvePath(context, uri)
                     settingsRepository.setOrglDataDir(uri.toString(), pathHint)
+                    val sync = runCatching {
+                        withContext(Dispatchers.IO) { orglExternalSync.syncNow() }
+                    }.getOrNull()
                     _ui.update {
                         it.copy(
                             orglDataPath = pathHint.orEmpty(),
                             orglDataUri = uri.toString(),
                             orglDataDisplay = SafPathResolver.displayLabel(uri.toString(), pathHint),
-                            scanMessage = if (result.reusedExisting) {
+                            scanMessage = sync?.message ?: if (result.reusedExisting) {
                                 "Linked existing ORGL data folder (spec v${OrglDataDirectory.SPEC_VERSION})."
                             } else {
                                 "ORGL data folder ready (${OrglDataDirectory.META_FILE_NAME} created)."
                             },
+                            syncMessage = sync?.message,
                             orglIncompatibleAlert = null,
                         )
                     }
@@ -157,6 +165,24 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissOrglIncompatibleAlert() {
         _ui.update { it.copy(orglIncompatibleAlert = null) }
+    }
+
+    fun syncExternalStorage() {
+        viewModelScope.launch {
+            _ui.update { it.copy(syncing = true, syncMessage = null) }
+            val result = runCatching {
+                withContext(Dispatchers.IO) { orglExternalSync.syncNow() }
+            }
+            _ui.update {
+                it.copy(
+                    syncing = false,
+                    syncMessage = result.fold(
+                        onSuccess = { sync -> sync.message },
+                        onFailure = { e -> e.message ?: "Sync failed" },
+                    ),
+                )
+            }
+        }
     }
 
     fun onEsdeDataFolderPicked(uri: Uri) {

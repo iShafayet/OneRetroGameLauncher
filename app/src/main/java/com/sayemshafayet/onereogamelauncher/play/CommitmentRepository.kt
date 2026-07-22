@@ -10,6 +10,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.PlaySessionEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.ReviewEntity
+import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,6 +23,7 @@ class CommitmentRepository @Inject constructor(
     private val reviewDao: ReviewDao,
     private val gameDao: GameDao,
     private val journalDao: JournalDao,
+    private val orglExternalSync: OrglExternalSync,
 ) {
     companion object {
         const val SHELF_MAX = 5
@@ -105,6 +107,7 @@ class CommitmentRepository @Inject constructor(
                 gameDao.update(game.copy(completedStatus = completed))
             }
         }
+        runCatching { orglExternalSync.exportPlayHistory() }
         return Result.success(Unit)
     }
 
@@ -154,12 +157,14 @@ class CommitmentRepository @Inject constructor(
         val game = gameDao.getById(gameId)
             ?: return Result.failure(IllegalArgumentException("Game not found"))
         gameDao.update(game.copy(onShelf = true))
+        runCatching { orglExternalSync.exportPlayHistory() }
         return Result.success(Unit)
     }
 
     suspend fun removeFromShelf(gameId: Long) {
         val game = gameDao.getById(gameId) ?: return
         gameDao.update(game.copy(onShelf = false))
+        runCatching { orglExternalSync.exportPlayHistory() }
     }
 
     suspend fun getShelf() = gameDao.observeShelf()

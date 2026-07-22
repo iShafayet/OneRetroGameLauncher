@@ -10,17 +10,19 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -28,15 +30,22 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
@@ -47,6 +56,8 @@ import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkLight
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkMid
 import com.sayemshafayet.onereogamelauncher.ui.theme.Mist
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.OnboardingRaPhase
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.OnboardingUiState
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.OnboardingViewModel
 
 @Composable
@@ -66,6 +77,11 @@ fun OnboardingScreen(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
         uri?.let { viewModel.onOrglFolderPicked(it) }
+    }
+    val esdePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onEsdeFolderPicked(it) }
     }
 
     state.orglIncompatibleAlert?.let { message ->
@@ -100,48 +116,64 @@ fun OnboardingScreen(
             },
             label = "wizard",
         ) { page ->
+            val scrollState = rememberScrollState()
+            LaunchedEffect(page) {
+                scrollState.scrollTo(0)
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 28.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.SpaceBetween,
+                    .verticalScroll(scrollState)
+                    .imePadding(),
             ) {
-                Column(modifier = Modifier.weight(1f, fill = false)) {
-                    Spacer(Modifier.height(32.dp))
-                    Text(
-                        "ORGL",
-                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
-                        color = AmberAccent,
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "ORGL",
+                    style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
+                    color = AmberAccent,
+                )
+                when (page) {
+                    0 -> WelcomeStep()
+                    1 -> RomsFolderStep(
+                        uri = state.romsUri,
+                        pathHint = state.romsPath,
+                        onPick = { romsPicker.launch(null) },
                     )
-                    when (page) {
-                        0 -> WelcomeStep()
-                        1 -> RomsFolderStep(
-                            uri = state.romsUri,
-                            pathHint = state.romsPath,
-                            onPick = { romsPicker.launch(null) },
-                        )
-                        2 -> OrglFolderStep(
-                            uri = state.orglUri,
-                            pathHint = state.orglPath,
-                            reused = state.orglReused,
-                            error = state.orglError,
-                            onPick = { orglPicker.launch(null) },
-                        )
-                        3 -> CredentialsTeaseStep()
-                        4 -> DoneStep(
-                            scanning = state.scanning,
-                            scanProgress = scanProgress,
-                            scanError = state.scanError,
-                        )
-                    }
+                    2 -> OrglFolderStep(
+                        uri = state.orglUri,
+                        pathHint = state.orglPath,
+                        reused = state.orglReused,
+                        error = state.orglError,
+                        onPick = { orglPicker.launch(null) },
+                    )
+                    3 -> RetroAchievementsStep(
+                        state = state,
+                        onUserChange = viewModel::updateRaUser,
+                        onPasswordChange = viewModel::updateRaPassword,
+                        onStoreOnDiskChange = viewModel::setRaStoreOnDisk,
+                        onSave = viewModel::saveRetroAchievements,
+                    )
+                    4 -> EsdeFolderStep(
+                        uri = state.esdeUri,
+                        pathHint = state.esdePath,
+                        onPick = { esdePicker.launch(null) },
+                        onClear = viewModel::clearEsdeFolder,
+                    )
+                    5 -> DoneStep(
+                        scanning = state.scanning,
+                        scanProgress = scanProgress,
+                        scanError = state.scanError,
+                    )
                 }
 
+                Spacer(Modifier.height(24.dp))
+
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (page == 4 && state.scanning) {
+                    if (page == 5 && state.scanning) {
                         CircularProgressIndicator(color = AmberAccent)
                         Spacer(Modifier.height(12.dp))
                         Text(
@@ -157,14 +189,15 @@ fun OnboardingScreen(
                     val ctaEnabled = when (page) {
                         1 -> state.romsUri != null
                         2 -> state.orglUri != null
-                        4 -> !state.scanning && state.romsUri != null && state.orglUri != null
+                        3 -> state.raPhase != OnboardingRaPhase.Checking && !state.raSaving
+                        5 -> !state.scanning && state.romsUri != null && state.orglUri != null
                         else -> true
                     }
 
                     Button(
                         onClick = {
                             when (page) {
-                                4 -> viewModel.finishOnboarding(onFinished)
+                                5 -> viewModel.finishOnboarding(onFinished)
                                 else -> viewModel.nextPage()
                             }
                         },
@@ -181,18 +214,25 @@ fun OnboardingScreen(
                             when (page) {
                                 0 -> "Let's finish some games"
                                 1, 2 -> "Continue"
-                                3 -> "Skip for now"
+                                3 -> when (state.raPhase) {
+                                    OnboardingRaPhase.Connected -> "Continue"
+                                    OnboardingRaPhase.Checking -> "Checking…"
+                                    else -> "Skip for now"
+                                }
+                                4 -> if (state.esdeUri != null) "Continue" else "Skip for now"
                                 else -> if (state.scanning) "Scanning…" else "Enter ORGL"
                             },
                         )
                     }
 
-                    if (page in 1..3) {
+                    if (page in 1..4) {
                         TextButton(onClick = { viewModel.prevPage() }) {
                             Text("Back", color = Mist.copy(alpha = 0.7f))
                         }
                     }
                 }
+
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -326,25 +366,210 @@ private fun OrglFolderStep(
 }
 
 @Composable
-private fun CredentialsTeaseStep() {
+private fun EsdeFolderStep(
+    uri: String?,
+    pathHint: String?,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+) {
     Spacer(Modifier.height(24.dp))
     Text(
-        "Power-ups, optional",
+        "ES-DE data folder",
         style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
         color = Mist,
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        "ScreenScraper for artwork, RetroAchievements for progress, HowLongToBeat for time estimates — all configurable later in Settings.",
+        "Optional. Link ES-DE’s application data folder to reuse its downloaded_media/ artwork " +
+            "and gamelists/ metadata. Read-only — ORGL never writes to ES-DE.",
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.85f),
     )
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(8.dp))
     Text(
-        "No account required to start playing. Add credentials when you're ready.",
+        "You can skip this and link it later in Settings.",
         style = MaterialTheme.typography.bodyMedium,
-        color = AmberAccent,
+        color = Mist.copy(alpha = 0.7f),
     )
+    Spacer(Modifier.height(24.dp))
+    OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            if (uri == null) "Choose ES-DE data folder" else "Change folder",
+            color = Mist,
+        )
+    }
+    if (uri != null) {
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onClear) {
+            Text("Clear selection", color = Mist.copy(alpha = 0.75f))
+        }
+    }
+    if (pathHint != null) {
+        Spacer(Modifier.height(12.dp))
+        Text("Resolved path", color = AmberAccent, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(pathHint, style = MaterialTheme.typography.bodyMedium, color = Mist.copy(alpha = 0.85f))
+    } else if (uri != null) {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Folder linked via SAF (read-only).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Mist.copy(alpha = 0.7f),
+        )
+    }
+}
+
+@Composable
+private fun RetroAchievementsStep(
+    state: OnboardingUiState,
+    onUserChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onStoreOnDiskChange: (Boolean) -> Unit,
+    onSave: () -> Unit,
+) {
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Mist,
+        unfocusedTextColor = Mist,
+        disabledTextColor = Mist.copy(alpha = 0.7f),
+        focusedBorderColor = AmberAccent,
+        unfocusedBorderColor = Mist.copy(alpha = 0.35f),
+        disabledBorderColor = Mist.copy(alpha = 0.2f),
+        focusedLabelColor = AmberAccent,
+        unfocusedLabelColor = Mist.copy(alpha = 0.7f),
+        cursorColor = AmberAccent,
+    )
+    val busy = state.raPhase == OnboardingRaPhase.Checking || state.raSaving
+
+    Spacer(modifier = Modifier.height(24.dp))
+    Text(
+        "RetroAchievements",
+        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
+        color = Mist,
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        "Optional. Use the same username and password as RetroArch. ORGL only reads progress — unlocks still happen in RetroArch.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = Mist.copy(alpha = 0.85f),
+    )
+
+    when (state.raPhase) {
+        OnboardingRaPhase.Checking, OnboardingRaPhase.Idle -> {
+            Spacer(modifier = Modifier.height(24.dp))
+            CircularProgressIndicator(color = AmberAccent)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                state.raStatusMessage ?: "Checking the ORGL data folder for saved credentials…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Mist.copy(alpha = 0.85f),
+            )
+        }
+        OnboardingRaPhase.Connected -> {
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                state.raStatusMessage ?: "Signed in.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = AmberAccent,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Store on disk", color = Mist)
+                    Text(
+                        "Keep encrypted credentials in the ORGL data folder.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Mist.copy(alpha = 0.7f),
+                    )
+                }
+                Switch(
+                    checked = state.raStoreOnDisk,
+                    onCheckedChange = onStoreOnDiskChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = InkDeep,
+                        checkedTrackColor = AmberAccent,
+                    ),
+                )
+            }
+        }
+        OnboardingRaPhase.Form -> {
+            state.raStatusMessage?.let {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AmberAccent,
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = state.raUser,
+                onValueChange = onUserChange,
+                label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !busy,
+                colors = fieldColors,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.raPassword,
+                onValueChange = onPasswordChange,
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                enabled = !busy,
+                colors = fieldColors,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Store on disk", color = Mist)
+                    Text(
+                        "Save encrypted credentials into the ORGL data folder.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Mist.copy(alpha = 0.7f),
+                    )
+                }
+                Switch(
+                    checked = state.raStoreOnDisk,
+                    onCheckedChange = onStoreOnDiskChange,
+                    enabled = !busy,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = InkDeep,
+                        checkedTrackColor = AmberAccent,
+                    ),
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = onSave,
+                enabled = !busy && state.raUser.isNotBlank() && state.raPassword.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.raSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(18.dp),
+                        strokeWidth = 2.dp,
+                        color = AmberAccent,
+                    )
+                } else {
+                    Text("Save & verify", color = Mist)
+                }
+            }
+            state.raError?.let {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
 }
 
 @Composable

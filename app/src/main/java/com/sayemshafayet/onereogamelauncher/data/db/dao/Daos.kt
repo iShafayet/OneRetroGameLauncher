@@ -105,6 +105,15 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE systemId = :systemId AND romPath = :romPath LIMIT 1")
     suspend fun findByRomPath(systemId: Long, romPath: String): GameEntity?
 
+    @Query("SELECT * FROM games WHERE systemId = :systemId AND fileName = :fileName COLLATE NOCASE LIMIT 1")
+    suspend fun findByFileName(systemId: Long, fileName: String): GameEntity?
+
+    @Query("SELECT * FROM games WHERE fileName = :fileName COLLATE NOCASE")
+    suspend fun findAllByFileName(fileName: String): List<GameEntity>
+
+    @Query("SELECT * FROM games WHERE title = :title COLLATE NOCASE LIMIT 5")
+    suspend fun findByTitle(title: String): List<GameEntity>
+
     @Query("SELECT * FROM games WHERE completedStatus = :status ORDER BY MAX(COALESCE(orglLastPlayed, 0), COALESCE(esdeLastPlayed, 0)) DESC")
     fun observeByCompletedStatus(status: GameCompletedStatus): Flow<List<GameEntity>>
 

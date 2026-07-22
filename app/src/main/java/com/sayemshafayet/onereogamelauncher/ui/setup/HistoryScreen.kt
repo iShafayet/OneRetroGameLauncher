@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -23,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,7 +48,8 @@ fun HistoryScreen(
     onOpenRun: (Long) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
-    val entries by viewModel.entries.collectAsState()
+    val ui by viewModel.ui.collectAsState()
+    val entries = ui.entries
     val firstFocus = rememberOrlgFocusRequester()
 
     Column(
@@ -64,17 +68,34 @@ fun HistoryScreen(
             modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
         )
 
-        if (entries.isEmpty()) {
-            Text(
-                "No completed runs yet. Commit to a game in Play mode and finish or drop it — it will show up here.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (ui.loading && entries.isEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
+                        Text(
+                            "Loading journal from disk…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else if (entries.isEmpty()) {
+                item {
+                    Text(
+                        "No completed runs yet. Commit to a game in Play mode and finish or drop it — it will show up here.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
                 itemsIndexed(entries, key = { _, item -> item.entry.commitmentId }) { index, item ->
                     HistoryEntryCard(
                         item = item,
@@ -83,18 +104,86 @@ fun HistoryScreen(
                         onOpenRun = { onOpenRun(item.entry.commitmentId) },
                     )
                 }
-                item { Spacer(Modifier.height(48.dp)) }
             }
+            item {
+                HistorySyncFooter(
+                    orglConfigured = ui.orglConfigured,
+                    syncing = ui.syncing,
+                    syncMessage = ui.syncMessage,
+                    onSync = viewModel::syncWithDisk,
+                    focusIndex = entries.size,
+                    firstFocus = firstFocus,
+                )
+            }
+            item { Spacer(modifier = Modifier.height(48.dp)) }
         }
     }
-    OrlgInitialFocus(firstFocus, enabled = entries.isNotEmpty())
+    OrlgInitialFocus(firstFocus, enabled = entries.isNotEmpty() || ui.orglConfigured)
+}
+
+@Composable
+private fun HistorySyncFooter(
+    orglConfigured: Boolean,
+    syncing: Boolean,
+    syncMessage: String?,
+    onSync: () -> Unit,
+    focusIndex: Int,
+    firstFocus: FocusRequester,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "Disk sync",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            "Merge your Play mode journal with play_history.json in the ORGL data folder.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = onSync,
+            enabled = orglConfigured && !syncing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .orlgListFocus(focusIndex, firstFocus)
+                .orlgFocusable(onClick = onSync),
+        ) {
+            if (syncing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(18.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Text("Sync with disk")
+            }
+        }
+        if (!orglConfigured) {
+            Text(
+                "Set an ORGL data folder in Settings to enable sync.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        syncMessage?.let { msg ->
+            Text(
+                msg,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
 }
 
 @Composable
 private fun HistoryEntryCard(
     item: HistoryEntryUi,
     index: Int,
-    firstFocus: androidx.compose.ui.focus.FocusRequester,
+    firstFocus: FocusRequester,
     onOpenRun: () -> Unit,
 ) {
     val entry = item.entry

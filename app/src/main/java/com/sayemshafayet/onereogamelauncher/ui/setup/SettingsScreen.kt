@@ -114,6 +114,35 @@ fun SettingsScreen(
         )
 
         Spacer(Modifier.height(20.dp))
+        Text("Data", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Button(
+            onClick = { viewModel.syncExternalStorage() },
+            enabled = !ui.syncing && ui.orglDataUri.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (ui.syncing) {
+                Text("Syncing…")
+            } else {
+                Text("Sync external storage")
+            }
+        }
+        Text(
+            "Merge RetroAchievements credentials (if stored on disk) and your Play mode journal with the ORGL data folder.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        ui.syncMessage?.let { msg ->
+            Text(
+                msg,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         androidx.compose.foundation.layout.Row(

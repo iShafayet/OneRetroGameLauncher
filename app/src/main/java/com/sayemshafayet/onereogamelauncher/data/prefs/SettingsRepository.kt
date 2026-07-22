@@ -37,6 +37,8 @@ data class AppSettings(
     val retroAchievementsPassword: String = "",
     /** Cached Connect API token from login2. */
     val retroAchievementsToken: String = "",
+    /** Persist RA credentials into the ORGL data directory when true. */
+    val retroAchievementsStoreOnDisk: Boolean = false,
     val preferredRetroArchPackage: String = "",
     val hltbEnabled: Boolean = true,
     val onboardingDone: Boolean = false,
@@ -84,6 +86,7 @@ class SettingsRepository @Inject constructor(
         val raPassword = stringPreferencesKey("ra_password")
         val raToken = stringPreferencesKey("ra_token")
         val raApiKey = stringPreferencesKey("ra_api_key")
+        val raStoreOnDisk = booleanPreferencesKey("ra_store_on_disk")
         val raPackage = stringPreferencesKey("ra_package")
         val hltbEnabled = booleanPreferencesKey("hltb_enabled")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
@@ -110,6 +113,7 @@ class SettingsRepository @Inject constructor(
             retroAchievementsUser = p[Keys.raUser].orEmpty(),
             retroAchievementsPassword = p[Keys.raPassword].orEmpty(),
             retroAchievementsToken = p[Keys.raToken].orEmpty(),
+            retroAchievementsStoreOnDisk = p[Keys.raStoreOnDisk] ?: false,
             preferredRetroArchPackage = p[Keys.raPackage].orEmpty(),
             hltbEnabled = p[Keys.hltbEnabled] ?: true,
             onboardingDone = p[Keys.onboardingDone] ?: false,
@@ -181,6 +185,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setRetroAchievementsToken(token: String) {
         context.dataStore.edit { it[Keys.raToken] = token }
+    }
+
+    suspend fun setRetroAchievementsStoreOnDisk(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.raStoreOnDisk] = enabled }
     }
 
     suspend fun setPreferredRetroArchPackage(pkg: String) {
