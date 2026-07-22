@@ -318,6 +318,8 @@ class RomScanner @Inject constructor(
             systemsTotal = systemsToScan.size,
         )
 
+        val arcadeMap = ArcadeRomMap.load(context)
+
         for (def in systemsToScan) {
             checkCancelled()
             val systemEntity = defsByFolder[def.folder.lowercase()] ?: continue
@@ -349,7 +351,12 @@ class RomScanner @Inject constructor(
                 if (file.name.equals("gamelist.xml", ignoreCase = true)) continue
                 if (file.relativePath in hidden || file.storagePath in hidden) continue
                 when {
-                    RomScanLogic.isPlayableRom(file.extension, def.extensions) -> romFiles += file
+                    RomScanLogic.isPlayableRom(file.extension, def.extensions) -> {
+                        if (arcadeMap?.appliesTo(def.folder) == true && arcadeMap.isIgnored(file.name)) {
+                            continue
+                        }
+                        romFiles += file
+                    }
                     file.extension.isNotEmpty() -> unknownInSystem += UnknownFileEntry(
                         systemFolder = def.folder,
                         relativePath = file.relativePath,
@@ -359,7 +366,15 @@ class RomScanner @Inject constructor(
             }
             unknown += unknownInSystem
 
-            val scannedGames = buildScannedGames(romFiles, gamelistByPath, hidden, readTextFile, found)
+            val scannedGames = buildScannedGames(
+                systemFolder = def.folder,
+                romFiles = romFiles,
+                gamelistByPath = gamelistByPath,
+                hidden = hidden,
+                readTextFile = readTextFile,
+                allFound = found,
+                arcadeMap = arcadeMap,
+            )
             val existingByPath = gameDao.getBySystem(systemEntity.id).associateBy { it.romPath }
             val keepPaths = mutableListOf<String>()
             val systemDir = systemDirHint(def.folder)
@@ -552,12 +567,15 @@ class RomScanner @Inject constructor(
     }
 
     private fun buildScannedGames(
+        systemFolder: String,
         romFiles: List<FoundFile>,
         gamelistByPath: Map<String, GamelistEntry>,
         hidden: Set<String>,
         readTextFile: (String) -> String?,
         allFound: List<FoundFile>,
+        arcadeMap: ArcadeRomMap?,
     ): List<ScannedGame> {
+        val map = arcadeMap?.takeIf { it.appliesTo(systemFolder) }
         val games = mutableListOf<ScannedGame>()
         val m3uFiles = romFiles.filter { it.extension == "m3u" }
 
@@ -569,7 +587,7 @@ class RomScanner @Inject constructor(
                 relativePath = m3u.relativePath,
                 absolutePath = m3u.storagePath,
                 fileName = m3u.name,
-                title = gl?.name ?: m3u.name.substringBeforeLast('.'),
+                title = RomScanLogic.resolveScanTitle(gl, m3u.name, map),
                 romPaths = discPaths.ifEmpty { listOf(m3u.relativePath) },
                 gamelist = gl,
             )
@@ -584,7 +602,7 @@ class RomScanner @Inject constructor(
                 relativePath = file.relativePath,
                 absolutePath = file.storagePath,
                 fileName = file.name,
-                title = gl?.name ?: file.name.substringBeforeLast('.'),
+                title = RomScanLogic.resolveScanTitle(gl, file.name, map),
                 romPaths = descriptorRomPaths(file, readTextFile, allFound),
                 gamelist = gl,
             )
@@ -645,6 +663,9 @@ class RomScanner @Inject constructor(
             existingTitle == null -> gl?.name?.takeIf { it.isNotBlank() } ?: scanned.title
             gl?.name?.isNotBlank() == true &&
                 existingTitle.equals(derivedTitle, ignoreCase = true) -> gl.name
+            existingTitle.equals(derivedTitle, ignoreCase = true) &&
+                scanned.title.isNotBlank() &&
+                !scanned.title.equals(derivedTitle, ignoreCase = true) -> scanned.title
             else -> existingTitle
         }
         return GameEntity(

@@ -63,6 +63,29 @@ class RomScanLogicTest {
         )
     }
 
+    @Test
+    fun resolveScanTitle_prefersGamelistThenArcadeMap() {
+        val map = ArcadeRomMap.decodeJson(
+            """{"specVersion":1,"ignore":["neogeo"],"titles":{"mslug":"Metal Slug"}}""",
+        )!!
+        assertEquals("Gamelist Title", RomScanLogic.resolveScanTitle(entry("a.zip", "Gamelist Title"), "mslug.zip", map))
+        assertEquals("Metal Slug", RomScanLogic.resolveScanTitle(null, "mslug.zip", map))
+        assertEquals("unknown", RomScanLogic.resolveScanTitle(null, "unknown.zip", map))
+    }
+
+    @Test
+    fun arcadeRomMap_ignoreAndTitle() {
+        val map = ArcadeRomMap.decodeJson(
+            """{"specVersion":1,"ignore":["neogeo","pgm"],"titles":{"aburner2":"After Burner II"}}""",
+        )!!
+        assertTrue(map.isIgnored("neogeo.zip"))
+        assertTrue(map.isIgnored("PGM.ZIP"))
+        assertFalse(map.isIgnored("aburner2.zip"))
+        assertEquals("After Burner II", map.titleFor("aburner2.zip"))
+        assertTrue(map.appliesTo("fbneo"))
+        assertFalse(map.appliesTo("snes"))
+    }
+
     private fun entry(path: String, name: String) = GamelistEntry(
         path = path,
         name = name,

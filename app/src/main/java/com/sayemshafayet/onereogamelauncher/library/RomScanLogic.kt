@@ -68,4 +68,14 @@ internal object RomScanLogic {
 
     fun normalizePath(path: String): String =
         path.trim().replace('\\', '/').removePrefix("./").trimStart('/')
+
+    fun resolveScanTitle(
+        gamelistEntry: GamelistEntry?,
+        fileName: String,
+        arcadeMap: ArcadeRomMap?,
+    ): String {
+        gamelistEntry?.name?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        arcadeMap?.titleFor(fileName)?.let { return it }
+        return fileName.substringAfterLast('/').substringAfterLast('\\').substringBeforeLast('.')
+    }
 }
