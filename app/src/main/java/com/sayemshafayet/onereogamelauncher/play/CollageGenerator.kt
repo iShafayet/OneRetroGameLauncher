@@ -42,7 +42,11 @@ class CollageGenerator @Inject constructor(
         val outDir = File(context.filesDir, "collages").apply { mkdirs() }
         val safeName = input.title.replace(Regex("""[\\/:*?"<>|]"""), "_").take(80)
         val outFile = File(outDir, "${safeName}_${System.currentTimeMillis()}.png")
+        return if (generateTo(outFile, input)) outFile.absolutePath else null
+    }
 
+    fun generateTo(outputFile: File, input: CollageInput): Boolean {
+        outputFile.parentFile?.mkdirs()
         val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.parseColor("#121218"))
@@ -96,10 +100,10 @@ class CollageGenerator @Inject constructor(
         canvas.drawText(BRAND, (WIDTH - 140).toFloat(), (HEIGHT - 40).toFloat(), accentPaint)
 
         return runCatching {
-            FileOutputStream(outFile).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            FileOutputStream(outputFile).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             bitmap.recycle()
-            outFile.absolutePath
-        }.getOrNull()
+            true
+        }.getOrDefault(false)
     }
 
     private fun drawBoxArt(canvas: Canvas, path: String?, top: Int) {

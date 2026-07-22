@@ -33,7 +33,9 @@ internal fun matchGameInList(
         games.firstOrNull { normalizeRomFileName(it.fileName).equals(baseName, ignoreCase = true) }
             ?.let { return it }
         games.firstOrNull { game ->
-            game.romPath.endsWith("/$baseName", ignoreCase = true) ||
+            normalizeRomFileName(game.romPath).equals(baseName, ignoreCase = true) ||
+                game.romPath.endsWith("/$baseName", ignoreCase = true) ||
+                game.romPath.endsWith("\\$baseName", ignoreCase = true) ||
                 game.romPath.endsWith(baseName, ignoreCase = true)
         }?.let { return it }
     }

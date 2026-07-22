@@ -19,8 +19,8 @@ import com.sayemshafayet.onereogamelauncher.domain.RaVisualState
 import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
-import com.sayemshafayet.onereogamelauncher.play.CollageGenerator
 import com.sayemshafayet.onereogamelauncher.play.CollageInput
+import com.sayemshafayet.onereogamelauncher.play.RunCardStore
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionData
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionStore
@@ -66,7 +66,7 @@ class FocusViewModel @Inject constructor(
     private val raClient: RetroAchievementsClient,
     private val raSupportEvaluator: RaSupportEvaluator,
     private val romHashCalculator: RomHashCalculator,
-    private val collageGenerator: CollageGenerator,
+    private val runCardStore: RunCardStore,
     private val playCompletionStore: PlayCompletionStore,
     private val playStatsTracker: PlayStatsTracker,
 ) : ViewModel() {
@@ -258,8 +258,12 @@ class FocusViewModel @Inject constructor(
                 it.type == MediaType.BOX_2D || it.type == MediaType.BOX_3D
             }?.path
             val hours = s.playtimeMs / 3_600_000.0
-            val collagePath = collageGenerator.generate(
-                CollageInput(
+            val collagePath = runCardStore.createRunCard(
+                commitmentId = commitment.id,
+                systemFolder = s.system?.folderName.orEmpty(),
+                fileName = game.fileName,
+                committedAt = commitment.committedAt,
+                input = CollageInput(
                     title = game.title,
                     systemName = s.system?.displayName ?: "",
                     boxArtPath = box,

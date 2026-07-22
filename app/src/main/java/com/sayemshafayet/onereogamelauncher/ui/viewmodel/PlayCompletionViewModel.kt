@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionData
 import com.sayemshafayet.onereogamelauncher.play.PlayCompletionStore
+import com.sayemshafayet.onereogamelauncher.play.RunCardStore
 import com.sayemshafayet.onereogamelauncher.play.toPlayCompletionData
 import com.sayemshafayet.onereogamelauncher.ui.util.GallerySaver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ class PlayCompletionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val completionStore: PlayCompletionStore,
     private val commitmentRepository: CommitmentRepository,
+    private val runCardStore: RunCardStore,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val historyCommitmentId: Long? =
@@ -49,7 +51,17 @@ class PlayCompletionViewModel @Inject constructor(
         viewModelScope.launch {
             _completion.value = when (val id = historyCommitmentId) {
                 null -> completionStore.lastCompletion
-                else -> commitmentRepository.getJournalEntry(id)?.toPlayCompletionData()
+                else -> {
+                    val row = commitmentRepository.getJournalEntry(id) ?: return@launch
+                    val collagePath = runCardStore.resolveRunCardPath(
+                        commitmentId = id,
+                        systemFolder = row.systemFolder,
+                        fileName = row.fileName,
+                        committedAt = row.committedAt,
+                        existingPath = row.collagePath,
+                    )
+                    row.toPlayCompletionData().copy(collagePath = collagePath)
+                }
             }
             _isLoading.value = false
         }

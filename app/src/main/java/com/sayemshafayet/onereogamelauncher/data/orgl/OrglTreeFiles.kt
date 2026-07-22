@@ -87,6 +87,90 @@ object OrglTreeFiles {
         return findFile(root, fileName) != null
     }
 
+    fun readBytes(context: Context, treeUri: Uri, relativePath: String, pathHint: String?): ByteArray? {
+        pathHint?.let { root ->
+            val file = File(root, relativePath)
+            if (file.isFile) {
+                return runCatching { file.readBytes() }.getOrNull()
+            }
+        }
+        return readSafBytes(context, treeUri, relativePath)
+    }
+
+    fun writeBytes(
+        context: Context,
+        treeUri: Uri,
+        relativePath: String,
+        pathHint: String?,
+        bytes: ByteArray,
+    ): Boolean {
+        var ok = false
+        pathHint?.let { root ->
+            runCatching {
+                val file = File(root, relativePath)
+                file.parentFile?.mkdirs()
+                file.writeBytes(bytes)
+                ok = true
+            }.onFailure { Log.w(TAG, "filesystem write failed for $relativePath", it) }
+        }
+        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return ok
+        if (!root.canWrite()) return ok
+        val target = findOrCreateFile(root, relativePath) ?: return ok
+        return try {
+            context.contentResolver.openOutputStream(target.uri, "wt")?.use { out ->
+                out.write(bytes)
+                out.flush()
+            } ?: return ok
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "SAF write failed for $relativePath", e)
+            ok
+        }
+    }
+
+    private fun readSafBytes(context: Context, treeUri: Uri, relativePath: String): ByteArray? {
+        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return null
+        val doc = findNestedFile(root, relativePath) ?: return null
+        return try {
+            context.contentResolver.openInputStream(doc.uri)?.use { it.readBytes() }
+        } catch (e: Exception) {
+            Log.w(TAG, "readBytes failed for $relativePath", e)
+            null
+        }
+    }
+
+    private fun findOrCreateFile(root: DocumentFile, relativePath: String): DocumentFile? {
+        val parts = relativePath.split('/').filter { it.isNotBlank() }
+        if (parts.isEmpty()) return null
+        var dir = root
+        for (part in parts.dropLast(1)) {
+            dir = dir.listFiles().firstOrNull { it.isDirectory && it.name == part }
+                ?: dir.createDirectory(part)
+                ?: return null
+        }
+        val fileName = parts.last()
+        findFile(dir, fileName)?.let { return it }
+        val ext = fileName.substringAfterLast('.', missingDelimiterValue = "")
+        val base = fileName.substringBeforeLast('.', fileName)
+        val mime = when (ext.lowercase()) {
+            "json" -> "application/json"
+            "png" -> "image/png"
+            else -> "application/octet-stream"
+        }
+        dir.createFile(mime, base)
+        return findFile(dir, fileName)
+    }
+
+    private fun findNestedFile(root: DocumentFile, relativePath: String): DocumentFile? {
+        val parts = relativePath.split('/').filter { it.isNotBlank() }
+        if (parts.isEmpty()) return null
+        var dir = root
+        for (part in parts.dropLast(1)) {
+            dir = dir.listFiles().firstOrNull { it.isDirectory && it.name == part } ?: return null
+        }
+        return findFile(dir, parts.last())
+    }
+
     fun resolvePathHint(context: Context, treeUri: Uri, storedHint: String?): String? =
         storedHint ?: SafPathResolver.resolvePath(context, treeUri)
 

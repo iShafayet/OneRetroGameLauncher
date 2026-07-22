@@ -54,17 +54,35 @@ class OrglPlayHistoryFileTest {
                     sessions = listOf(
                         OrglPlayHistoryFile.Session(10L, 20L, 10L),
                     ),
+                    playtimeMs = 10L,
+                    sessionCount = 1,
+                    game = OrglPlayHistoryFile.GameMetadata(
+                        systemDisplayName = "Nintendo Entertainment System",
+                        genre = "Platform",
+                        developer = "Nintendo",
+                    ),
+                    runCardFile = "run_cards/nes_Mario.nes_10.png",
                 ),
             ),
         )
         val encoded = OrglPlayHistoryFile.encode(snapshot)
         assertTrue(encoded.contains("\"specVersion\":${OrglPlayHistoryFile.SPEC_VERSION}"))
-        assertTrue(!encoded.contains("\"games\""))
+        assertTrue(encoded.contains("\"genre\":\"Platform\""))
+        assertTrue(encoded.contains("\"runCardFile\":\"run_cards/nes_Mario.nes_10.png\""))
         val decoded = OrglPlayHistoryFile.decode(encoded)
         assertNotNull(decoded)
         assertEquals(1, decoded!!.commitments.size)
         assertEquals(4.5f, decoded.commitments[0].review!!.stars, 0.01f)
         assertEquals("Mario", decoded.commitments[0].title)
+        assertEquals("Platform", decoded.commitments[0].game?.genre)
+    }
+
+    @Test
+    fun rejectsLegacyV2Entry() {
+        val raw = """
+            {"specVersion":2,"commitments":[{"systemFolder":"nes","fileName":"a.nes","title":"A","committedAt":1,"releasedAt":2,"status":"FINISHED","sessions":[]}]}
+        """.trimIndent()
+        assertNull(OrglPlayHistoryFile.decode(raw))
     }
 
     @Test
@@ -77,7 +95,7 @@ class OrglPlayHistoryFileTest {
 
     @Test
     fun acceptsEmptyJournal() {
-        val raw = """{"specVersion":2,"commitments":[]}"""
+        val raw = """{"specVersion":3,"commitments":[]}"""
         val decoded = OrglPlayHistoryFile.decode(raw)
         assertNotNull(decoded)
         assertTrue(decoded!!.commitments.isEmpty())
