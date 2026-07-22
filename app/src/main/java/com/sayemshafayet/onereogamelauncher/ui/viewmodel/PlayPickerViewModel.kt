@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -32,6 +33,7 @@ data class PlayGamePick(
 @HiltViewModel
 class PlayPickerViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
+    private val commitmentRepository: CommitmentRepository,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
     private val _phase = MutableStateFlow(PlayPickerPhase.INTRO)
@@ -138,22 +140,26 @@ class PlayPickerViewModel @Inject constructor(
         val all = libraryRepository.observeSearch(null, "").first()
         if (all.isEmpty()) return emptyList()
 
+        val committedIds = commitmentRepository.getAllActive().map { it.gameId }.toSet()
+        val available = all.filter { it.id !in committedIds }
+        if (available.isEmpty()) return emptyList()
+
         val shelfIds = libraryRepository.observeShelf().first().map { it.id }.toSet()
-        val onShelf = all.filter { it.id in shelfIds || it.onShelf }
-        val favorites = all.filter { it.favorite && it.id !in shelfIds }
-        val neverStarted = all.filter {
+        val onShelf = available.filter { it.id in shelfIds || it.onShelf }
+        val favorites = available.filter { it.favorite && it.id !in shelfIds }
+        val neverStarted = available.filter {
             it.completedStatus == null &&
                 it.combinedLaunchCount() == 0 &&
                 it.id !in shelfIds &&
                 !it.favorite
         }
-        val replayable = all.filter {
+        val replayable = available.filter {
             it.id !in shelfIds &&
                 !it.favorite &&
                 (it.completedStatus != null || it.combinedLaunchCount() > 0)
         }
         return (onShelf + favorites + neverStarted + replayable)
             .distinctBy { it.id }
-            .ifEmpty { all }
+            .ifEmpty { available }
     }
 }

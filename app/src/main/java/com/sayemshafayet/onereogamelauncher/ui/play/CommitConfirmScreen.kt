@@ -72,8 +72,8 @@ fun CommitConfirmScreen(
                 style = MaterialTheme.typography.headlineMedium.copy(fontFamily = BrandFont),
             )
             Text(
-                "You're about to lock in one game for Play mode. " +
-                    "You won't be able to switch until you finish or drop it.",
+                "You're about to lock in this game for Play slot ${viewModel.slotIndex + 1}. " +
+                    "Other slots are unaffected — finish or drop this one before picking a replacement here.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

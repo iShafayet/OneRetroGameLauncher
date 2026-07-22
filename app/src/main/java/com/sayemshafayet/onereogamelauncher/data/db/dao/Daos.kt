@@ -183,11 +183,29 @@ interface EmulatorProfileDao {
 
 @Dao
 interface CommitmentDao {
-    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' LIMIT 1")
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' ORDER BY slotIndex ASC LIMIT 1")
     suspend fun getActive(): CommitmentEntity?
 
-    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' LIMIT 1")
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' ORDER BY slotIndex ASC LIMIT 1")
     fun observeActive(): Flow<CommitmentEntity?>
+
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' AND slotIndex = :slotIndex LIMIT 1")
+    suspend fun getActiveForSlot(slotIndex: Int): CommitmentEntity?
+
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' AND slotIndex = :slotIndex LIMIT 1")
+    fun observeActiveForSlot(slotIndex: Int): Flow<CommitmentEntity?>
+
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' ORDER BY slotIndex ASC")
+    suspend fun getAllActive(): List<CommitmentEntity>
+
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' ORDER BY slotIndex ASC")
+    fun observeAllActive(): Flow<List<CommitmentEntity>>
+
+    @Query("SELECT COUNT(*) FROM commitments WHERE status = 'ACTIVE'")
+    suspend fun countActive(): Int
+
+    @Query("SELECT * FROM commitments WHERE status = 'ACTIVE' AND gameId = :gameId LIMIT 1")
+    suspend fun getActiveForGame(gameId: Long): CommitmentEntity?
 
     @Query("SELECT * FROM commitments WHERE id = :id")
     suspend fun getById(id: Long): CommitmentEntity?

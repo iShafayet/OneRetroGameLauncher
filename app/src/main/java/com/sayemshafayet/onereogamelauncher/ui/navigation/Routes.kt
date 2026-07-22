@@ -1,5 +1,8 @@
 package com.sayemshafayet.onereogamelauncher.ui.navigation
 
+import androidx.navigation.NavBackStackEntry
+import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
+
 object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
@@ -24,15 +27,52 @@ object Routes {
     const val SETUP_SCRAPE_WIZARD = "setup/scrape/wizard"
 
     const val PLAY_HOME = "play/home"
-    const val PLAY_PICKER = "play/picker"
-    const val PLAY_FOCUS = "play/focus"
-    const val PLAY_COMMIT = "play/commit/{gameId}"
-    const val PLAY_COMPLETE = "play/complete"
+    const val PLAY_PICKER = "play/picker/{slotIndex}"
+    const val PLAY_FOCUS = "play/focus/{slotIndex}"
+    const val PLAY_COMMIT = "play/commit/{gameId}/{slotIndex}"
+    const val PLAY_COMPLETE = "play/complete/{slotIndex}"
 
     fun setupSystem(systemId: Long) = "setup/system/$systemId"
     fun setupSystemEmulator(systemId: Long) = "setup/system/$systemId/emulator"
     fun setupGame(gameId: Long) = "setup/game/$gameId"
     fun gameRetroAchievements(gameId: Long) = "setup/game/$gameId/retroachievements"
-    fun playCommit(gameId: Long) = "play/commit/$gameId"
+    fun playPicker(slotIndex: Int = 0) = "play/picker/$slotIndex"
+    fun playFocus(slotIndex: Int = 0) = "play/focus/$slotIndex"
+    fun playCommit(gameId: Long, slotIndex: Int = 0) = "play/commit/$gameId/$slotIndex"
+    fun playComplete(slotIndex: Int = 0) = "play/complete/$slotIndex"
     fun historyRun(commitmentId: Long) = "setup/history/run/$commitmentId"
+
+    fun playHubForSlot(slotIndex: Int, occupied: Boolean): String =
+        if (occupied) playFocus(slotIndex) else playPicker(slotIndex)
+
+    /** Best hub to open when entering Play mode from cold start or Setup. */
+    fun playEntryHub(activeCommitments: List<CommitmentEntity>): String {
+        if (activeCommitments.isEmpty()) return playPicker(0)
+        val slot = activeCommitments.minByOrNull { it.slotIndex }?.slotIndex ?: 0
+        return playHubForSlot(slot, occupied = true)
+    }
+
+    fun slotIndexFromEntry(entry: NavBackStackEntry?): Int {
+        if (entry == null) return 0
+        val args = entry.arguments ?: return 0
+        if (!args.containsKey("slotIndex")) return 0
+        return args.getInt("slotIndex")
+    }
+
+    fun parsePlaySlotIndex(route: String?): Int? {
+        if (route == null) return null
+        val patterns = listOf(
+            Regex("play/picker/(\\d+)"),
+            Regex("play/focus/(\\d+)"),
+            Regex("play/commit/\\d+/(\\d+)"),
+            Regex("play/complete/(\\d+)"),
+        )
+        for (pattern in patterns) {
+            pattern.matchEntire(route)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { return it }
+        }
+        return null
+    }
+
+    fun isPlayHubRoute(route: String?): Boolean =
+        route == PLAY_PICKER || route == PLAY_FOCUS
 }

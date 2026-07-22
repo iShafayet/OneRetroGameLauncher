@@ -39,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -97,7 +96,8 @@ fun GameDetailScreen(
     val game by viewModel.game.collectAsState()
     val media by viewModel.media.collectAsState()
     val launchConfig by viewModel.launchConfig.collectAsState()
-    val activeCommitment by viewModel.activeCommitment.collectAsState()
+    val needsDebugLaunchGuard by viewModel.needsDebugLaunchGuard.collectAsState()
+    val activePlayRunCount by viewModel.activePlayRunCount.collectAsState()
     val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
     val raUi by viewModel.raUi.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -114,15 +114,13 @@ fun GameDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(GameDetailTab.GAME.ordinal) }
     var notes by remember(game?.notes) { mutableStateOf(game?.notes.orEmpty()) }
-    var launchAllowed by remember { mutableStateOf(true) }
-    var lockReason by remember { mutableStateOf<String?>(null) }
+    var showDebugLaunchGuard by remember { mutableStateOf(false) }
 
-    LaunchedEffect(game?.id, activeCommitment?.id) {
-        launchAllowed = viewModel.launchAllowed()
-        lockReason = if (!launchAllowed) {
-            "Another game is committed in Play mode. Finish or drop it first."
-        } else {
-            null
+    fun performLaunch() {
+        scope.launch {
+            val err = viewModel.launch()
+            if (err != null) snackbar.showSnackbar(err)
+            else snackbar.showSnackbar("Launched")
         }
     }
 
@@ -161,17 +159,15 @@ fun GameDetailScreen(
                             commitmentPlaytimeMs = commitmentPlaytimeMs,
                             notes = notes,
                             onNotesChange = { notes = it },
-                            launchAllowed = launchAllowed,
-                            lockReason = lockReason,
-                            raUi = raUi,
-                            onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
                             onLaunch = {
-                                scope.launch {
-                                    val err = viewModel.launch()
-                                    if (err != null) snackbar.showSnackbar(err)
-                                    else snackbar.showSnackbar("Launched")
+                                if (needsDebugLaunchGuard) {
+                                    showDebugLaunchGuard = true
+                                } else {
+                                    performLaunch()
                                 }
                             },
+                            raUi = raUi,
+                            onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
                             onSaveNotes = { viewModel.saveNotes(notes) },
                             onToggleFavorite = viewModel::toggleFavorite,
                             onToggleFinished = viewModel::toggleFinished,
@@ -194,6 +190,18 @@ fun GameDetailScreen(
             }
         }
     }
+
+    if (showDebugLaunchGuard && game != null) {
+        SetupDebugLaunchDialog(
+            gameTitle = game!!.title,
+            activeRunCount = activePlayRunCount.coerceAtLeast(1),
+            onDismiss = { showDebugLaunchGuard = false },
+            onConfirmed = {
+                showDebugLaunchGuard = false
+                performLaunch()
+            },
+        )
+    }
 }
 
 @Composable
@@ -203,8 +211,6 @@ private fun GameTabContent(
     commitmentPlaytimeMs: Long,
     notes: String,
     onNotesChange: (String) -> Unit,
-    launchAllowed: Boolean,
-    lockReason: String?,
     raUi: GameRaUiState,
     onOpenRetroAchievements: () -> Unit,
     onLaunch: () -> Unit,
@@ -268,20 +274,12 @@ private fun GameTabContent(
             ) {
                 Button(
                     onClick = onLaunch,
-                    enabled = launchAllowed,
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(launchFocus),
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Text("Launch")
-                }
-                lockReason?.let {
-                    Text(
-                        it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
                 }
 
                 RetroAchievementsButton(

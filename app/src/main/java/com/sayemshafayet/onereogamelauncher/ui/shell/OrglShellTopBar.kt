@@ -38,13 +38,14 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 
-private val hubRoutes = setOf(
+private val setupHubRoutes = setOf(
     Routes.SETUP_LIBRARY,
     Routes.SETUP_SETTINGS,
     Routes.SETUP_HISTORY,
-    Routes.PLAY_PICKER,
-    Routes.PLAY_FOCUS,
 )
+
+private fun isHubRoute(route: String?): Boolean =
+    route in setupHubRoutes || Routes.isPlayHubRoute(route)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,20 +54,20 @@ fun OrglShellTopBar(
     backStackEntry: NavBackStackEntry?,
     currentRoute: String?,
     isPlay: Boolean,
-    activeCommitment: CommitmentEntity?,
+    activeCommitments: List<CommitmentEntity>,
     canPopBack: Boolean,
     onSetMode: (AppMode) -> Unit,
 ) {
     val onBack: () -> Unit = { navController.popBackStack(); Unit }
 
-    when (currentRoute) {
-        in hubRoutes -> HubTopAppBar(
+    when {
+        isHubRoute(currentRoute) -> HubTopAppBar(
             isPlay = isPlay,
-            activeCommitment = activeCommitment,
+            activeCommitments = activeCommitments,
             navController = navController,
             onSetMode = onSetMode,
         )
-        Routes.SETUP_SYSTEM -> backStackEntry?.let { entry ->
+        currentRoute == Routes.SETUP_SYSTEM -> backStackEntry?.let { entry ->
             val viewModel: SystemGamesViewModel = hiltViewModel(entry)
             val system by viewModel.system.collectAsState()
             val layout by viewModel.layout.collectAsState()
@@ -95,23 +96,23 @@ fun OrglShellTopBar(
                 },
             )
         }
-        Routes.SETUP_SYSTEM_EMULATOR -> SimpleTopAppBar("Emulator", onBack)
-        Routes.SETUP_GAME -> backStackEntry?.let { entry ->
+        currentRoute == Routes.SETUP_SYSTEM_EMULATOR -> SimpleTopAppBar("Emulator", onBack)
+        currentRoute == Routes.SETUP_GAME -> backStackEntry?.let { entry ->
             val viewModel: GameDetailViewModel = hiltViewModel(entry)
             val game by viewModel.game.collectAsState()
             SimpleTopAppBar(game?.title ?: "Game", onBack)
         }
-        Routes.SETUP_GAME_RA -> SimpleTopAppBar("RetroAchievements", onBack)
-        Routes.SETUP_SETTINGS_FOLDERS -> SimpleTopAppBar("Library folders", onBack)
-        Routes.SETUP_LIBRARY_SCAN -> SimpleTopAppBar("Scanning library", onBack = null)
-        Routes.SETUP_SETTINGS_ESDE -> SimpleTopAppBar("ES-DE", onBack)
-        Routes.SETUP_SETTINGS_SCREENSCRAPER -> SimpleTopAppBar("ScreenScraper", onBack)
-        Routes.SETUP_SETTINGS_RA -> SimpleTopAppBar("RetroAchievements", onBack)
-        Routes.SETUP_SETTINGS_HLTB -> SimpleTopAppBar("HowLongToBeat", onBack)
-        Routes.SETUP_SETTINGS_RETROARCH -> SimpleTopAppBar("RetroArch", onBack)
-        Routes.SETUP_SETTINGS_CREDITS -> SimpleTopAppBar("Credits", onBack)
-        Routes.SETUP_ABOUT -> SimpleTopAppBar("About ORGL", onBack)
-        Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->
+        currentRoute == Routes.SETUP_GAME_RA -> SimpleTopAppBar("RetroAchievements", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_FOLDERS -> SimpleTopAppBar("Library folders", onBack)
+        currentRoute == Routes.SETUP_LIBRARY_SCAN -> SimpleTopAppBar("Scanning library", onBack = null)
+        currentRoute == Routes.SETUP_SETTINGS_ESDE -> SimpleTopAppBar("ES-DE", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_SCREENSCRAPER -> SimpleTopAppBar("ScreenScraper", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_RA -> SimpleTopAppBar("RetroAchievements", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_HLTB -> SimpleTopAppBar("HowLongToBeat", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_RETROARCH -> SimpleTopAppBar("RetroArch", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_CREDITS -> SimpleTopAppBar("Credits", onBack)
+        currentRoute == Routes.SETUP_ABOUT -> SimpleTopAppBar("About ORGL", onBack)
+        currentRoute == Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->
             val viewModel: ScrapeViewModel = hiltViewModel(entry)
             val wizard by viewModel.wizard.collectAsState()
             val session by viewModel.session.collectAsState()
@@ -134,13 +135,13 @@ fun OrglShellTopBar(
                 backEnabled = wizard.step != ScrapeWizardStep.PROGRESS || !session.running,
             )
         }
-        Routes.SETUP_HISTORY -> SimpleTopAppBar(
+        currentRoute == Routes.SETUP_HISTORY -> SimpleTopAppBar(
             "History",
             onBack = if (canPopBack) onBack else null,
         )
-        Routes.SETUP_HISTORY_RUN -> SimpleTopAppBar("Run card", onBack)
-        Routes.PLAY_COMPLETE -> SimpleTopAppBar("Run complete", onBack = null)
-        Routes.PLAY_COMMIT -> SimpleTopAppBar("Confirm selection", onBack)
+        currentRoute == Routes.SETUP_HISTORY_RUN -> SimpleTopAppBar("Run card", onBack)
+        currentRoute?.startsWith("play/complete/") == true -> SimpleTopAppBar("Run complete", onBack = null)
+        currentRoute?.startsWith("play/commit/") == true -> SimpleTopAppBar("Confirm selection", onBack)
         else -> SimpleTopAppBar("", onBack = null)
     }
 }
@@ -149,7 +150,7 @@ fun OrglShellTopBar(
 @Composable
 private fun HubTopAppBar(
     isPlay: Boolean,
-    activeCommitment: CommitmentEntity?,
+    activeCommitments: List<CommitmentEntity>,
     navController: NavHostController,
     onSetMode: (AppMode) -> Unit,
 ) {
@@ -167,15 +168,18 @@ private fun HubTopAppBar(
     }
 
     fun requestSetupMode() {
-        if (isPlay && activeCommitment != null) {
+        if (isPlay && activeCommitments.isNotEmpty()) {
             showSetupGuard = true
         } else {
             switchToSetup()
         }
     }
 
+    fun playDestination(): String = Routes.playEntryHub(activeCommitments)
+
     if (showSetupGuard) {
         PlayToSetupGuardDialog(
+            activeRunCount = activeCommitments.size,
             onDismiss = { showSetupGuard = false },
             onConfirmed = {
                 showSetupGuard = false
@@ -213,17 +217,11 @@ private fun HubTopAppBar(
                     selected = isPlay,
                     onClick = {
                         onSetMode(AppMode.PLAY)
-                        val dest = if (activeCommitment != null) {
-                            Routes.PLAY_FOCUS
-                        } else {
-                            Routes.PLAY_PICKER
-                        }
-                        navController.navigate(dest) {
+                        navController.navigate(playDestination()) {
                             popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                                inclusive = true
                             }
                             launchSingleTop = true
-                            restoreState = true
                         }
                     },
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),

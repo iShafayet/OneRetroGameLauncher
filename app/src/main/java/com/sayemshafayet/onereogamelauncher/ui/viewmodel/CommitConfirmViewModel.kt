@@ -20,7 +20,9 @@ class CommitConfirmViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val commitmentRepository: CommitmentRepository,
 ) : ViewModel() {
-    val gameId: Long = savedStateHandle.get<String>("gameId")?.toLongOrNull() ?: 0L
+    val gameId: Long = savedStateHandle.get<Long>("gameId")
+        ?: savedStateHandle.get<String>("gameId")?.toLongOrNull()
+        ?: 0L
 
     val game: StateFlow<GameEntity?> = libraryRepository.observeGame(gameId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -41,12 +43,14 @@ class CommitConfirmViewModel @Inject constructor(
     private val _isCommitting = kotlinx.coroutines.flow.MutableStateFlow(false)
     val isCommitting: StateFlow<Boolean> = _isCommitting
 
+    val slotIndex: Int = savedStateHandle.get<Int>("slotIndex")?.coerceIn(0, 4) ?: 0
+
     fun commit(onSuccess: () -> Unit) {
         if (_isCommitting.value) return
         viewModelScope.launch {
             _isCommitting.value = true
             _error.value = null
-            commitmentRepository.commit(gameId)
+            commitmentRepository.commit(gameId, slotIndex)
                 .onSuccess { onSuccess() }
                 .onFailure { _error.value = it.message }
             _isCommitting.value = false

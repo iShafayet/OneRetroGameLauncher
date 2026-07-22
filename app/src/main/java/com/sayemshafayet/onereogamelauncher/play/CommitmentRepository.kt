@@ -11,10 +11,13 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.PlaySessionEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.ReviewEntity
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
+import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.data.prefs.coercePlaySlotCount
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 @Singleton
 class CommitmentRepository @Inject constructor(
@@ -24,6 +27,7 @@ class CommitmentRepository @Inject constructor(
     private val gameDao: GameDao,
     private val journalDao: JournalDao,
     private val orglExternalSync: OrglExternalSync,
+    private val settingsRepository: SettingsRepository,
 ) {
     companion object {
         const val SHELF_MAX = 5
@@ -31,28 +35,73 @@ class CommitmentRepository @Inject constructor(
 
     fun observeActive(): Flow<CommitmentEntity?> = commitmentDao.observeActive()
 
+    fun observeAllActive(): Flow<List<CommitmentEntity>> = commitmentDao.observeAllActive()
+
+    fun observeActiveForSlot(slotIndex: Int): Flow<CommitmentEntity?> =
+        commitmentDao.observeActiveForSlot(slotIndex)
+
     suspend fun getActive(): CommitmentEntity? = commitmentDao.getActive()
 
+    suspend fun getAllActive(): List<CommitmentEntity> = commitmentDao.getAllActive()
+
+    suspend fun getActiveForSlot(slotIndex: Int): CommitmentEntity? =
+        commitmentDao.getActiveForSlot(slotIndex)
+
+    suspend fun getActiveForGame(gameId: Long): CommitmentEntity? =
+        commitmentDao.getActiveForGame(gameId)
+
+    fun observeActiveForGame(gameId: Long): Flow<CommitmentEntity?> =
+        commitmentDao.observeAllActive().map { active ->
+            active.firstOrNull { it.gameId == gameId }
+        }
+
+    suspend fun maxPlaySlots(): Int = coercePlaySlotCount(settingsRepository.current().playSlotCount)
+
     suspend fun isLaunchAllowed(gameId: Long): Boolean {
-        val active = commitmentDao.getActive() ?: return true
-        return active.gameId == gameId
+        commitmentDao.getActiveForGame(gameId)?.let { return true }
+        val active = commitmentDao.getAllActive()
+        if (active.isEmpty()) return true
+        return false
     }
 
-    suspend fun commit(gameId: Long): Result<CommitmentEntity> {
-        val existing = commitmentDao.getActive()
-        if (existing != null && existing.gameId != gameId) {
-            return Result.failure(IllegalStateException("Another game is already committed"))
+    suspend fun commit(gameId: Long, slotIndex: Int? = null): Result<CommitmentEntity> {
+        val maxSlots = maxPlaySlots()
+        commitmentDao.getActiveForGame(gameId)?.let { return Result.success(it) }
+
+        val targetSlot = slotIndex?.coerceIn(0, maxSlots - 1)
+            ?: findFirstFreeSlot(maxSlots)
+            ?: return Result.failure(IllegalStateException("All play slots are full"))
+
+        val existingInSlot = commitmentDao.getActiveForSlot(targetSlot)
+        if (existingInSlot != null && existingInSlot.gameId != gameId) {
+            return Result.failure(
+                IllegalStateException("Slot ${targetSlot + 1} already has another game"),
+            )
         }
-        if (existing?.gameId == gameId) return Result.success(existing)
+        if (existingInSlot?.gameId == gameId) return Result.success(existingInSlot)
+
+        if (commitmentDao.countActive() >= maxSlots) {
+            return Result.failure(IllegalStateException("All play slots are full"))
+        }
+
         val id = commitmentDao.upsert(
             CommitmentEntity(
                 gameId = gameId,
                 committedAt = System.currentTimeMillis(),
                 status = CommitmentStatus.ACTIVE,
+                slotIndex = targetSlot,
             ),
         )
         return commitmentDao.getById(id)?.let { Result.success(it) }
             ?: Result.failure(IllegalStateException("Failed to create commitment"))
+    }
+
+    private suspend fun findFirstFreeSlot(maxSlots: Int): Int? {
+        val occupied = commitmentDao.getAllActive().map { it.slotIndex }.toSet()
+        for (i in 0 until maxSlots) {
+            if (i !in occupied) return i
+        }
+        return null
     }
 
     suspend fun finish(

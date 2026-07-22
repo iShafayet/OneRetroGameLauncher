@@ -1,6 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.shell
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -24,12 +25,16 @@ import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
@@ -38,6 +43,7 @@ import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
+import com.sayemshafayet.onereogamelauncher.ui.play.PlaySlotBar
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
@@ -78,7 +84,10 @@ fun ModeShell(
     shellViewModel: ModeShellViewModel = hiltViewModel(),
 ) {
     val settings by shellViewModel.settings.collectAsState(initial = AppSettings())
-    val activeCommitment by mainViewModel.activeCommitment.collectAsState()
+    val activeCommitments by mainViewModel.activeCommitments.collectAsState()
+    val visibleActiveCommitments = activeCommitments.filter {
+        it.slotIndex in 0 until settings.playSlotCount
+    }
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
@@ -103,18 +112,17 @@ fun ModeShell(
             )
     // Primary hubs use the mode switcher in the shell top bar; all routes share that bar slot.
     val modeSwitcherRoutes = setupTabs + setOf(Routes.PLAY_PICKER, Routes.PLAY_FOCUS)
-    val isHubRoute = currentRoute in modeSwitcherRoutes
+    val isHubRoute = currentRoute in setupTabs || Routes.isPlayHubRoute(currentRoute)
 
     val rootRoutes = setOf(
         Routes.SETUP_LIBRARY,
         Routes.SETUP_SETTINGS,
         Routes.SETUP_HISTORY,
-        Routes.PLAY_PICKER,
-        Routes.PLAY_FOCUS,
         Routes.PLAY_COMPLETE,
     )
     val canPopBack = navController.previousBackStackEntry != null &&
-        currentRoute !in rootRoutes
+        currentRoute !in rootRoutes &&
+        !isPlayRootRoute(currentRoute)
 
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
     val showAboutButton = !isPlay && isHubRoute
@@ -125,17 +133,22 @@ fun ModeShell(
 
     // Keep start destinations stable — tying them to activeCommitment resets the graph when a
     // run ends and would skip the completion screen.
-    val navStartDestination = if (isPlay) Routes.PLAY_PICKER else Routes.SETUP_LIBRARY
+    val navStartDestination = if (isPlay) Routes.playPicker(0) else Routes.SETUP_LIBRARY
 
-    LaunchedEffect(isPlay, activeCommitment?.id, currentRoute) {
-        if (!isPlay || activeCommitment == null) return@LaunchedEffect
+    LaunchedEffect(isPlay, visibleActiveCommitments, settings.playSlotCount, backStack?.id, currentRoute) {
+        if (!isPlay) return@LaunchedEffect
         if (currentRoute in playFlowRoutes) return@LaunchedEffect
-        if (currentRoute == Routes.PLAY_PICKER) {
-            navController.navigate(Routes.PLAY_FOCUS) {
-                launchSingleTop = true
-            }
-        }
+        if (!Routes.isPlayHubRoute(currentRoute)) return@LaunchedEffect
+        val slot = Routes.slotIndexFromEntry(backStack)
+            .coerceIn(0, (settings.playSlotCount - 1).coerceAtLeast(0))
+        syncPlayHubForSlot(navController, backStack, slot, visibleActiveCommitments)
     }
+
+    val showPlaySlotBar = isPlay &&
+        settings.playSlotCount > 1 &&
+        Routes.isPlayHubRoute(currentRoute)
+    val currentPlaySlot = Routes.slotIndexFromEntry(backStack)
+        .coerceIn(0, (settings.playSlotCount - 1).coerceAtLeast(0))
 
     Scaffold(
         modifier = Modifier.onPreviewKeyEvent { event ->
@@ -165,15 +178,44 @@ fun ModeShell(
             }
         },
         topBar = {
-            OrglShellTopBar(
-                navController = navController,
-                backStackEntry = backStack,
-                currentRoute = currentRoute,
-                isPlay = isPlay,
-                activeCommitment = activeCommitment,
-                canPopBack = canPopBack,
-                onSetMode = shellViewModel::setMode,
-            )
+            Column {
+                OrglShellTopBar(
+                    navController = navController,
+                    backStackEntry = backStack,
+                    currentRoute = currentRoute,
+                    isPlay = isPlay,
+                    activeCommitments = visibleActiveCommitments,
+                    canPopBack = canPopBack,
+                    onSetMode = shellViewModel::setMode,
+                )
+                if (showPlaySlotBar) {
+                    PlaySlotBar(
+                        slotCount = settings.playSlotCount,
+                        currentSlot = currentPlaySlot,
+                        occupiedSlots = visibleActiveCommitments.map { it.slotIndex }.toSet(),
+                        onPrevious = {
+                            navigatePlaySlot(
+                                navController,
+                                backStack,
+                                visibleActiveCommitments,
+                                settings.playSlotCount,
+                                currentPlaySlot,
+                                -1,
+                            )
+                        },
+                        onNext = {
+                            navigatePlaySlot(
+                                navController,
+                                backStack,
+                                visibleActiveCommitments,
+                                settings.playSlotCount,
+                                currentPlaySlot,
+                                1,
+                            )
+                        },
+                    )
+                }
+            }
         },
         bottomBar = {
             if (showSetupBar) {
@@ -293,44 +335,90 @@ fun ModeShell(
                 ScrapeWizardScreen(onBack = { navController.popBackStack() })
             }
 
-            composable(Routes.PLAY_PICKER) {
+            composable(
+                route = Routes.PLAY_PICKER,
+                arguments = listOf(
+                    navArgument("slotIndex") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) { entry ->
+                val slotIndex = entry.arguments?.getInt("slotIndex") ?: 0
                 PlayPickerScreen(
-                    onGameSelected = { navController.navigate(Routes.playCommit(it)) },
+                    onGameSelected = { navController.navigate(Routes.playCommit(it, slotIndex)) },
+                    viewModel = hiltViewModel(entry),
                 )
             }
-            composable(Routes.PLAY_COMMIT) {
+            composable(
+                route = Routes.PLAY_COMMIT,
+                arguments = listOf(
+                    navArgument("gameId") { type = NavType.LongType },
+                    navArgument("slotIndex") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) { entry ->
+                val slotIndex = entry.arguments?.getInt("slotIndex") ?: 0
                 CommitConfirmScreen(
                     onConfirmed = {
-                        navController.navigate(Routes.PLAY_FOCUS) {
+                        navController.navigate(Routes.playFocus(slotIndex)) {
                             popUpTo(Routes.PLAY_PICKER) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                     onCancel = { navController.popBackStack() },
                 )
             }
-            composable(Routes.PLAY_FOCUS) {
+            composable(
+                route = Routes.PLAY_FOCUS,
+                arguments = listOf(
+                    navArgument("slotIndex") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) { entry ->
+                val slotIndex = entry.arguments?.getInt("slotIndex") ?: 0
                 FocusScreen(
                     onRunCompleted = {
-                        navController.navigate(Routes.PLAY_COMPLETE) {
+                        navController.navigate(Routes.playComplete(slotIndex)) {
+                            popUpTo(Routes.playFocus(slotIndex)) { inclusive = true }
+                        }
+                    },
+                    onPickGame = {
+                        navController.navigate(Routes.playPicker(slotIndex)) {
                             popUpTo(Routes.PLAY_FOCUS) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                     onOpenJournal = { navController.navigate(Routes.SETUP_HISTORY) },
                     onOpenRetroAchievements = { gameId ->
                         navController.navigate(Routes.gameRetroAchievements(gameId))
                     },
+                    viewModel = hiltViewModel(entry),
                 )
             }
-            composable(Routes.PLAY_COMPLETE) {
+            composable(
+                route = Routes.PLAY_COMPLETE,
+                arguments = listOf(
+                    navArgument("slotIndex") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) { entry ->
+                val slotIndex = entry.arguments?.getInt("slotIndex") ?: 0
                 PlayCompletionScreen(
                     onStartNewAdventure = {
-                        navController.navigate(Routes.PLAY_PICKER) {
-                            popUpTo(Routes.PLAY_COMPLETE) { inclusive = true }
+                        navController.navigate(Routes.playPicker(slotIndex)) {
+                            popUpTo(Routes.playComplete(slotIndex)) { inclusive = true }
                         }
                     },
                     onMissingData = {
-                        navController.navigate(Routes.PLAY_PICKER) {
-                            popUpTo(Routes.PLAY_COMPLETE) { inclusive = true }
+                        navController.navigate(Routes.playPicker(slotIndex)) {
+                            popUpTo(Routes.playComplete(slotIndex)) { inclusive = true }
                         }
                     },
                 )
@@ -341,11 +429,74 @@ fun ModeShell(
 }
 
 private val playFlowRoutes = setOf(
-    Routes.PLAY_FOCUS,
     Routes.PLAY_COMMIT,
     Routes.PLAY_COMPLETE,
     Routes.SETUP_HISTORY,
 )
+
+private fun isPlayRootRoute(route: String?): Boolean =
+    route == Routes.PLAY_PICKER ||
+        route == Routes.PLAY_FOCUS ||
+        route?.startsWith("play/picker/") == true ||
+        route?.startsWith("play/focus/") == true ||
+        route?.startsWith("play/complete/") == true
+
+private fun syncPlayHubForSlot(
+    navController: NavHostController,
+    currentEntry: NavBackStackEntry?,
+    slot: Int,
+    activeCommitments: List<CommitmentEntity>,
+) {
+    val hubRoute = currentEntry?.destination?.route ?: return
+    if (hubRoute != Routes.PLAY_PICKER && hubRoute != Routes.PLAY_FOCUS) return
+
+    val occupied = activeCommitments.any { it.slotIndex == slot }
+    val wrongHub = (occupied && hubRoute == Routes.PLAY_PICKER) ||
+        (!occupied && hubRoute == Routes.PLAY_FOCUS)
+    if (!wrongHub) return
+
+    navigatePlayHub(
+        navController = navController,
+        currentEntry = currentEntry,
+        slot = slot,
+        activeCommitments = activeCommitments,
+    )
+}
+
+private fun navigatePlayHub(
+    navController: NavHostController,
+    currentEntry: NavBackStackEntry?,
+    slot: Int,
+    activeCommitments: List<CommitmentEntity>,
+) {
+    val occupied = activeCommitments.any { it.slotIndex == slot }
+    val dest = Routes.playHubForSlot(slot, occupied)
+    val hubRoute = currentEntry?.destination?.route
+    navController.navigate(dest) {
+        if (hubRoute == Routes.PLAY_FOCUS || hubRoute == Routes.PLAY_PICKER) {
+            popUpTo(hubRoute) { inclusive = true }
+        }
+        launchSingleTop = true
+    }
+}
+
+private fun navigatePlaySlot(
+    navController: NavHostController,
+    currentEntry: NavBackStackEntry?,
+    activeCommitments: List<CommitmentEntity>,
+    slotCount: Int,
+    currentSlot: Int,
+    delta: Int,
+) {
+    if (slotCount <= 0) return
+    val next = (currentSlot + delta).floorMod(slotCount)
+    navigatePlayHub(navController, currentEntry, next, activeCommitments)
+}
+
+private fun Int.floorMod(mod: Int): Int {
+    val r = this % mod
+    return if (r < 0) r + mod else r
+}
 
 private fun setupTabIndex(route: String?): Int = when {
     route == Routes.SETUP_LIBRARY -> 0

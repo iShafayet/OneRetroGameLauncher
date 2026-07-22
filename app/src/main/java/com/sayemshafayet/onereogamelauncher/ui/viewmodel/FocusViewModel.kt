@@ -1,5 +1,6 @@
 package com.sayemshafayet.onereogamelauncher.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
@@ -28,16 +29,19 @@ import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import com.sayemshafayet.onereogamelauncher.ra.RomHashCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class FocusUiState(
+    val slotIndex: Int = 0,
     val commitment: CommitmentEntity? = null,
     val game: GameEntity? = null,
     val system: SystemEntity? = null,
@@ -50,8 +54,10 @@ data class FocusUiState(
     val extrasLoaded: Boolean = false,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class FocusViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val commitmentRepository: CommitmentRepository,
     private val libraryRepository: LibraryRepository,
     private val launchResolver: LaunchResolver,
@@ -70,21 +76,25 @@ class FocusViewModel @Inject constructor(
     private val _raUi = MutableStateFlow(GameRaUiState())
     val raUi: StateFlow<GameRaUiState> = _raUi.asStateFlow()
 
-    val activeCommitment = commitmentRepository.observeActive()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     private var launchedSession = false
 
     init {
         viewModelScope.launch {
-            commitmentRepository.observeActive().collect { commitment ->
-                if (commitment == null) {
-                    _state.value = FocusUiState()
-                    _raUi.value = GameRaUiState()
-                    return@collect
+            savedStateHandle.getStateFlow("slotIndex", 0)
+                .flatMapLatest { slot ->
+                    _state.update { it.copy(slotIndex = slot) }
+                    commitmentRepository.observeActiveForSlot(slot)
                 }
-                refreshFocus(commitment)
-            }
+                .collect { commitment ->
+                    val slot = _state.value.slotIndex
+                    if (commitment == null) {
+                        _state.value = FocusUiState(slotIndex = slot)
+                        _raUi.value = GameRaUiState()
+                        launchedSession = false
+                        return@collect
+                    }
+                    refreshFocus(commitment)
+                }
         }
     }
 
@@ -94,6 +104,7 @@ class FocusViewModel @Inject constructor(
         val media = libraryRepository.observeMedia(game.id).first()
         _state.update {
             it.copy(
+                slotIndex = commitment.slotIndex,
                 commitment = commitment,
                 game = game,
                 system = system,

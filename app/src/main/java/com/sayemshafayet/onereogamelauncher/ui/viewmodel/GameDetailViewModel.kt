@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -73,8 +75,20 @@ class GameDetailViewModel @Inject constructor(
     val config: StateFlow<GameConfigEntity?> = libraryRepository.observeGameConfig(gameId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val activeCommitment = commitmentRepository.observeActive()
+    val activeCommitmentForGame = commitmentRepository.observeActiveForGame(gameId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val activePlayRunCount = commitmentRepository.observeAllActive()
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** True when launching from Setup should show the debug/test guard (not this game's Play slot). */
+    val needsDebugLaunchGuard: StateFlow<Boolean> = combine(
+        activeCommitmentForGame,
+        commitmentRepository.observeAllActive(),
+    ) { forGame, active ->
+        forGame == null && active.isNotEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _launchConfig = MutableStateFlow(GameLaunchConfigUi())
     val launchConfig: StateFlow<GameLaunchConfigUi> = _launchConfig.asStateFlow()

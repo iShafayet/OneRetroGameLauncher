@@ -39,8 +39,8 @@ class PlayStatsTracker @Inject constructor(
         val (gameId, startedAt) = snapshot
         if (startedAt <= 0L) return
 
-        val active = commitmentRepository.getActive()
-        if (active?.gameId == gameId) {
+        val active = commitmentRepository.getActiveForGame(gameId)
+        if (active != null) {
             // Play mode records session duration via CommitmentRepository.
             return
         }

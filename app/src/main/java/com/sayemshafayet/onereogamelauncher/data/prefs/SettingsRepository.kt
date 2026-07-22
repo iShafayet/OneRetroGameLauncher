@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
@@ -17,6 +18,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("orgl_settings")
+
+const val MIN_PLAY_SLOTS = 1
+const val MAX_PLAY_SLOTS = 5
+
+fun coercePlaySlotCount(count: Int): Int = count.coerceIn(MIN_PLAY_SLOTS, MAX_PLAY_SLOTS)
 
 data class AppSettings(
     val romsDirUri: String? = null,
@@ -47,6 +53,8 @@ data class AppSettings(
     val gameListLayout: GameListLayout = GameListLayout.GRID,
     /** Epoch millis when the last scrape batch finished. */
     val lastScrapeAt: Long? = null,
+    /** How many independent play slots are available in Play mode (1 = classic one-game). */
+    val playSlotCount: Int = MIN_PLAY_SLOTS,
 )
 
 enum class GameListLayout { GRID, LIST }
@@ -93,6 +101,7 @@ class SettingsRepository @Inject constructor(
         val appMode = stringPreferencesKey("app_mode")
         val gameListLayout = stringPreferencesKey("game_list_layout")
         val lastScrapeAt = stringPreferencesKey("last_scrape_at")
+        val playSlotCount = intPreferencesKey("play_slot_count")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -124,6 +133,7 @@ class SettingsRepository @Inject constructor(
                 GameListLayout.valueOf(p[Keys.gameListLayout] ?: GameListLayout.GRID.name)
             }.getOrDefault(GameListLayout.GRID),
             lastScrapeAt = p[Keys.lastScrapeAt]?.toLongOrNull(),
+            playSlotCount = coercePlaySlotCount(p[Keys.playSlotCount] ?: MIN_PLAY_SLOTS),
         )
     }
 
@@ -215,6 +225,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setLastScrapeAt(epochMs: Long) {
         context.dataStore.edit { it[Keys.lastScrapeAt] = epochMs.toString() }
+    }
+
+    suspend fun setPlaySlotCount(count: Int) {
+        context.dataStore.edit { it[Keys.playSlotCount] = coercePlaySlotCount(count) }
     }
 }
 

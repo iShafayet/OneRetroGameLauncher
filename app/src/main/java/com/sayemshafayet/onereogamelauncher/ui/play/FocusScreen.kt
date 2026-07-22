@@ -67,6 +67,7 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.FocusViewModel
 @Composable
 fun FocusScreen(
     onRunCompleted: () -> Unit,
+    onPickGame: () -> Unit,
     onOpenJournal: () -> Unit,
     onOpenRetroAchievements: (Long) -> Unit,
     viewModel: FocusViewModel = hiltViewModel(),
@@ -106,12 +107,46 @@ fun FocusScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text(
-            "Now playing",
+            if (game != null) "Now playing" else "Slot ${state.slotIndex + 1}",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.secondary,
         )
 
-        if (game != null) {
+        if (game == null) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "No game in this slot",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "Pick a game to commit to this slot. Other slots are unaffected.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    Button(
+                        onClick = onPickGame,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(playFocus),
+                    ) {
+                        Text("Pick a game")
+                    }
+                }
+            }
+        } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -144,6 +179,7 @@ fun FocusScreen(
             }
         }
 
+        if (game != null) {
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -251,11 +287,12 @@ fun FocusScreen(
                 }
             }
         }
+        }
 
         Spacer(Modifier.height(48.dp))
     }
 
-    OrlgInitialFocus(playFocus, enabled = game != null)
+    OrlgInitialFocus(playFocus, enabled = game != null || state.commitment == null)
 
     if (showReview) {
         AlertDialog(

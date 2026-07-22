@@ -46,6 +46,7 @@ data class SettingsHubUi(
     val orglIncompatibleAlert: String? = null,
     val syncing: Boolean = false,
     val syncMessage: String? = null,
+    val playSlotCount: Int = 1,
 )
 
 @HiltViewModel
@@ -83,6 +84,7 @@ class SettingsViewModel @Inject constructor(
                         ssConfigured = s.screenScraperUser.isNotBlank(),
                         raConfigured = s.retroAchievementsConfigured(),
                         hltbEnabled = s.hltbEnabled,
+                        playSlotCount = s.playSlotCount,
                     )
                 }
             }
@@ -91,6 +93,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+    }
+
+    fun setPlaySlotCount(count: Int) {
+        viewModelScope.launch { settingsRepository.setPlaySlotCount(count) }
     }
 
     fun setRetroArchPackage(pkg: String) {

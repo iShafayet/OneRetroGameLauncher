@@ -44,6 +44,12 @@ class MainViewModel @Inject constructor(
         null,
     )
 
+    val activeCommitments = commitmentRepository.observeAllActive().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        emptyList(),
+    )
+
     init {
         viewModelScope.launch {
             libraryRepository.ensureCatalogLoaded()

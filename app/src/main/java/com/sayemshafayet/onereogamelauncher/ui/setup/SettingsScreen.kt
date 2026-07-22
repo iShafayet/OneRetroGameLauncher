@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sayemshafayet.onereogamelauncher.data.prefs.MAX_PLAY_SLOTS
+import com.sayemshafayet.onereogamelauncher.data.prefs.MIN_PLAY_SLOTS
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
@@ -140,6 +142,34 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 8.dp),
             )
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Play", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Multiple One Game",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        )
+        Text(
+            "How many games you can commit to at once in Play mode. Each slot is independent.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        androidx.compose.foundation.layout.Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            (MIN_PLAY_SLOTS..MAX_PLAY_SLOTS).forEach { count ->
+                FilterChip(
+                    selected = ui.playSlotCount == count,
+                    onClick = { viewModel.setPlaySlotCount(count) },
+                    label = {
+                        Text(if (count == 1) "1" else "$count slots")
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.height(20.dp))

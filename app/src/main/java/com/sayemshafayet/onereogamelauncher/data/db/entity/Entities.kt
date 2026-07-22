@@ -120,7 +120,7 @@ data class EmulatorProfileEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("gameId"), Index("status")],
+    indices = [Index("gameId"), Index("status"), Index("slotIndex")],
 )
 data class CommitmentEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -128,6 +128,8 @@ data class CommitmentEntity(
     val committedAt: Long,
     val releasedAt: Long? = null,
     val status: CommitmentStatus,
+    /** Zero-based play slot; only meaningful while [status] is ACTIVE. */
+    val slotIndex: Int = 0,
 )
 
 @Entity(
