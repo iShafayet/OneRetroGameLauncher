@@ -63,8 +63,8 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsSc
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeWizardScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.DatabaseSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
-import com.sayemshafayet.onereogamelauncher.ui.setup.SyncStorageSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemEmulatorSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
@@ -328,7 +328,7 @@ fun ModeShell(
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
                     onOpenPlaySlots = { navController.navigate(Routes.SETUP_SETTINGS_PLAY_SLOTS) },
-                    onOpenSyncStorage = { navController.navigate(Routes.SETUP_SETTINGS_SYNC) },
+                    onOpenDatabase = { navController.navigate(Routes.SETUP_SETTINGS_DATABASE) },
                     onOpenAbout = { navController.navigate(Routes.SETUP_ABOUT) },
                     onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                     onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
@@ -367,8 +367,8 @@ fun ModeShell(
             composable(Routes.SETUP_SETTINGS_PLAY_SLOTS) {
                 PlaySlotsSettingsScreen()
             }
-            composable(Routes.SETUP_SETTINGS_SYNC) {
-                SyncStorageSettingsScreen()
+            composable(Routes.SETUP_SETTINGS_DATABASE) {
+                DatabaseSettingsScreen()
             }
             composable(Routes.SETUP_SETTINGS_CREDITS) {
                 CreditsScreen(onBack = { navController.popBackStack() })

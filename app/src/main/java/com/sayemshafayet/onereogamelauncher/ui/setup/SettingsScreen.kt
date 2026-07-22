@@ -41,7 +41,7 @@ fun SettingsScreen(
     onOpenHltb: () -> Unit,
     onOpenRetroArch: () -> Unit,
     onOpenPlaySlots: () -> Unit,
-    onOpenSyncStorage: () -> Unit,
+    onOpenDatabase: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenCredits: () -> Unit,
     onStartScan: () -> Unit,
@@ -128,15 +128,6 @@ fun SettingsScreen(
         )
 
         Spacer(Modifier.height(20.dp))
-        Text("Maintenance", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        SettingsNavRow(
-            title = "Sync storage",
-            subtitle = if (orglConfigured) "Sync with ORGL data folder" else "ORGL directory not set",
-            modifier = Modifier.orlgFocusable(onOpenSyncStorage),
-        )
-
-        Spacer(Modifier.height(20.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Row(
@@ -150,6 +141,19 @@ fun SettingsScreen(
                 )
             }
         }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Debug", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        SettingsNavRow(
+            title = "Database",
+            subtitle = if (orglConfigured) {
+                "Sync and data maintenance"
+            } else {
+                "ORGL directory not set"
+            },
+            modifier = Modifier.orlgFocusable(onOpenDatabase),
+        )
 
         Spacer(Modifier.height(20.dp))
         Text("Information", style = MaterialTheme.typography.titleMedium)

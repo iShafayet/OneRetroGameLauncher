@@ -117,7 +117,7 @@ fun OrglShellTopBar(
         currentRoute == Routes.SETUP_SETTINGS_HLTB -> SimpleTopAppBar("HowLongToBeat", onBack)
         currentRoute == Routes.SETUP_SETTINGS_RETROARCH -> SimpleTopAppBar("RetroArch", onBack)
         currentRoute == Routes.SETUP_SETTINGS_PLAY_SLOTS -> SimpleTopAppBar("Now Playing Slots", onBack)
-        currentRoute == Routes.SETUP_SETTINGS_SYNC -> SimpleTopAppBar("Sync storage", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_DATABASE -> SimpleTopAppBar("Database", onBack)
         currentRoute == Routes.SETUP_SETTINGS_CREDITS -> SimpleTopAppBar("Credits", onBack)
         currentRoute == Routes.SETUP_ABOUT -> SimpleTopAppBar("About ORGL", onBack)
         currentRoute == Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->

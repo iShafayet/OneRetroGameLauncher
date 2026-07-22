@@ -15,12 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 @Composable
-fun SyncStorageSettingsScreen(
+fun DatabaseSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
@@ -33,18 +34,24 @@ fun SyncStorageSettingsScreen(
             .padding(16.dp),
     ) {
         Text(
-            "Merge data between this device and your ORGL data folder on disk.",
+            "Debug tools for local data and your ORGL data folder. More cleanup options will be added here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "Sync with ORGL data folder",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(8.dp))
         Text(
             "Imports and exports RetroAchievements credentials (when stored on disk) and your Play mode journal. " +
                 "Launch stats stay on this device only.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
         Button(
             onClick = { viewModel.syncExternalStorage() },
             enabled = !ui.syncing && orglConfigured,

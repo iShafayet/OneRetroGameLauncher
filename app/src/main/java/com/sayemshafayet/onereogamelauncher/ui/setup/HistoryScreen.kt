@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -105,78 +104,10 @@ fun HistoryScreen(
                     )
                 }
             }
-            item {
-                HistorySyncFooter(
-                    orglConfigured = ui.orglConfigured,
-                    syncing = ui.syncing,
-                    syncMessage = ui.syncMessage,
-                    onSync = viewModel::syncWithDisk,
-                    focusIndex = entries.size,
-                    firstFocus = firstFocus,
-                )
-            }
             item { Spacer(modifier = Modifier.height(48.dp)) }
         }
     }
-    OrlgInitialFocus(firstFocus, enabled = entries.isNotEmpty() || ui.orglConfigured)
-}
-
-@Composable
-private fun HistorySyncFooter(
-    orglConfigured: Boolean,
-    syncing: Boolean,
-    syncMessage: String?,
-    onSync: () -> Unit,
-    focusIndex: Int,
-    firstFocus: FocusRequester,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            "Disk sync",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            "Merge your Play mode journal with play_history.json in the ORGL data folder.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Button(
-            onClick = onSync,
-            enabled = orglConfigured && !syncing,
-            modifier = Modifier
-                .fillMaxWidth()
-                .orlgListFocus(focusIndex, firstFocus)
-                .orlgFocusable(onClick = onSync),
-        ) {
-            if (syncing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp),
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Text("Sync with disk")
-            }
-        }
-        if (!orglConfigured) {
-            Text(
-                "Set an ORGL data folder in Settings to enable sync.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        syncMessage?.let { msg ->
-            Text(
-                msg,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
+    OrlgInitialFocus(firstFocus, enabled = entries.isNotEmpty())
 }
 
 @Composable
