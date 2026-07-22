@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -37,7 +38,10 @@ fun PlaySlotBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                IconButton(onClick = onPrevious) {
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous slot")
                 }
                 ColumnCentered(
@@ -45,7 +49,10 @@ fun PlaySlotBar(
                     slotCount = slotCount,
                     occupied = currentSlot in occupiedSlots,
                 )
-                IconButton(onClick = onNext) {
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier.focusProperties { canFocus = false },
+                ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next slot")
                 }
             }

@@ -5,4 +5,5 @@
     <string name="scrape_channel_name">Artwork scraping</string>
     <string name="scrape_notification_title">Scraping artwork</string>
     <string name="scrape_cancel">Cancel</string>
+    <string name="press_again_to_exit">Press again to exit</string>
 </resources>

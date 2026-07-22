@@ -292,7 +292,11 @@ fun FocusScreen(
         Spacer(Modifier.height(48.dp))
     }
 
-    OrlgInitialFocus(playFocus, enabled = game != null || state.commitment == null)
+    OrlgInitialFocus(
+        playFocus,
+        enabled = game != null || state.commitment == null,
+        resetKey = state.slotIndex to (game?.id ?: 0L),
+    )
 
     if (showReview) {
         AlertDialog(

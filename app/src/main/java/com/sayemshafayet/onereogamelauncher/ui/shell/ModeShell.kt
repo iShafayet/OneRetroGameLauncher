@@ -12,14 +12,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.res.stringResource
+import com.sayemshafayet.onereogamelauncher.R
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressExitHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -126,12 +130,28 @@ fun ModeShell(
         currentRoute !in rootRoutes &&
         !isPlayRootRoute(currentRoute)
 
+    val canDoublePressExit = isModeRootRoute(isPlay, currentRoute)
+    val activity = LocalActivity.current
+    val onDoublePressExit = rememberDoublePressExitHandler(
+        resetKey = currentRoute,
+        message = stringResource(R.string.press_again_to_exit),
+        onExit = { activity?.finish() },
+    )
+    fun handleBackPress() {
+        when {
+            canPopBack -> navController.popBackStack()
+            canDoublePressExit -> onDoublePressExit()
+        }
+    }
+
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
     val showAboutButton = !isPlay && isHubRoute
 
-    GamepadBackHandler(canPopBack = canPopBack) {
-        navController.popBackStack()
-    }
+    GamepadBackHandler(
+        canPopBack = canPopBack,
+        onBack = { navController.popBackStack() },
+        onRootBack = if (canDoublePressExit) onDoublePressExit else null,
+    )
 
     // Keep start destinations stable — tying them to activeCommitment resets the graph when a
     // run ends and would skip the completion screen.
@@ -163,17 +183,39 @@ fun ModeShell(
                     navigateSetupTab(navController, cycleTabIndex(setupTabSelectedIndex, 1, 3))
                     true
                 }
+                showPlaySlotBar && GamepadKeys.isShoulderLeft(event) -> {
+                    navigatePlaySlot(
+                        navController,
+                        backStack,
+                        visibleActiveCommitments,
+                        settings.playSlotCount,
+                        currentPlaySlot,
+                        -1,
+                    )
+                    true
+                }
+                showPlaySlotBar && GamepadKeys.isShoulderRight(event) -> {
+                    navigatePlaySlot(
+                        navController,
+                        backStack,
+                        visibleActiveCommitments,
+                        settings.playSlotCount,
+                        currentPlaySlot,
+                        1,
+                    )
+                    true
+                }
                 GamepadKeys.isUnassignedFaceButton(event) -> true
                 GamepadKeys.isAbout(event) -> {
                     if (showAboutButton) navController.navigate(Routes.SETUP_ABOUT)
                     true
                 }
                 GamepadKeys.isGamepadBack(event) -> {
-                    if (canPopBack) navController.popBackStack()
+                    handleBackPress()
                     true
                 }
                 GamepadKeys.isSystemBack(event) -> {
-                    if (canPopBack) navController.popBackStack()
+                    handleBackPress()
                     true
                 }
                 else -> false
@@ -451,6 +493,15 @@ private fun isPlayRootRoute(route: String?): Boolean =
         route?.startsWith("play/picker/") == true ||
         route?.startsWith("play/focus/") == true ||
         route?.startsWith("play/complete/") == true
+
+private fun isModeRootRoute(isPlay: Boolean, route: String?): Boolean = when {
+    isPlay -> Routes.isPlayHubRoute(route) ||
+        route?.startsWith("play/picker/") == true ||
+        route?.startsWith("play/focus/") == true
+    else -> route == Routes.SETUP_LIBRARY ||
+        route == Routes.SETUP_SETTINGS ||
+        route == Routes.SETUP_HISTORY
+}
 
 private fun syncPlayHubForSlot(
     navController: NavHostController,

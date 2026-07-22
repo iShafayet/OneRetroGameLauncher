@@ -112,12 +112,19 @@ fun rememberGamepadConnected(): Boolean {
 }
 
 /**
- * Handles back / B: pops [onBack] when [canPopBack], otherwise consumes the event so the app
- * does not exit.
+ * Handles back / B: pops [onBack] when [canPopBack]; otherwise runs [onRootBack] when provided
+ * (e.g. double-press to exit at a mode root).
  */
 @Composable
-fun GamepadBackHandler(canPopBack: Boolean, onBack: () -> Unit) {
+fun GamepadBackHandler(
+    canPopBack: Boolean,
+    onBack: () -> Unit,
+    onRootBack: (() -> Unit)? = null,
+) {
     BackHandler {
-        if (canPopBack) onBack()
+        when {
+            canPopBack -> onBack()
+            onRootBack != null -> onRootBack()
+        }
     }
 }

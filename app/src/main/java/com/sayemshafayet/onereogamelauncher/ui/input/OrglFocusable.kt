@@ -61,9 +61,13 @@ fun Modifier.orlgListFocus(index: Int, firstItemFocus: FocusRequester): Modifier
     if (index == 0) focusRequester(firstItemFocus) else this
 
 @Composable
-fun OrlgInitialFocus(focusRequester: FocusRequester, enabled: Boolean = true) {
+fun OrlgInitialFocus(
+    focusRequester: FocusRequester,
+    enabled: Boolean = true,
+    resetKey: Any? = Unit,
+) {
     val gamepadConnected = rememberGamepadConnected()
-    LaunchedEffect(gamepadConnected, enabled) {
+    LaunchedEffect(gamepadConnected, enabled, resetKey) {
         if (gamepadConnected && enabled) {
             runCatching { focusRequester.requestFocus() }
         }
