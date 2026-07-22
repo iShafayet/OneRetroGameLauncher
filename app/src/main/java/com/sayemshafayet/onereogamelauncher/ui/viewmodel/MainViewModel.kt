@@ -6,6 +6,7 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
+import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -53,7 +54,10 @@ class MainViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             libraryRepository.ensureCatalogLoaded()
-            settingsRepository.settings.first()
+            val settings = settingsRepository.settings.first()
+            if (settings.preferredRetroArchPackage.isBlank()) {
+                settingsRepository.setPreferredRetroArchPackage(RetroArchLauncher.DEFAULT_PACKAGE)
+            }
             _startupReady.value = true
         }
     }

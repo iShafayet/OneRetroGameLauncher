@@ -21,6 +21,8 @@ object Routes {
     const val SETUP_SETTINGS_RA = "setup/settings/retroachievements"
     const val SETUP_SETTINGS_HLTB = "setup/settings/hltb"
     const val SETUP_SETTINGS_RETROARCH = "setup/settings/retroarch"
+    const val SETUP_SETTINGS_PLAY_SLOTS = "setup/settings/play-slots"
+    const val SETUP_SETTINGS_SYNC = "setup/settings/sync"
     const val SETUP_SETTINGS_CREDITS = "setup/settings/credits"
     const val SETUP_HISTORY = "setup/history"
     const val SETUP_HISTORY_RUN = "setup/history/run/{commitmentId}"

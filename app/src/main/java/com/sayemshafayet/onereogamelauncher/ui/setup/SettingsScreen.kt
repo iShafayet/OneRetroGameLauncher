@@ -2,6 +2,7 @@ package com.sayemshafayet.onereogamelauncher.ui.setup
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,8 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.sayemshafayet.onereogamelauncher.data.prefs.MAX_PLAY_SLOTS
-import com.sayemshafayet.onereogamelauncher.data.prefs.MIN_PLAY_SLOTS
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
@@ -38,16 +37,20 @@ fun SettingsScreen(
     onOpenLibraryFolders: () -> Unit,
     onOpenEsde: () -> Unit,
     onOpenScreenScraper: () -> Unit,
-    onOpenScrapeWizard: () -> Unit,
     onOpenRetroAchievements: () -> Unit,
     onOpenHltb: () -> Unit,
     onOpenRetroArch: () -> Unit,
+    onOpenPlaySlots: () -> Unit,
+    onOpenSyncStorage: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onOpenCredits: () -> Unit,
     onStartScan: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val ui by viewModel.ui.collectAsState()
     val esdeLinked = ui.esdeDataUri.isNotBlank() || ui.esdeDataPath.isNotBlank()
     val romsConfigured = ui.romsPath.isNotBlank() || ui.romsUri.isNotBlank()
+    val orglConfigured = ui.orglDataUri.isNotBlank() || ui.orglDataPath.isNotBlank()
     val firstFocus = rememberOrlgFocusRequester()
 
     Column(
@@ -61,8 +64,9 @@ fun SettingsScreen(
         SettingsNavRow(
             title = "Folders",
             subtitle = buildString {
-                append("ROMs: ${ui.romsDisplay}")
-                append(" · ORGL: ${ui.orglDataDisplay}")
+                append(if (romsConfigured) "ROMs directory set" else "ROMs directory not set")
+                append(" · ")
+                append(if (orglConfigured) "ORGL directory set" else "ORGL directory not set")
             },
             modifier = Modifier.orlgListFocus(0, firstFocus).orlgFocusable(onOpenLibraryFolders),
         )
@@ -86,18 +90,17 @@ fun SettingsScreen(
         Spacer(Modifier.height(4.dp))
         SettingsNavRow(
             title = "ES-DE",
-            subtitle = if (esdeLinked) "Linked · ${ui.esdeDataDisplay}" else "Optional media fallback",
+            subtitle = if (esdeLinked) {
+                "Connected"
+            } else {
+                "Connect ES-DE to use game artwork and information"
+            },
             modifier = Modifier.orlgFocusable(onOpenEsde),
         )
         SettingsNavRow(
             title = "ScreenScraper",
             subtitle = "Under construction — use ES-DE for media",
             modifier = Modifier.orlgFocusable(onOpenScreenScraper),
-        )
-        SettingsNavRow(
-            title = "Scrape artwork",
-            subtitle = "Batch scrape metadata and media (beta)",
-            modifier = Modifier.orlgFocusable(onOpenScrapeWizard),
         )
         SettingsNavRow(
             title = "RetroAchievements",
@@ -116,66 +119,27 @@ fun SettingsScreen(
         )
 
         Spacer(Modifier.height(20.dp))
-        Text("Data", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Button(
-            onClick = { viewModel.syncExternalStorage() },
-            enabled = !ui.syncing && ui.orglDataUri.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (ui.syncing) {
-                Text("Syncing…")
-            } else {
-                Text("Sync external storage")
-            }
-        }
-        Text(
-            "Merge RetroAchievements credentials (if stored on disk) and your Play mode journal with the ORGL data folder.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        ui.syncMessage?.let { msg ->
-            Text(
-                msg,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
         Text("Play", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
-        Text(
-            "Multiple One Game",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        SettingsNavRow(
+            title = "Multiple Now Playing Slots",
+            subtitle = playSlotCountLabel(ui.playSlotCount),
+            modifier = Modifier.orlgFocusable(onOpenPlaySlots),
         )
-        Text(
-            "How many games you can commit to at once in Play mode. Each slot is independent.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
+
+        Spacer(Modifier.height(20.dp))
+        Text("Maintenance", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        SettingsNavRow(
+            title = "Sync storage",
+            subtitle = if (orglConfigured) "Sync with ORGL data folder" else "ORGL directory not set",
+            modifier = Modifier.orlgFocusable(onOpenSyncStorage),
         )
-        androidx.compose.foundation.layout.Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            (MIN_PLAY_SLOTS..MAX_PLAY_SLOTS).forEach { count ->
-                FilterChip(
-                    selected = ui.playSlotCount == count,
-                    onClick = { viewModel.setPlaySlotCount(count) },
-                    label = {
-                        Text(if (count == 1) "1" else "$count slots")
-                    },
-                )
-            }
-        }
 
         Spacer(Modifier.height(20.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        androidx.compose.foundation.layout.Row(
+        Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ThemeMode.entries.forEach { mode ->
@@ -186,6 +150,20 @@ fun SettingsScreen(
                 )
             }
         }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Information", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        SettingsNavRow(
+            title = "About",
+            subtitle = "What ORGL is and how it works",
+            modifier = Modifier.orlgFocusable(onOpenAbout),
+        )
+        SettingsNavRow(
+            title = "Credits",
+            subtitle = "Contributors and acknowledgements",
+            modifier = Modifier.orlgFocusable(onOpenCredits),
+        )
         Spacer(Modifier.height(8.dp))
     }
     OrlgInitialFocus(firstFocus)

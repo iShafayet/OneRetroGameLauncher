@@ -9,6 +9,7 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
@@ -337,6 +338,7 @@ class OnboardingViewModel @Inject constructor(
                 settingsRepository.clearEsdeDataDir()
             }
             settingsRepository.setOnboardingDone(true)
+            settingsRepository.setPreferredRetroArchPackage(RetroArchLauncher.DEFAULT_PACKAGE)
             _state.update { it.copy(scanning = true, scanError = null) }
             libraryRepository.ensureCatalogLoaded()
             runCatching { libraryRepository.scanLibrary() }

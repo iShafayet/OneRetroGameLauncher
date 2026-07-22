@@ -31,6 +31,7 @@ class RetroArchLauncher @Inject constructor(
             "com.retroarch",
             "com.retroarch.ra32",
         )
+        const val DEFAULT_PACKAGE = "com.retroarch"
         const val ACTIVITY = "com.retroarch.browser.retroactivity.RetroActivityFuture"
 
         fun androidUserId(): Int = Process.myUid() / 100_000

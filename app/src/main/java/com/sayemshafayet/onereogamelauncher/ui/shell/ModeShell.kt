@@ -54,11 +54,13 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScanScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.PlaySlotsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScrapeWizardScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.ScreenScraperSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.SyncStorageSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemEmulatorSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
@@ -283,8 +285,11 @@ fun ModeShell(
                     onOpenRetroAchievements = { navController.navigate(Routes.SETUP_SETTINGS_RA) },
                     onOpenHltb = { navController.navigate(Routes.SETUP_SETTINGS_HLTB) },
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
+                    onOpenPlaySlots = { navController.navigate(Routes.SETUP_SETTINGS_PLAY_SLOTS) },
+                    onOpenSyncStorage = { navController.navigate(Routes.SETUP_SETTINGS_SYNC) },
+                    onOpenAbout = { navController.navigate(Routes.SETUP_ABOUT) },
+                    onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                     onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
-                    onOpenScrapeWizard = { navController.navigate(Routes.SETUP_SCRAPE_WIZARD) },
                 )
             }
             composable(Routes.SETUP_SETTINGS_FOLDERS) {
@@ -316,6 +321,12 @@ fun ModeShell(
             }
             composable(Routes.SETUP_SETTINGS_RETROARCH) {
                 RetroArchSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.SETUP_SETTINGS_PLAY_SLOTS) {
+                PlaySlotsSettingsScreen()
+            }
+            composable(Routes.SETUP_SETTINGS_SYNC) {
+                SyncStorageSettingsScreen()
             }
             composable(Routes.SETUP_SETTINGS_CREDITS) {
                 CreditsScreen(onBack = { navController.popBackStack() })
