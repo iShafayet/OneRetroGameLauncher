@@ -1,5 +1,6 @@
 package com.sayemshafayet.onereogamelauncher.scrape
 
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 import okhttp3.OkHttpClient
@@ -50,17 +51,21 @@ class LibretroThumbnailsClient @Inject constructor(
     )
 
     fun libretroSystemName(systemFolder: String): String? =
-        systemMap[systemFolder.lowercase()]
+        systemMap[systemFolder.lowercase()]?.let { cdnSystemName(it) }
+
+    private fun cdnSystemName(githubStyle: String): String =
+        githubStyle.replace("_-_", " - ").replace("_", " ")
 
     fun thumbnailUrls(systemFolder: String, gameTitle: String): LibretroThumbnailSet? {
         val system = libretroSystemName(systemFolder) ?: return null
         val safeName = gameTitle.trim()
         if (safeName.isBlank()) return null
-        val encoded = java.net.URLEncoder.encode(safeName, Charsets.UTF_8.name()).replace("+", "%20")
+        val systemEncoded = URLEncoder.encode(system, Charsets.UTF_8.name()).replace("+", "%20")
+        val encoded = URLEncoder.encode(safeName, Charsets.UTF_8.name()).replace("+", "%20")
         return LibretroThumbnailSet(
-            boxartUrl = "$BASE/$system/Named_Boxarts/$encoded.png",
-            titleUrl = "$BASE/$system/Named_Titles/$encoded.png",
-            snapUrl = "$BASE/$system/Named_Snaps/$encoded.png",
+            boxartUrl = "$BASE/$systemEncoded/Named_Boxarts/$encoded.png",
+            titleUrl = "$BASE/$systemEncoded/Named_Titles/$encoded.png",
+            snapUrl = "$BASE/$systemEncoded/Named_Snaps/$encoded.png",
         )
     }
 
