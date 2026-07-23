@@ -14,10 +14,18 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("orgl_settings")
+/** Backed up to cloud / device transfer — integration prefs, theme, layout, etc. */
+private val Context.backupDataStore: DataStore<Preferences> by preferencesDataStore(
+    SettingsRepository.BACKUP_DATASTORE_NAME,
+)
+
+/** Device-local only — onboarding, mode, SAF folder URIs (excluded from backup). */
+private val Context.deviceDataStore: DataStore<Preferences> by preferencesDataStore(
+    SettingsRepository.DEVICE_DATASTORE_NAME,
+)
 
 const val MIN_PLAY_SLOTS = 1
 const val MAX_PLAY_SLOTS = 5
@@ -76,15 +84,15 @@ fun AppSettings.retroAchievementsConfigured(): Boolean =
 class SettingsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private object Keys {
-        val romsDirUri = stringPreferencesKey("roms_dir_uri")
-        val romsDirPath = stringPreferencesKey("roms_dir_path")
-        val orglDataDirUri = stringPreferencesKey("orgl_data_dir_uri")
-        val orglDataDirPath = stringPreferencesKey("orgl_data_dir_path")
-        val esdeDataDirUri = stringPreferencesKey("esde_data_dir_uri")
-        val esdeDataDirPath = stringPreferencesKey("esde_data_dir_path")
-        // Legacy keys
-        val appDataDirUri = stringPreferencesKey("app_data_dir_uri")
+    companion object {
+        /** Included in cloud backup — keep in sync with res/xml/data_extraction_rules.xml */
+        const val BACKUP_DATASTORE_NAME = "orgl_settings"
+
+        /** Excluded from cloud backup — keep in sync with res/xml/data_extraction_rules.xml */
+        const val DEVICE_DATASTORE_NAME = "orgl_device"
+    }
+
+    private object BackupKeys {
         val theme = stringPreferencesKey("theme_mode")
         val ssUser = stringPreferencesKey("ss_user")
         val ssPass = stringPreferencesKey("ss_pass")
@@ -97,72 +105,86 @@ class SettingsRepository @Inject constructor(
         val raStoreOnDisk = booleanPreferencesKey("ra_store_on_disk")
         val raPackage = stringPreferencesKey("ra_package")
         val hltbEnabled = booleanPreferencesKey("hltb_enabled")
-        val onboardingDone = booleanPreferencesKey("onboarding_done")
-        val appMode = stringPreferencesKey("app_mode")
         val gameListLayout = stringPreferencesKey("game_list_layout")
         val lastScrapeAt = stringPreferencesKey("last_scrape_at")
         val playSlotCount = intPreferencesKey("play_slot_count")
     }
 
-    val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
-        AppSettings(
-            romsDirUri = p[Keys.romsDirUri],
-            romsDirPath = p[Keys.romsDirPath],
-            orglDataDirUri = p[Keys.orglDataDirUri],
-            orglDataDirPath = p[Keys.orglDataDirPath],
-            esdeDataDirUri = p[Keys.esdeDataDirUri] ?: p[Keys.appDataDirUri],
-            esdeDataDirPath = p[Keys.esdeDataDirPath],
-            themeMode = runCatching {
-                ThemeMode.valueOf(p[Keys.theme] ?: ThemeMode.SYSTEM.name)
-            }.getOrDefault(ThemeMode.SYSTEM),
-            screenScraperUser = p[Keys.ssUser].orEmpty(),
-            screenScraperPass = p[Keys.ssPass].orEmpty(),
-            screenScraperDevid = p[Keys.ssDevid].orEmpty(),
-            screenScraperDevpassword = p[Keys.ssDevPass].orEmpty(),
-            retroAchievementsUser = p[Keys.raUser].orEmpty(),
-            retroAchievementsPassword = p[Keys.raPassword].orEmpty(),
-            retroAchievementsToken = p[Keys.raToken].orEmpty(),
-            retroAchievementsStoreOnDisk = p[Keys.raStoreOnDisk] ?: false,
-            preferredRetroArchPackage = p[Keys.raPackage].orEmpty(),
-            hltbEnabled = p[Keys.hltbEnabled] ?: true,
-            onboardingDone = p[Keys.onboardingDone] ?: false,
-            appMode = runCatching {
-                AppMode.valueOf(p[Keys.appMode] ?: AppMode.SETUP.name)
-            }.getOrDefault(AppMode.SETUP),
-            gameListLayout = runCatching {
-                GameListLayout.valueOf(p[Keys.gameListLayout] ?: GameListLayout.GRID.name)
-            }.getOrDefault(GameListLayout.GRID),
-            lastScrapeAt = p[Keys.lastScrapeAt]?.toLongOrNull(),
-            playSlotCount = coercePlaySlotCount(p[Keys.playSlotCount] ?: MIN_PLAY_SLOTS),
-        )
+    private object DeviceKeys {
+        val romsDirUri = stringPreferencesKey("roms_dir_uri")
+        val romsDirPath = stringPreferencesKey("roms_dir_path")
+        val orglDataDirUri = stringPreferencesKey("orgl_data_dir_uri")
+        val orglDataDirPath = stringPreferencesKey("orgl_data_dir_path")
+        val esdeDataDirUri = stringPreferencesKey("esde_data_dir_uri")
+        val esdeDataDirPath = stringPreferencesKey("esde_data_dir_path")
+        val appDataDirUri = stringPreferencesKey("app_data_dir_uri")
+        val onboardingDone = booleanPreferencesKey("onboarding_done")
+        val appMode = stringPreferencesKey("app_mode")
     }
 
+    val settings: Flow<AppSettings> = combine(
+        context.backupDataStore.data,
+        context.deviceDataStore.data,
+    ) { backup, device -> mergeSettings(backup, device) }
+
+    private fun mergeSettings(backup: Preferences, device: Preferences): AppSettings =
+        AppSettings(
+            romsDirUri = device[DeviceKeys.romsDirUri],
+            romsDirPath = device[DeviceKeys.romsDirPath],
+            orglDataDirUri = device[DeviceKeys.orglDataDirUri],
+            orglDataDirPath = device[DeviceKeys.orglDataDirPath],
+            esdeDataDirUri = device[DeviceKeys.esdeDataDirUri] ?: device[DeviceKeys.appDataDirUri],
+            esdeDataDirPath = device[DeviceKeys.esdeDataDirPath],
+            themeMode = runCatching {
+                ThemeMode.valueOf(backup[BackupKeys.theme] ?: ThemeMode.SYSTEM.name)
+            }.getOrDefault(ThemeMode.SYSTEM),
+            screenScraperUser = backup[BackupKeys.ssUser].orEmpty(),
+            screenScraperPass = backup[BackupKeys.ssPass].orEmpty(),
+            screenScraperDevid = backup[BackupKeys.ssDevid].orEmpty(),
+            screenScraperDevpassword = backup[BackupKeys.ssDevPass].orEmpty(),
+            retroAchievementsUser = backup[BackupKeys.raUser].orEmpty(),
+            retroAchievementsPassword = backup[BackupKeys.raPassword].orEmpty(),
+            retroAchievementsToken = backup[BackupKeys.raToken].orEmpty(),
+            retroAchievementsStoreOnDisk = backup[BackupKeys.raStoreOnDisk] ?: false,
+            preferredRetroArchPackage = backup[BackupKeys.raPackage].orEmpty(),
+            hltbEnabled = backup[BackupKeys.hltbEnabled] ?: true,
+            onboardingDone = device[DeviceKeys.onboardingDone] ?: false,
+            appMode = runCatching {
+                AppMode.valueOf(device[DeviceKeys.appMode] ?: AppMode.SETUP.name)
+            }.getOrDefault(AppMode.SETUP),
+            gameListLayout = runCatching {
+                GameListLayout.valueOf(backup[BackupKeys.gameListLayout] ?: GameListLayout.GRID.name)
+            }.getOrDefault(GameListLayout.GRID),
+            lastScrapeAt = backup[BackupKeys.lastScrapeAt]?.toLongOrNull(),
+            playSlotCount = coercePlaySlotCount(backup[BackupKeys.playSlotCount] ?: MIN_PLAY_SLOTS),
+        )
+
     suspend fun setRomsDir(uri: String, pathHint: String?) {
-        context.dataStore.edit {
-            it[Keys.romsDirUri] = uri
-            if (pathHint != null) it[Keys.romsDirPath] = pathHint else it.remove(Keys.romsDirPath)
+        context.deviceDataStore.edit {
+            it[DeviceKeys.romsDirUri] = uri
+            if (pathHint != null) it[DeviceKeys.romsDirPath] = pathHint else it.remove(DeviceKeys.romsDirPath)
         }
     }
 
     suspend fun setOrglDataDir(uri: String, pathHint: String?) {
-        context.dataStore.edit {
-            it[Keys.orglDataDirUri] = uri
-            if (pathHint != null) it[Keys.orglDataDirPath] = pathHint else it.remove(Keys.orglDataDirPath)
+        context.deviceDataStore.edit {
+            it[DeviceKeys.orglDataDirUri] = uri
+            if (pathHint != null) it[DeviceKeys.orglDataDirPath] = pathHint else it.remove(DeviceKeys.orglDataDirPath)
         }
     }
 
     suspend fun setEsdeDataDir(uri: String, pathHint: String?) {
-        context.dataStore.edit {
-            it[Keys.esdeDataDirUri] = uri
-            if (pathHint != null) it[Keys.esdeDataDirPath] = pathHint else it.remove(Keys.esdeDataDirPath)
+        context.deviceDataStore.edit {
+            it[DeviceKeys.esdeDataDirUri] = uri
+            if (pathHint != null) it[DeviceKeys.esdeDataDirPath] = pathHint else it.remove(DeviceKeys.esdeDataDirPath)
         }
     }
 
     suspend fun clearEsdeDataDir() {
-        context.dataStore.edit {
-            it.remove(Keys.esdeDataDirUri)
-            it.remove(Keys.esdeDataDirPath)
-            it.remove(Keys.appDataDirUri)
+        context.deviceDataStore.edit {
+            it.remove(DeviceKeys.esdeDataDirUri)
+            it.remove(DeviceKeys.esdeDataDirPath)
+            it.remove(DeviceKeys.appDataDirUri)
         }
     }
 
@@ -172,63 +194,63 @@ class SettingsRepository @Inject constructor(
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
-        context.dataStore.edit { it[Keys.theme] = mode.name }
+        context.backupDataStore.edit { it[BackupKeys.theme] = mode.name }
     }
 
     suspend fun setScreenScraper(user: String, pass: String, devid: String, devpassword: String) {
-        context.dataStore.edit {
-            it[Keys.ssUser] = user
-            it[Keys.ssPass] = pass
-            it[Keys.ssDevid] = devid
-            it[Keys.ssDevPass] = devpassword
+        context.backupDataStore.edit {
+            it[BackupKeys.ssUser] = user
+            it[BackupKeys.ssPass] = pass
+            it[BackupKeys.ssDevid] = devid
+            it[BackupKeys.ssDevPass] = devpassword
         }
     }
 
     suspend fun setRetroAchievements(user: String, password: String) {
-        context.dataStore.edit {
-            it[Keys.raUser] = user
-            it[Keys.raPassword] = password
-            it.remove(Keys.raApiKey)
-            it.remove(Keys.raToken)
+        context.backupDataStore.edit {
+            it[BackupKeys.raUser] = user
+            it[BackupKeys.raPassword] = password
+            it.remove(BackupKeys.raApiKey)
+            it.remove(BackupKeys.raToken)
         }
     }
 
     suspend fun setRetroAchievementsToken(token: String) {
-        context.dataStore.edit { it[Keys.raToken] = token }
+        context.backupDataStore.edit { it[BackupKeys.raToken] = token }
     }
 
     suspend fun setRetroAchievementsStoreOnDisk(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.raStoreOnDisk] = enabled }
+        context.backupDataStore.edit { it[BackupKeys.raStoreOnDisk] = enabled }
     }
 
     suspend fun setPreferredRetroArchPackage(pkg: String) {
-        context.dataStore.edit { it[Keys.raPackage] = pkg }
+        context.backupDataStore.edit { it[BackupKeys.raPackage] = pkg }
     }
 
     suspend fun setHltbEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.hltbEnabled] = enabled }
+        context.backupDataStore.edit { it[BackupKeys.hltbEnabled] = enabled }
     }
 
     suspend fun setOnboardingDone(done: Boolean) {
-        context.dataStore.edit { it[Keys.onboardingDone] = done }
+        context.deviceDataStore.edit { it[DeviceKeys.onboardingDone] = done }
     }
 
     suspend fun current(): AppSettings = settings.first()
 
     suspend fun setAppMode(mode: AppMode) {
-        context.dataStore.edit { it[Keys.appMode] = mode.name }
+        context.deviceDataStore.edit { it[DeviceKeys.appMode] = mode.name }
     }
 
     suspend fun setGameListLayout(layout: GameListLayout) {
-        context.dataStore.edit { it[Keys.gameListLayout] = layout.name }
+        context.backupDataStore.edit { it[BackupKeys.gameListLayout] = layout.name }
     }
 
     suspend fun setLastScrapeAt(epochMs: Long) {
-        context.dataStore.edit { it[Keys.lastScrapeAt] = epochMs.toString() }
+        context.backupDataStore.edit { it[BackupKeys.lastScrapeAt] = epochMs.toString() }
     }
 
     suspend fun setPlaySlotCount(count: Int) {
-        context.dataStore.edit { it[Keys.playSlotCount] = coercePlaySlotCount(count) }
+        context.backupDataStore.edit { it[BackupKeys.playSlotCount] = coercePlaySlotCount(count) }
     }
 }
 

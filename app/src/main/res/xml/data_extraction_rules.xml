@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Device-local prefs live in datastore/orgl_device.preferences_pb (see SettingsRepository).
+  Cloud backup and device-to-device transfer include only orgl_settings.preferences_pb.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/" />
+        <include domain="file" path="datastore/orgl_settings.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/" />
+        <include domain="file" path="datastore/orgl_settings.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

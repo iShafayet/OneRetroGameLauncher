@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pre-Android 12 fallback — mirrors data_extraction_rules.xml for DataStore split.
+-->
+<full-backup-content>
+    <exclude domain="file" path="datastore/orgl_device.preferences_pb" />
+</full-backup-content>
