@@ -188,6 +188,21 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    /** Clears SAF folder URIs and sends the user back through onboarding. */
+    suspend fun resetForLostSafAccess() {
+        context.deviceDataStore.edit {
+            it.remove(DeviceKeys.romsDirUri)
+            it.remove(DeviceKeys.romsDirPath)
+            it.remove(DeviceKeys.orglDataDirUri)
+            it.remove(DeviceKeys.orglDataDirPath)
+            it.remove(DeviceKeys.esdeDataDirUri)
+            it.remove(DeviceKeys.esdeDataDirPath)
+            it.remove(DeviceKeys.appDataDirUri)
+            it[DeviceKeys.onboardingDone] = false
+            it[DeviceKeys.appMode] = AppMode.SETUP.name
+        }
+    }
+
     /** @deprecated Use [setEsdeDataDir]. */
     suspend fun setAppDataDirUri(uri: String) {
         setEsdeDataDir(uri, null)

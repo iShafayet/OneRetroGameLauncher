@@ -1,5 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,10 +44,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.ScrapeGameFilter
+import com.sayemshafayet.onereogamelauncher.ui.util.NotificationPermission
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
 import java.util.concurrent.TimeUnit
@@ -59,6 +63,22 @@ fun ScrapeWizardScreen(
 ) {
     val wizard by viewModel.wizard.collectAsState()
     val session by viewModel.session.collectAsState()
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { _ ->
+        // Scrape still runs if denied; progress notification may be hidden on Android 13+.
+        viewModel.startScrape()
+    }
+
+    val startScrapeWithPermission: () -> Unit = {
+        if (NotificationPermission.needsRuntimeRequest() && !NotificationPermission.isGranted(context)) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.startScrape()
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (wizard.systems.isEmpty()) viewModel.prepareWizard()
@@ -82,7 +102,7 @@ fun ScrapeWizardScreen(
                 onRetry = viewModel::setRetryThreshold,
                 onDelay = viewModel::setRetryDelaySec,
                 onBack = viewModel::goToSystems,
-                onStart = viewModel::startScrape,
+                onStart = startScrapeWithPermission,
             )
             ScrapeWizardStep.PROGRESS -> ProgressStep(
                 modifier = Modifier.padding(padding),

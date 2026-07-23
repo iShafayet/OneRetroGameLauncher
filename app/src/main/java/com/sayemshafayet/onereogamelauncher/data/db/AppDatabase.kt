@@ -29,14 +29,16 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 
 class Converters {
     @TypeConverter fun mediaToString(v: MediaType): String = v.name
-    @TypeConverter fun stringToMedia(v: String): MediaType = MediaType.valueOf(v)
+    @TypeConverter fun stringToMedia(v: String): MediaType =
+        runCatching { MediaType.valueOf(v) }.getOrDefault(MediaType.UNKNOWN)
 
     @TypeConverter fun commitmentToString(v: CommitmentStatus): String = v.name
-    @TypeConverter fun stringToCommitment(v: String): CommitmentStatus = CommitmentStatus.valueOf(v)
+    @TypeConverter fun stringToCommitment(v: String): CommitmentStatus =
+        runCatching { CommitmentStatus.valueOf(v) }.getOrDefault(CommitmentStatus.FINISHED)
 
     @TypeConverter fun completedToString(v: GameCompletedStatus?): String? = v?.name
     @TypeConverter fun stringToCompleted(v: String?): GameCompletedStatus? =
-        v?.let { GameCompletedStatus.valueOf(it) }
+        v?.let { runCatching { GameCompletedStatus.valueOf(it) }.getOrNull() }
 }
 
 @Database(
