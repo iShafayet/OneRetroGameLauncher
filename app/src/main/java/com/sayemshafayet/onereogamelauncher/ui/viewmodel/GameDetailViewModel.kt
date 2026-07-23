@@ -24,6 +24,7 @@ import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import com.sayemshafayet.onereogamelauncher.ra.RomHashCalculator
 import com.sayemshafayet.onereogamelauncher.scrape.ScrapeForegroundService
 import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
+import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -98,6 +99,9 @@ class GameDetailViewModel @Inject constructor(
 
     private val _raUi = MutableStateFlow(GameRaUiState())
     val raUi: StateFlow<GameRaUiState> = _raUi.asStateFlow()
+
+    private val _selectedTab = MutableStateFlow(0)
+    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
     private var systemCache: SystemEntity? = null
 
@@ -185,6 +189,14 @@ class GameDetailViewModel @Inject constructor(
             refreshCommitmentPlaytime()
             refreshRaStatus(game.value)
         }
+    }
+
+    fun setSelectedTab(index: Int) {
+        _selectedTab.value = index.coerceIn(0, GAME_DETAIL_TAB_COUNT - 1)
+    }
+
+    fun cycleSelectedTab(delta: Int) {
+        _selectedTab.update { cycleTabIndex(it, delta, GAME_DETAIL_TAB_COUNT) }
     }
 
     private suspend fun refreshCommitmentPlaytime() {
@@ -378,3 +390,5 @@ class GameDetailViewModel @Inject constructor(
         )
     }
 }
+
+const val GAME_DETAIL_TAB_COUNT = 3

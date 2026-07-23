@@ -14,18 +14,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.res.stringResource
 import com.sayemshafayet.onereogamelauncher.R
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.ShellHardwareKeys
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressExitHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,6 +71,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.DatabaseSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemEmulatorSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -172,39 +177,81 @@ fun ModeShell(
     val currentPlaySlot = Routes.slotIndexFromEntry(backStack)
         .coerceIn(0, (settings.playSlotCount - 1).coerceAtLeast(0))
 
+    val isGameDetailRoute = currentRoute?.startsWith("setup/game/") == true &&
+        currentRoute?.contains("retroachievements") != true
+    val gameDetailViewModel: GameDetailViewModel? =
+        if (isGameDetailRoute && backStack != null) hiltViewModel(backStack!!) else null
+
+    val shoulderContext = rememberUpdatedState(
+        ShoulderKeyContext(
+            gameDetailViewModel = gameDetailViewModel,
+            showSetupBar = showSetupBar,
+            showPlaySlotBar = showPlaySlotBar,
+            setupTabSelectedIndex = setupTabSelectedIndex,
+            playSlotCount = settings.playSlotCount,
+            currentPlaySlot = currentPlaySlot,
+            visibleActiveCommitments = visibleActiveCommitments,
+            backStack = backStack,
+        ),
+    )
+    DisposableEffect(navController) {
+        val handler = handler@{ event: AndroidKeyEvent ->
+            if (!ShellHardwareKeys.isShoulderKey(event.keyCode)) return@handler false
+            val ctx = shoulderContext.value
+            val canHandle = ctx.gameDetailViewModel != null || ctx.showSetupBar || ctx.showPlaySlotBar
+            if (!canHandle) return@handler false
+            // Consume down+up so focused lists never steal PageUp/PageDown; act only on up.
+            if (event.action == AndroidKeyEvent.ACTION_UP) {
+                val left = ShellHardwareKeys.isShoulderLeft(event.keyCode)
+                val right = ShellHardwareKeys.isShoulderRight(event.keyCode)
+                when {
+                    ctx.gameDetailViewModel != null && left ->
+                        ctx.gameDetailViewModel.cycleSelectedTab(-1)
+                    ctx.gameDetailViewModel != null && right ->
+                        ctx.gameDetailViewModel.cycleSelectedTab(1)
+                    ctx.showSetupBar && left ->
+                        navigateSetupTab(
+                            navController,
+                            cycleTabIndex(ctx.setupTabSelectedIndex, -1, 3),
+                        )
+                    ctx.showSetupBar && right ->
+                        navigateSetupTab(
+                            navController,
+                            cycleTabIndex(ctx.setupTabSelectedIndex, 1, 3),
+                        )
+                    ctx.showPlaySlotBar && left ->
+                        navigatePlaySlot(
+                            navController,
+                            ctx.backStack,
+                            ctx.visibleActiveCommitments,
+                            ctx.playSlotCount,
+                            ctx.currentPlaySlot,
+                            -1,
+                        )
+                    ctx.showPlaySlotBar && right ->
+                        navigatePlaySlot(
+                            navController,
+                            ctx.backStack,
+                            ctx.visibleActiveCommitments,
+                            ctx.playSlotCount,
+                            ctx.currentPlaySlot,
+                            1,
+                        )
+                }
+            }
+            true
+        }
+        ShellHardwareKeys.handler = handler
+        onDispose {
+            if (ShellHardwareKeys.handler === handler) {
+                ShellHardwareKeys.handler = null
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.onPreviewKeyEvent { event ->
             when {
-                showSetupBar && GamepadKeys.isShoulderLeft(event) -> {
-                    navigateSetupTab(navController, cycleTabIndex(setupTabSelectedIndex, -1, 3))
-                    true
-                }
-                showSetupBar && GamepadKeys.isShoulderRight(event) -> {
-                    navigateSetupTab(navController, cycleTabIndex(setupTabSelectedIndex, 1, 3))
-                    true
-                }
-                showPlaySlotBar && GamepadKeys.isShoulderLeft(event) -> {
-                    navigatePlaySlot(
-                        navController,
-                        backStack,
-                        visibleActiveCommitments,
-                        settings.playSlotCount,
-                        currentPlaySlot,
-                        -1,
-                    )
-                    true
-                }
-                showPlaySlotBar && GamepadKeys.isShoulderRight(event) -> {
-                    navigatePlaySlot(
-                        navController,
-                        backStack,
-                        visibleActiveCommitments,
-                        settings.playSlotCount,
-                        currentPlaySlot,
-                        1,
-                    )
-                    true
-                }
                 GamepadKeys.isUnassignedFaceButton(event) -> true
                 GamepadKeys.isAbout(event) -> {
                     if (showAboutButton) navController.navigate(Routes.SETUP_ABOUT)
@@ -559,6 +606,17 @@ private fun Int.floorMod(mod: Int): Int {
     val r = this % mod
     return if (r < 0) r + mod else r
 }
+
+private data class ShoulderKeyContext(
+    val gameDetailViewModel: GameDetailViewModel?,
+    val showSetupBar: Boolean,
+    val showPlaySlotBar: Boolean,
+    val setupTabSelectedIndex: Int,
+    val playSlotCount: Int,
+    val currentPlaySlot: Int,
+    val visibleActiveCommitments: List<CommitmentEntity>,
+    val backStack: NavBackStackEntry?,
+)
 
 private fun setupTabIndex(route: String?): Int = when {
     route == Routes.SETUP_LIBRARY -> 0

@@ -1,6 +1,7 @@
 package com.sayemshafayet.onereogamelauncher
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
+import com.sayemshafayet.onereogamelauncher.ui.input.ShellHardwareKeys
 import com.sayemshafayet.onereogamelauncher.ui.navigation.OrglNavHost
 import com.sayemshafayet.onereogamelauncher.ui.splash.OrglSplashScreen
 import com.sayemshafayet.onereogamelauncher.ui.theme.OrglTheme
@@ -38,5 +40,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (ShellHardwareKeys.isShoulderKey(event.keyCode)) {
+            val handled = ShellHardwareKeys.handler?.invoke(event) == true
+            if (handled) return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 }

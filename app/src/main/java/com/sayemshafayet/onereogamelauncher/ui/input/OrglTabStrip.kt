@@ -2,6 +2,7 @@ package com.sayemshafayet.onereogamelauncher.ui.input
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,17 +14,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** Visual-only tab strip — not in D-pad focus order; cycle with L1 / R1. */
+/** Tab strip — touch selects a tab; cycle with L1 / R1 via [onPreviewKeyEvent] on a parent. */
 @Composable
 fun OrglTabStrip(
     labels: List<String>,
     selectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -39,6 +42,11 @@ fun OrglTabStrip(
                     Modifier
                         .weight(1f)
                         .focusProperties { canFocus = false }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onTabSelected(index) },
+                        )
                         .padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {

@@ -41,14 +41,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,9 +58,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
-import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
-import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
@@ -100,6 +96,7 @@ fun GameDetailScreen(
     val activePlayRunCount by viewModel.activePlayRunCount.collectAsState()
     val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
     val raUi by viewModel.raUi.collectAsState()
+    val selectedTab by viewModel.selectedTab.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -112,7 +109,6 @@ fun GameDetailScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var selectedTab by remember { mutableIntStateOf(GameDetailTab.GAME.ordinal) }
     var notes by remember(game?.notes) { mutableStateOf(game?.notes.orEmpty()) }
     var showDebugLaunchGuard by remember { mutableStateOf(false) }
 
@@ -125,19 +121,6 @@ fun GameDetailScreen(
     }
 
     Scaffold(
-        modifier = Modifier.onPreviewKeyEvent { event ->
-            when {
-                GamepadKeys.isShoulderLeft(event) -> {
-                    selectedTab = cycleTabIndex(selectedTab, -1, GameDetailTab.entries.size)
-                    true
-                }
-                GamepadKeys.isShoulderRight(event) -> {
-                    selectedTab = cycleTabIndex(selectedTab, 1, GameDetailTab.entries.size)
-                    true
-                }
-                else -> false
-            }
-        },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
@@ -148,6 +131,7 @@ fun GameDetailScreen(
             OrglTabStrip(
                 labels = listOf("Game", "Media", "Config"),
                 selectedIndex = selectedTab,
+                onTabSelected = viewModel::setSelectedTab,
             )
 
             Box(Modifier.fillMaxSize()) {
