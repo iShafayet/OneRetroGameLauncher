@@ -9,6 +9,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.VirtualLibrarySystem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,15 +32,34 @@ class SystemGamesViewModel @Inject constructor(
 ) : ViewModel() {
     val systemId: Long = savedStateHandle.get<String>("systemId")?.toLongOrNull() ?: 0L
 
+    private val virtualSystem = VirtualLibrarySystem.fromId(systemId)
+
+    val isVirtualSystem: Boolean = virtualSystem != null
+
     private val query = MutableStateFlow("")
     private val filter = MutableStateFlow(GameListFilter.ALL)
 
-    val system: StateFlow<SystemEntity?> = libraryRepository.systems.map { systems ->
-        systems.firstOrNull { it.id == systemId }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val system: StateFlow<SystemEntity?> = libraryRepository.systems
+        .map { systems ->
+            if (virtualSystem != null) null else systems.firstOrNull { it.id == systemId }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val screenTitle: StateFlow<String> = if (virtualSystem != null) {
+        MutableStateFlow(virtualSystem.displayName).asStateFlow()
+    } else {
+        system.map { it?.displayName ?: "Games" }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "Games")
+    }
+
+    private val sourceGames: StateFlow<List<GameEntity>> = when (virtualSystem) {
+        VirtualLibrarySystem.FAVORITES -> libraryRepository.observeFavorites()
+        VirtualLibrarySystem.RECENT -> libraryRepository.observeRecent()
+        null -> libraryRepository.observeGamesBySystem(systemId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val games: StateFlow<List<GameEntity>> = combine(
-        libraryRepository.observeGamesBySystem(systemId),
+        sourceGames,
         query,
         filter,
     ) { allGames, q, f ->

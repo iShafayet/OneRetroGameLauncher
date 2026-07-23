@@ -63,6 +63,10 @@ data class AppSettings(
     val lastScrapeAt: Long? = null,
     /** How many independent play slots are available in Play mode (1 = classic one-game). */
     val playSlotCount: Int = MIN_PLAY_SLOTS,
+    /** Show Favorites virtual system at the top of the library. */
+    val libraryShowFavorites: Boolean = true,
+    /** Show Recent virtual system at the top of the library. */
+    val libraryShowRecent: Boolean = true,
 )
 
 enum class GameListLayout { GRID, LIST }
@@ -108,6 +112,8 @@ class SettingsRepository @Inject constructor(
         val gameListLayout = stringPreferencesKey("game_list_layout")
         val lastScrapeAt = stringPreferencesKey("last_scrape_at")
         val playSlotCount = intPreferencesKey("play_slot_count")
+        val libraryShowFavorites = booleanPreferencesKey("library_show_favorites")
+        val libraryShowRecent = booleanPreferencesKey("library_show_recent")
     }
 
     private object DeviceKeys {
@@ -157,6 +163,8 @@ class SettingsRepository @Inject constructor(
             }.getOrDefault(GameListLayout.GRID),
             lastScrapeAt = backup[BackupKeys.lastScrapeAt]?.toLongOrNull(),
             playSlotCount = coercePlaySlotCount(backup[BackupKeys.playSlotCount] ?: MIN_PLAY_SLOTS),
+            libraryShowFavorites = backup[BackupKeys.libraryShowFavorites] ?: true,
+            libraryShowRecent = backup[BackupKeys.libraryShowRecent] ?: true,
         )
 
     suspend fun setRomsDir(uri: String, pathHint: String?) {
@@ -266,6 +274,14 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setPlaySlotCount(count: Int) {
         context.backupDataStore.edit { it[BackupKeys.playSlotCount] = coercePlaySlotCount(count) }
+    }
+
+    suspend fun setLibraryShowFavorites(enabled: Boolean) {
+        context.backupDataStore.edit { it[BackupKeys.libraryShowFavorites] = enabled }
+    }
+
+    suspend fun setLibraryShowRecent(enabled: Boolean) {
+        context.backupDataStore.edit { it[BackupKeys.libraryShowRecent] = enabled }
     }
 }
 

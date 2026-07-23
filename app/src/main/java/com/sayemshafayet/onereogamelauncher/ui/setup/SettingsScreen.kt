@@ -18,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -141,6 +142,29 @@ fun SettingsScreen(
                 )
             }
         }
+        Spacer(Modifier.height(12.dp))
+        ListItem(
+            headlineContent = { Text("Favorites section") },
+            supportingContent = { Text("Virtual system at the top of the library") },
+            trailingContent = {
+                Switch(
+                    checked = ui.libraryShowFavorites,
+                    onCheckedChange = viewModel::setLibraryShowFavorites,
+                )
+            },
+            modifier = Modifier.orlgFocusable(onClick = { viewModel.setLibraryShowFavorites(!ui.libraryShowFavorites) }),
+        )
+        ListItem(
+            headlineContent = { Text("Recent section") },
+            supportingContent = { Text("Recently played games across all systems") },
+            trailingContent = {
+                Switch(
+                    checked = ui.libraryShowRecent,
+                    onCheckedChange = viewModel::setLibraryShowRecent,
+                )
+            },
+            modifier = Modifier.orlgFocusable(onClick = { viewModel.setLibraryShowRecent(!ui.libraryShowRecent) }),
+        )
 
         Spacer(Modifier.height(20.dp))
         Text("Debug", style = MaterialTheme.typography.titleMedium)

@@ -47,6 +47,8 @@ data class SettingsHubUi(
     val syncing: Boolean = false,
     val syncMessage: String? = null,
     val playSlotCount: Int = 1,
+    val libraryShowFavorites: Boolean = true,
+    val libraryShowRecent: Boolean = true,
 )
 
 @HiltViewModel
@@ -85,6 +87,8 @@ class SettingsViewModel @Inject constructor(
                         raConfigured = s.retroAchievementsConfigured(),
                         hltbEnabled = s.hltbEnabled,
                         playSlotCount = s.playSlotCount,
+                        libraryShowFavorites = s.libraryShowFavorites,
+                        libraryShowRecent = s.libraryShowRecent,
                     )
                 }
             }
@@ -93,6 +97,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+    }
+
+    fun setLibraryShowFavorites(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setLibraryShowFavorites(enabled) }
+    }
+
+    fun setLibraryShowRecent(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setLibraryShowRecent(enabled) }
     }
 
     fun setPlaySlotCount(count: Int) {

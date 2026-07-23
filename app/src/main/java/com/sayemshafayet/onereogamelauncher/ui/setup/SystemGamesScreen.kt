@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.domain.VirtualLibrarySystem
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
@@ -52,6 +53,12 @@ fun SystemGamesScreen(
     val filter by viewModel.gameFilter.collectAsState()
     val layout by viewModel.layout.collectAsState()
     val firstFocus = rememberOrlgFocusRequester()
+    val hideFavoriteFilter = VirtualLibrarySystem.fromId(viewModel.systemId) == VirtualLibrarySystem.FAVORITES
+    val visibleFilters = if (hideFavoriteFilter) {
+        GameListFilter.entries.filter { it != GameListFilter.FAVORITE }
+    } else {
+        GameListFilter.entries
+    }
 
     Column(Modifier.fillMaxSize()) {
             SearchField(
@@ -66,7 +73,7 @@ fun SystemGamesScreen(
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                GameListFilter.entries.forEach { f ->
+                visibleFilters.forEach { f ->
                     FilterChip(
                         selected = filter == f,
                         onClick = { viewModel.setFilter(f) },

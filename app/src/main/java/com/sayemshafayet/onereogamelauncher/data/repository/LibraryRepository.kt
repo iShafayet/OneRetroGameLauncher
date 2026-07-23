@@ -60,6 +60,7 @@ class LibraryRepository @Inject constructor(
     fun observeGamesBySystem(systemId: Long) = gameDao.observeBySystem(systemId)
     fun observeSearch(systemId: Long?, query: String) = gameDao.observeSearch(systemId, query)
     fun observeFavorites() = gameDao.observeFavorites()
+    fun observeRecent() = gameDao.observeRecent()
     fun observeShelf() = gameDao.observeShelf()
     fun observeGame(gameId: Long) = gameDao.observeById(gameId)
     fun observeMedia(gameId: Long) = mediaDao.observeForGame(gameId)

@@ -75,19 +75,21 @@ fun OrglShellTopBar(
         )
         currentRoute == Routes.SETUP_SYSTEM -> backStackEntry?.let { entry ->
             val viewModel: SystemGamesViewModel = hiltViewModel(entry)
-            val system by viewModel.system.collectAsState()
+            val title by viewModel.screenTitle.collectAsState()
             val layout by viewModel.layout.collectAsState()
             SimpleTopAppBar(
-                title = system?.displayName ?: "Games",
+                title = title,
                 onBack = onBack,
                 actions = {
-                    IconButton(
-                        onClick = {
-                            navController.navigate(Routes.setupSystemEmulator(viewModel.systemId))
-                        },
-                        modifier = Modifier.focusProperties { canFocus = false },
-                    ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Emulator settings")
+                    if (!viewModel.isVirtualSystem) {
+                        IconButton(
+                            onClick = {
+                                navController.navigate(Routes.setupSystemEmulator(viewModel.systemId))
+                            },
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = "Emulator settings")
+                        }
                     }
                     IconButton(
                         onClick = viewModel::toggleLayout,

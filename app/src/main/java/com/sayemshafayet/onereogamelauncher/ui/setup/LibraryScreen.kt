@@ -24,8 +24,8 @@ import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibrarySystemRow
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
-import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemWithCount
 
 @Composable
 fun LibraryScreen(
@@ -35,13 +35,14 @@ fun LibraryScreen(
     val systems by viewModel.visibleSystems.collectAsState()
     val totalGames by viewModel.totalGames.collectAsState()
     val firstFocus = rememberOrlgFocusRequester()
+    val physicalCount = systems.count { it is LibrarySystemRow.Physical }
 
     Column(Modifier.fillMaxSize()) {
         Text(
-            if (systems.isEmpty()) {
+            if (physicalCount == 0 && systems.none { it is LibrarySystemRow.Virtual && it.gameCount > 0 }) {
                 "No games found — set your ROMs folder in Settings → Folders, then rescan."
             } else {
-                "${systems.size} systems · $totalGames games"
+                "$physicalCount systems · $totalGames games"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -51,12 +52,12 @@ fun LibraryScreen(
             contentPadding = PaddingValues(vertical = 4.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            itemsIndexed(systems, key = { _, row -> row.system.id }) { index, row ->
+            itemsIndexed(systems, key = { _, row -> row.id }) { index, row ->
                 SystemRow(
                     row,
                     modifier = Modifier
                         .orlgListFocus(index, firstFocus)
-                        .orlgFocusable(onClick = { onSystemClick(row.system.id) }),
+                        .orlgFocusable(onClick = { onSystemClick(row.id) }),
                 )
             }
         }
@@ -66,13 +67,18 @@ fun LibraryScreen(
 
 @Composable
 private fun SystemRow(
-    row: SystemWithCount,
+    row: LibrarySystemRow,
     modifier: Modifier = Modifier,
 ) {
     ListItem(
-        headlineContent = { Text(row.system.displayName) },
+        headlineContent = { Text(row.displayName) },
         supportingContent = {
-            Text("${row.system.folderName} · ${row.gameCount} games")
+            Text(
+                when (row) {
+                    is LibrarySystemRow.Virtual -> "${row.subtitle} · ${row.gameCount} games"
+                    is LibrarySystemRow.Physical -> row.subtitle
+                },
+            )
         },
         trailingContent = {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)

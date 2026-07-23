@@ -98,6 +98,18 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE favorite = 1 ORDER BY title COLLATE NOCASE")
     fun observeFavorites(): Flow<List<GameEntity>>
 
+    @Query(
+        """
+        SELECT * FROM games
+        WHERE COALESCE(orglLastPlayed, 0) > 0 OR COALESCE(esdeLastPlayed, 0) > 0
+        ORDER BY MAX(COALESCE(orglLastPlayed, 0), COALESCE(esdeLastPlayed, 0)) DESC
+        """,
+    )
+    fun observeRecent(): Flow<List<GameEntity>>
+
+    @Query("SELECT COUNT(*) FROM games WHERE favorite = 1")
+    suspend fun countFavorites(): Int
+
     @Query("SELECT * FROM games WHERE onShelf = 1 ORDER BY title COLLATE NOCASE LIMIT 5")
     fun observeShelf(): Flow<List<GameEntity>>
 
