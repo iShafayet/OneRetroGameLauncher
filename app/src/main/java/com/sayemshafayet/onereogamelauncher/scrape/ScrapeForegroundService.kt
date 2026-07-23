@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -74,7 +75,7 @@ class ScrapeForegroundService : Service() {
         val config = scrapeSessionRepository.takeJob() ?: return
         scrapeJob?.cancel()
         createChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("Starting scrape…", 0, 0, indeterminate = true))
+        startScrapeForeground(buildNotification("Starting scrape…", 0, 0, indeterminate = true))
         scrapeJob = scope.launch {
             var cancelled = false
             try {
@@ -167,6 +168,18 @@ class ScrapeForegroundService : Service() {
             builder.setProgress(total, index.coerceAtMost(total), false)
         }
         return builder.build()
+    }
+
+    private fun startScrapeForeground(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun createChannel() {
