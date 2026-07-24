@@ -16,6 +16,7 @@ import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.domain.ScanStage
 import com.sayemshafayet.onereogamelauncher.domain.SystemDef
 import com.sayemshafayet.onereogamelauncher.systems.EsSystemsParser
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -161,9 +162,9 @@ class RomScanner @Inject constructor(
         // Mirror DroidArcade ValidationEngine: always walk via DocumentFile, never java.io.File.
         val root = DocumentFile.fromTreeUri(context, treeUri)
             ?: error("Cannot open ROMs folder URI — re-pick the folder in Settings → Folders")
-        require(root.isDirectory) { "ROMs URI is not a folder" }
+        require(SafIo.isDirectory(root)) { "ROMs URI is not a folder" }
 
-        val systemDirs = root.listFiles()
+        val systemDirs = SafIo.listChildren(root)
             .filter { it.isDirectory && !it.name.isNullOrBlank() }
             .associateBy { it.name!!.lowercase() }
 
@@ -207,7 +208,7 @@ class RomScanner @Inject constructor(
             readTextFile = { path ->
                 when {
                     path.startsWith("content:", ignoreCase = true) ->
-                        context.contentResolver.openInputStream(Uri.parse(path))
+                        SafIo.openInputStream(context, Uri.parse(path))
                             ?.use { it.reader().readText() }
                     else -> runCatching { File(path).readText() }.getOrNull()
                 }
@@ -229,7 +230,7 @@ class RomScanner @Inject constructor(
     private fun listDocumentFilesRecursive(dir: DocumentFile): List<FoundFile> {
         val out = mutableListOf<FoundFile>()
         fun walk(current: DocumentFile, prefix: String) {
-            current.listFiles().forEach { child ->
+            SafIo.listChildren(current).forEach { child ->
                 val name = child.name ?: return@forEach
                 when {
                     child.isDirectory -> {
@@ -257,7 +258,7 @@ class RomScanner @Inject constructor(
     }
 
     private fun findDocumentFile(dir: DocumentFile, fileName: String): DocumentFile? {
-        dir.listFiles().forEach { child ->
+        SafIo.listChildren(dir).forEach { child ->
             if (child.isFile && child.name.equals(fileName, ignoreCase = true)) return child
             if (child.isDirectory) {
                 findDocumentFile(child, fileName)?.let { return it }
@@ -793,7 +794,7 @@ class RomScanner @Inject constructor(
         var current: DocumentFile = systemDir
         val parts = normalized.split('/').filter { it.isNotBlank() }
         for ((index, part) in parts.withIndex()) {
-            val next = current.listFiles().firstOrNull { child ->
+            val next = SafIo.listChildren(current).firstOrNull { child ->
                 child.name.equals(part, ignoreCase = true) &&
                     (index == parts.lastIndex || child.isDirectory)
             } ?: return null

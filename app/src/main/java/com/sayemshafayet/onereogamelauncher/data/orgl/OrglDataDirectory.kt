@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import java.io.File
 import org.json.JSONObject
 
@@ -34,9 +35,17 @@ object OrglDataDirectory {
      * Write access is required.
      */
     fun prepare(context: Context, treeUri: Uri): PrepareResult {
+        return runCatching { prepareInternal(context, treeUri) }
+            .getOrElse { e ->
+                Log.w(TAG, "prepare failed", e)
+                PrepareResult.Failed(e.message ?: "Could not prepare ORGL data folder")
+            }
+    }
+
+    private fun prepareInternal(context: Context, treeUri: Uri): PrepareResult {
         val root = DocumentFile.fromTreeUri(context, treeUri)
             ?: return PrepareResult.Failed("Could not open the selected folder")
-        if (!root.canWrite()) {
+        if (!SafIo.canWrite(root)) {
             return PrepareResult.Failed("ORGL data folder must be writable")
         }
 
@@ -88,7 +97,9 @@ object OrglDataDirectory {
                 return PrepareResult.Failed("Could not write $META_FILE_NAME")
             }
             // Prefer also writing via File when path is available (belt and suspenders).
-            pathHint?.let { File(it, META_FILE_NAME).writeText(encodeMeta(meta)) }
+            pathHint?.let {
+                runCatching { File(it, META_FILE_NAME).writeText(encodeMeta(meta)) }
+            }
             Log.i(TAG, "Created $META_FILE_NAME (specVersion=$SPEC_VERSION)")
             PrepareResult.Ready(meta, reusedExisting = false)
         }
@@ -109,17 +120,20 @@ object OrglDataDirectory {
     }
 
     private fun findMetaDocument(root: DocumentFile): DocumentFile? =
-        root.listFiles().firstOrNull { it.isFile && it.name.equals(META_FILE_NAME, ignoreCase = true) }
+        SafIo.listChildren(root).firstOrNull {
+            it.isFile && it.name.equals(META_FILE_NAME, ignoreCase = true)
+        }
 
-    private fun createMetaDocument(root: DocumentFile): DocumentFile? {
-        // Display name without extension — SAF appends .json from the MIME type on many devices.
-        root.createFile("application/json", "ORGL")
-        return findMetaDocument(root)
-    }
+    private fun createMetaDocument(root: DocumentFile): DocumentFile? =
+        runCatching {
+            // Display name without extension — SAF appends .json from the MIME type on many devices.
+            root.createFile("application/json", "ORGL")
+            findMetaDocument(root)
+        }.getOrNull()
 
     private fun readMeta(context: Context, doc: DocumentFile): MetaRead {
         return try {
-            val text = context.contentResolver.openInputStream(doc.uri)?.use { stream ->
+            val text = SafIo.openInputStream(context, doc.uri)?.use { stream ->
                 stream.bufferedReader().readText()
             } ?: return MetaRead.Failed("Could not read $META_FILE_NAME")
             parseMetaText(text)
@@ -168,7 +182,7 @@ object OrglDataDirectory {
 
     private fun writeMeta(context: Context, doc: DocumentFile, meta: Meta): Boolean {
         return try {
-            context.contentResolver.openOutputStream(doc.uri, "wt")?.use { out ->
+            SafIo.openOutputStream(context, doc.uri)?.use { out ->
                 out.write(encodeMeta(meta).toByteArray(Charsets.UTF_8))
                 out.flush()
             } ?: return false

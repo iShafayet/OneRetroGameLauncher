@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import java.io.File
 
@@ -34,7 +35,9 @@ object GamelistSources {
     ): Map<String, GamelistEntry> {
         val file = File(systemDir, "gamelist.xml")
         if (!file.isFile) return emptyMap()
-        return parseToMap(parser, file.inputStream().buffered(), "rom:${systemDir.name}")
+        return runCatching {
+            parseToMap(parser, file.inputStream().buffered(), "rom:${systemDir.name}")
+        }.getOrDefault(emptyMap())
     }
 
     fun loadFromRomFolderSaf(
@@ -44,7 +47,7 @@ object GamelistSources {
         parser: GamelistParser,
     ): Map<String, GamelistEntry> {
         val gamelistDoc = findDocumentFile(systemDir, "gamelist.xml") ?: return emptyMap()
-        val stream = context.contentResolver.openInputStream(gamelistDoc.uri) ?: return emptyMap()
+        val stream = SafIo.openInputStream(context, gamelistDoc.uri) ?: return emptyMap()
         return stream.use { parseToMap(parser, it, "rom-saf:$systemFolder") }
     }
 
@@ -55,14 +58,23 @@ object GamelistSources {
         systemFolder: String,
         parser: GamelistParser,
     ): Map<String, GamelistEntry> {
-        if (!esdeDataDirUri.isNullOrBlank()) {
-            loadFromEsdeSaf(context, esdeDataDirUri, systemFolder, parser)?.let { return it }
-        }
-        if (!esdeDataDirPath.isNullOrBlank()) {
-            loadFromEsdeFile(SafPathResolver.normalize(esdeDataDirPath), systemFolder, parser)
-                ?.let { return it }
-        }
-        return emptyMap()
+        return runCatching {
+            if (!esdeDataDirUri.isNullOrBlank()) {
+                val fromSaf = loadFromEsdeSaf(context, esdeDataDirUri, systemFolder, parser)
+                if (fromSaf != null) return@runCatching fromSaf
+            }
+            if (!esdeDataDirPath.isNullOrBlank()) {
+                val fromFile = loadFromEsdeFile(
+                    SafPathResolver.normalize(esdeDataDirPath),
+                    systemFolder,
+                    parser,
+                )
+                if (fromFile != null) return@runCatching fromFile
+            }
+            emptyMap()
+        }.onFailure {
+            Log.w(TAG, "ES-DE gamelist load failed for $systemFolder — ignoring", it)
+        }.getOrDefault(emptyMap())
     }
 
     private fun loadFromEsdeSaf(
@@ -84,7 +96,7 @@ object GamelistSources {
             return emptyMap()
         }
         val gamelistDoc = findDocumentFile(systemDir, "gamelist.xml") ?: return emptyMap()
-        val stream = context.contentResolver.openInputStream(gamelistDoc.uri) ?: return emptyMap()
+        val stream = SafIo.openInputStream(context, gamelistDoc.uri) ?: return emptyMap()
         return stream.use { parseToMap(parser, it, "esde-saf:$systemFolder") }
     }
 
@@ -104,7 +116,9 @@ object GamelistSources {
             Log.d(TAG, "No gamelist at ${gamelistFile.absolutePath}")
             return emptyMap()
         }
-        return parseToMap(parser, gamelistFile.inputStream().buffered(), "esde:$systemFolder")
+        return runCatching {
+            parseToMap(parser, gamelistFile.inputStream().buffered(), "esde:$systemFolder")
+        }.getOrDefault(emptyMap())
     }
 
     private fun parseToMap(
@@ -126,7 +140,7 @@ object GamelistSources {
         if (root.name.equals("gamelists", ignoreCase = true)) return root
         findChildDir(root, "gamelists")?.let { return it }
         if (depth >= 2) return null
-        root.listFiles().forEach { child ->
+        SafIo.listChildren(root).forEach { child ->
             if (!child.isDirectory) return@forEach
             findGamelistsRootDoc(child, depth + 1)?.let { return it }
         }
@@ -144,14 +158,14 @@ object GamelistSources {
     }
 
     private fun findChildDir(parent: DocumentFile, name: String): DocumentFile? {
-        parent.listFiles().forEach { child ->
+        SafIo.listChildren(parent).forEach { child ->
             if (child.isDirectory && child.name.equals(name, ignoreCase = true)) return child
         }
         return null
     }
 
     private fun findDocumentFile(dir: DocumentFile, fileName: String): DocumentFile? {
-        dir.listFiles().forEach { child ->
+        SafIo.listChildren(dir).forEach { child ->
             if (child.isFile && child.name.equals(fileName, ignoreCase = true)) return child
             if (child.isDirectory) {
                 findDocumentFile(child, fileName)?.let { return it }

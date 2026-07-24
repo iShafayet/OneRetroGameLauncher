@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import java.io.File
 
@@ -27,10 +28,10 @@ object OrglTreeFiles {
     }
 
     private fun readSafText(context: Context, treeUri: Uri, fileName: String): String? {
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return null
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return null
         val doc = findFile(root, fileName) ?: return null
         return try {
-            context.contentResolver.openInputStream(doc.uri)?.use { it.bufferedReader().readText() }
+            SafIo.openInputStream(context, doc.uri)?.use { it.bufferedReader().readText() }
         } catch (e: Exception) {
             Log.w(TAG, "readText failed for $fileName", e)
             null
@@ -52,12 +53,12 @@ object OrglTreeFiles {
                 ok = true
             }.onFailure { Log.w(TAG, "filesystem write failed for $fileName", it) }
         }
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return ok
-        if (!root.canWrite()) return ok
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return ok
+        if (!SafIo.canWrite(root)) return ok
         val existing = findFile(root, fileName)
         val doc = existing ?: createFile(root, fileName) ?: return ok
         return try {
-            context.contentResolver.openOutputStream(doc.uri, "wt")?.use { out ->
+            SafIo.openOutputStream(context, doc.uri)?.use { out ->
                 out.write(text.toByteArray(Charsets.UTF_8))
                 out.flush()
             } ?: return ok
@@ -74,7 +75,7 @@ object OrglTreeFiles {
             val file = File(root, fileName)
             if (file.isFile) deleted = file.delete() || deleted
         }
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return deleted
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return deleted
         val doc = findFile(root, fileName) ?: return deleted
         return runCatching { doc.delete() }.getOrDefault(false) || deleted
     }
@@ -83,7 +84,7 @@ object OrglTreeFiles {
         pathHint?.let { root ->
             if (File(root, fileName).isFile) return true
         }
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return false
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return false
         return findFile(root, fileName) != null
     }
 
@@ -113,11 +114,11 @@ object OrglTreeFiles {
                 ok = true
             }.onFailure { Log.w(TAG, "filesystem write failed for $relativePath", it) }
         }
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return ok
-        if (!root.canWrite()) return ok
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return ok
+        if (!SafIo.canWrite(root)) return ok
         val target = findOrCreateFile(root, relativePath) ?: return ok
         return try {
-            context.contentResolver.openOutputStream(target.uri, "wt")?.use { out ->
+            SafIo.openOutputStream(context, target.uri)?.use { out ->
                 out.write(bytes)
                 out.flush()
             } ?: return ok
@@ -129,72 +130,77 @@ object OrglTreeFiles {
     }
 
     private fun readSafBytes(context: Context, treeUri: Uri, relativePath: String): ByteArray? {
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return null
+        val root = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull() ?: return null
         val doc = findNestedFile(root, relativePath) ?: return null
         return try {
-            context.contentResolver.openInputStream(doc.uri)?.use { it.readBytes() }
+            SafIo.openInputStream(context, doc.uri)?.use { it.readBytes() }
         } catch (e: Exception) {
             Log.w(TAG, "readBytes failed for $relativePath", e)
             null
         }
     }
 
-    private fun findOrCreateFile(root: DocumentFile, relativePath: String): DocumentFile? {
-        val parts = relativePath.split('/').filter { it.isNotBlank() }
-        if (parts.isEmpty()) return null
-        var dir = root
-        for (part in parts.dropLast(1)) {
-            dir = dir.listFiles().firstOrNull { it.isDirectory && it.name == part }
-                ?: dir.createDirectory(part)
-                ?: return null
-        }
-        val fileName = parts.last()
-        findFile(dir, fileName)?.let { return it }
-        val ext = fileName.substringAfterLast('.', missingDelimiterValue = "")
-        val base = fileName.substringBeforeLast('.', fileName)
-        val mime = when (ext.lowercase()) {
-            "json" -> "application/json"
-            "png" -> "image/png"
-            else -> "application/octet-stream"
-        }
-        dir.createFile(mime, base)
-        return findFile(dir, fileName)
-    }
+    private fun findOrCreateFile(root: DocumentFile, relativePath: String): DocumentFile? =
+        runCatching {
+            val parts = relativePath.split('/').filter { it.isNotBlank() }
+            if (parts.isEmpty()) return null
+            var dir = root
+            for (part in parts.dropLast(1)) {
+                dir = SafIo.listChildren(dir).firstOrNull { it.isDirectory && it.name == part }
+                    ?: dir.createDirectory(part)
+                    ?: return null
+            }
+            val fileName = parts.last()
+            findFile(dir, fileName)?.let { return it }
+            val ext = fileName.substringAfterLast('.', missingDelimiterValue = "")
+            val base = fileName.substringBeforeLast('.', fileName)
+            val mime = when (ext.lowercase()) {
+                "json" -> "application/json"
+                "png" -> "image/png"
+                else -> "application/octet-stream"
+            }
+            dir.createFile(mime, base)
+            findFile(dir, fileName)
+        }.getOrNull()
 
-    private fun findNestedFile(root: DocumentFile, relativePath: String): DocumentFile? {
-        val parts = relativePath.split('/').filter { it.isNotBlank() }
-        if (parts.isEmpty()) return null
-        var dir = root
-        for (part in parts.dropLast(1)) {
-            dir = dir.listFiles().firstOrNull { it.isDirectory && it.name == part } ?: return null
-        }
-        return findFile(dir, parts.last())
-    }
+    private fun findNestedFile(root: DocumentFile, relativePath: String): DocumentFile? =
+        runCatching {
+            val parts = relativePath.split('/').filter { it.isNotBlank() }
+            if (parts.isEmpty()) return null
+            var dir = root
+            for (part in parts.dropLast(1)) {
+                dir = SafIo.listChildren(dir).firstOrNull { it.isDirectory && it.name == part }
+                    ?: return null
+            }
+            findFile(dir, parts.last())
+        }.getOrNull()
 
     fun resolvePathHint(context: Context, treeUri: Uri, storedHint: String?): String? =
         storedHint ?: SafPathResolver.resolvePath(context, treeUri)
 
-    private fun findFile(root: DocumentFile, fileName: String): DocumentFile? {
-        val files = root.listFiles().filter { it.isFile }
-        files.firstOrNull { it.name.equals(fileName, ignoreCase = true) }?.let { return it }
-        val base = fileName.substringBeforeLast('.', fileName)
-        // SAF createFile("application/json", "play_history") may omit or double the extension.
-        return files.firstOrNull { doc ->
-            val name = doc.name ?: return@firstOrNull false
-            name.equals(base, ignoreCase = true) ||
-                name.equals("$base.json", ignoreCase = true) ||
-                name.equals("$fileName.json", ignoreCase = true)
-        }
-    }
+    private fun findFile(root: DocumentFile, fileName: String): DocumentFile? =
+        runCatching {
+            val files = SafIo.listChildren(root).filter { it.isFile }
+            files.firstOrNull { it.name.equals(fileName, ignoreCase = true) }?.let { return it }
+            val base = fileName.substringBeforeLast('.', fileName)
+            // SAF createFile("application/json", "play_history") may omit or double the extension.
+            files.firstOrNull { doc ->
+                val name = doc.name ?: return@firstOrNull false
+                name.equals(base, ignoreCase = true) ||
+                    name.equals("$base.json", ignoreCase = true) ||
+                    name.equals("$fileName.json", ignoreCase = true)
+            }
+        }.getOrNull()
 
-    private fun createFile(root: DocumentFile, fileName: String): DocumentFile? {
-        val base = fileName.substringBeforeLast('.', fileName)
-        val ext = fileName.substringAfterLast('.', missingDelimiterValue = "")
-        val mime = when (ext.lowercase()) {
-            "json" -> "application/json"
-            else -> "application/octet-stream"
-        }
-        root.createFile(mime, base)
-        return findFile(root, fileName)
-    }
+    private fun createFile(root: DocumentFile, fileName: String): DocumentFile? =
+        runCatching {
+            val base = fileName.substringBeforeLast('.', fileName)
+            val ext = fileName.substringAfterLast('.', missingDelimiterValue = "")
+            val mime = when (ext.lowercase()) {
+                "json" -> "application/json"
+                else -> "application/octet-stream"
+            }
+            root.createFile(mime, base)
+            findFile(root, fileName)
+        }.getOrNull()
 }

@@ -80,7 +80,10 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun reconcileSafAccess(settings: AppSettings) {
-        when (SafFolderAccess.validate(context, settings)) {
+        val action = runCatching { SafFolderAccess.validate(context, settings) }
+            .onFailure { Log.w(TAG, "SAF access check failed", it) }
+            .getOrDefault(SafFolderAccess.Action.None)
+        when (action) {
             SafFolderAccess.Action.None -> Unit
             SafFolderAccess.Action.ResetForReOnboarding -> {
                 Log.i(TAG, "Required SAF folder access lost — resetting to onboarding")
@@ -88,6 +91,8 @@ class MainViewModel @Inject constructor(
             }
             SafFolderAccess.Action.ClearEsdeOnly -> {
                 Log.i(TAG, "ES-DE SAF folder access lost — clearing optional ES-DE folder")
+                runCatching { libraryRepository.purgeEsdeLinkedMedia() }
+                    .onFailure { Log.w(TAG, "Failed to purge ES-DE media rows", it) }
                 settingsRepository.clearEsdeDataDir()
             }
         }

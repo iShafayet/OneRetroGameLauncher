@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchRomPaths
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -68,8 +69,10 @@ class RomHashCalculator @Inject constructor(
 
     fun raMd5Candidates(access: RomAccess): List<String> {
         if (access.romPath.isBlank()) return emptyList()
-        val bytes = readRomBytes(access) ?: return emptyList()
-        return raMd5CandidatesFromBytes(bytes, access.systemFolder)
+        return runCatching {
+            val bytes = readRomBytes(access) ?: return emptyList()
+            raMd5CandidatesFromBytes(bytes, access.systemFolder)
+        }.getOrDefault(emptyList())
     }
 
     fun raMd5CandidatesFromBytes(bytes: ByteArray, systemFolder: String?): List<String> {
@@ -85,11 +88,12 @@ class RomHashCalculator @Inject constructor(
     fun isHashable(romPath: String, systemFolder: String? = null): Boolean =
         isHashable(RomAccess(romPath, systemFolder = systemFolder))
 
-    fun isHashable(access: RomAccess): Boolean = raMd5Candidates(access).isNotEmpty()
+    fun isHashable(access: RomAccess): Boolean =
+        runCatching { raMd5Candidates(access).isNotEmpty() }.getOrDefault(false)
 
     private fun readRomBytes(access: RomAccess): ByteArray? {
         for (path in candidatePaths(access)) {
-            readRomBytesAtPath(path)?.let { return it }
+            runCatching { readRomBytesAtPath(path) }.getOrNull()?.let { return it }
         }
         Log.w(TAG, "Could not read ROM bytes for hashing (paths=${candidatePaths(access).size})")
         return null
@@ -137,15 +141,16 @@ class RomHashCalculator @Inject constructor(
             }
         }.getOrDefault(emptyList())
 
-    private fun documentUriForRelative(treeUri: String, relativePath: String): String? {
-        val tree = RetroArchRomPaths.canonicalTreeUri(treeUri)
-        val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
-        var current: DocumentFile = root
-        for (segment in relativePath.split('/').filter { it.isNotBlank() }) {
-            current = current.findFile(segment) ?: return null
-        }
-        return current.uri.toString()
-    }
+    private fun documentUriForRelative(treeUri: String, relativePath: String): String? =
+        runCatching {
+            val tree = RetroArchRomPaths.canonicalTreeUri(treeUri)
+            val root = DocumentFile.fromTreeUri(context, Uri.parse(tree)) ?: return null
+            var current: DocumentFile = root
+            for (segment in relativePath.split('/').filter { it.isNotBlank() }) {
+                current = SafIo.listChildren(current).firstOrNull { it.name == segment } ?: return null
+            }
+            current.uri.toString()
+        }.getOrNull()
 
     private fun readRomBytesAtPath(romPath: String): ByteArray? {
         if (romPath.isBlank()) return null
@@ -160,12 +165,12 @@ class RomHashCalculator @Inject constructor(
     }
 
     private fun readContentUriRaw(uri: Uri): ByteArray? {
-        val size = DocumentFile.fromSingleUri(context, uri)?.length() ?: -1L
+        val size = SafIo.length(DocumentFile.fromSingleUri(context, uri))
         if (size > MAX_ROM_BYTES) {
             Log.w(TAG, "Skipping hash — ROM too large ($size bytes)")
             return null
         }
-        return readStream(context.contentResolver.openInputStream(uri))
+        return readStream(SafIo.openInputStream(context, uri))
     }
 
     private fun readSafPath(safPath: String): ByteArray? {
@@ -176,7 +181,7 @@ class RomHashCalculator @Inject constructor(
         val treeUri = decodeSafTree(payload.substring(0, slash))
         val relative = payload.substring(slash + 1)
         val docUri = documentUriForRelative(treeUri, relative) ?: return null
-        return readStream(context.contentResolver.openInputStream(Uri.parse(docUri)))
+        return readStream(SafIo.openInputStream(context, Uri.parse(docUri)))
     }
 
     private fun decodeSafTree(encoded: String): String = buildString(encoded.length) {
@@ -211,7 +216,7 @@ class RomHashCalculator @Inject constructor(
 
     private fun readStream(input: InputStream?): ByteArray? {
         if (input == null) return null
-        return input.use { it.readBytes() }
+        return runCatching { input.use { it.readBytes() } }.getOrNull()
     }
 
     private fun raHashBytes(bytes: ByteArray, consoleId: Int?): String? {

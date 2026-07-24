@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.sayemshafayet.onereogamelauncher.ui.util.SafIo
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import java.io.File
 
@@ -55,7 +56,9 @@ class MediaLibrary private constructor(
     private fun folderIndex(system: String, mediaFolder: String): Map<String, String> {
         val cacheKey = system to mediaFolder
         folderCache[cacheKey]?.let { return it }
-        val built = buildFolderIndex(system, mediaFolder)
+        val built = runCatching { buildFolderIndex(system, mediaFolder) }
+            .onFailure { Log.w(TAG, "$label index failed for $system/$mediaFolder", it) }
+            .getOrDefault(emptyMap())
         folderCache[cacheKey] = built
         if (built.isNotEmpty()) {
             Log.i(TAG, "$label indexed $system/$mediaFolder → ${built.size} files")
@@ -85,7 +88,7 @@ class MediaLibrary private constructor(
     }
 
     private fun indexMediaFilesRecursiveDoc(out: MutableMap<String, String>, dir: DocumentFile) {
-        dir.listFiles().forEach { child ->
+        SafIo.listChildren(dir).forEach { child ->
             when {
                 child.isFile -> {
                     val name = child.name ?: return@forEach
@@ -99,11 +102,13 @@ class MediaLibrary private constructor(
     }
 
     private fun indexMediaFilesRecursiveFile(out: MutableMap<String, String>, dir: File) {
-        dir.walkTopDown().forEach { file ->
-            if (!file.isFile) return@forEach
-            val base = file.nameWithoutExtension
-            if (base.isBlank()) return@forEach
-            putAllKeys(out, base, file.absolutePath)
+        runCatching {
+            dir.walkTopDown().forEach { file ->
+                if (!file.isFile) return@forEach
+                val base = file.nameWithoutExtension
+                if (base.isBlank()) return@forEach
+                putAllKeys(out, base, file.absolutePath)
+            }
         }
     }
 
@@ -128,41 +133,45 @@ class MediaLibrary private constructor(
             var fileRoot: File? = null
 
             if (!uriString.isNullOrBlank()) {
-                val uri = runCatching { Uri.parse(uriString) }.getOrNull()
-                val tree = uri?.let { DocumentFile.fromTreeUri(context, it) }
-                if (tree == null) {
-                    Log.w(TAG, "$label: cannot open tree URI=$uriString")
-                } else {
-                    val children = tree.listFiles().mapNotNull { it.name }
-                    Log.i(
-                        TAG,
-                        "$label SAF root name=${tree.name} children(${children.size})=" +
-                            children.take(20),
-                    )
-                    docRoot = findDownloadedMediaDoc(tree, depth = 0)
-                    if (docRoot == null) {
-                        Log.w(
-                            TAG,
-                            "$label: no downloaded_media under SAF root. " +
-                                "Pick the ES-DE data folder (the one that contains downloaded_media/).",
-                        )
+                runCatching {
+                    val uri = Uri.parse(uriString)
+                    val tree = DocumentFile.fromTreeUri(context, uri)
+                    if (tree == null) {
+                        Log.w(TAG, "$label: cannot open tree URI=$uriString")
                     } else {
+                        val children = SafIo.listChildren(tree).mapNotNull { it.name }
                         Log.i(
                             TAG,
-                            "$label: using media root name=${docRoot.name} uri=${docRoot.uri}",
+                            "$label SAF root name=${tree.name} children(${children.size})=" +
+                                children.take(20),
                         )
+                        docRoot = findDownloadedMediaDoc(tree, depth = 0)
+                        if (docRoot == null) {
+                            Log.w(
+                                TAG,
+                                "$label: no downloaded_media under SAF root. " +
+                                    "Pick the ES-DE data folder (the one that contains downloaded_media/).",
+                            )
+                        } else {
+                            Log.i(
+                                TAG,
+                                "$label: using media root name=${docRoot?.name} uri=${docRoot?.uri}",
+                            )
+                        }
                     }
-                }
+                }.onFailure { Log.w(TAG, "$label: SAF open failed", it) }
             }
 
             if (!pathHint.isNullOrBlank()) {
-                val root = File(SafPathResolver.normalize(pathHint))
-                fileRoot = findDownloadedMediaFile(root)
-                Log.i(
-                    TAG,
-                    "$label pathHint=$pathHint → fileRoot=${fileRoot?.absolutePath} " +
-                        "listable=${fileRoot?.list()?.take(5)}",
-                )
+                runCatching {
+                    val root = File(SafPathResolver.normalize(pathHint))
+                    fileRoot = findDownloadedMediaFile(root)
+                    Log.i(
+                        TAG,
+                        "$label pathHint=$pathHint → fileRoot=${fileRoot?.absolutePath} " +
+                            "listable=${fileRoot?.list()?.take(5)}",
+                    )
+                }.onFailure { Log.w(TAG, "$label: path open failed", it) }
             }
 
             if (docRoot == null && fileRoot == null) {
@@ -211,7 +220,7 @@ class MediaLibrary private constructor(
             findChildDir(root, "downloaded_media")?.let { return it }
             if (depth >= 2) return null
             // Search one/two levels (e.g. Emulation/ES-DE/downloaded_media)
-            root.listFiles().forEach { child ->
+            SafIo.listChildren(root).forEach { child ->
                 if (!child.isDirectory) return@forEach
                 findDownloadedMediaDoc(child, depth + 1)?.let { return it }
             }
@@ -219,11 +228,11 @@ class MediaLibrary private constructor(
         }
 
         private fun looksLikeMediaRootDoc(root: DocumentFile): Boolean {
-            val children = root.listFiles().filter { it.isDirectory }
+            val children = SafIo.listChildren(root).filter { it.isDirectory }
             // A couple of system dirs that themselves contain covers/miximages
             var hits = 0
             for (sys in children.take(12)) {
-                val types = sys.listFiles()
+                val types = SafIo.listChildren(sys)
                 if (types.any {
                         it.isDirectory && (
                             it.name.equals("covers", true) ||
@@ -262,7 +271,7 @@ class MediaLibrary private constructor(
         }
 
         private fun findChildDir(parent: DocumentFile, name: String): DocumentFile? {
-            parent.listFiles().forEach { child ->
+            SafIo.listChildren(parent).forEach { child ->
                 if (child.isDirectory && child.name.equals(name, ignoreCase = true)) return child
             }
             return null

@@ -85,11 +85,11 @@ object SafFolderAccess {
     }
 
     private fun probeTreeAccess(context: Context, treeUri: Uri, requireWrite: Boolean): Boolean {
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return false
-        if (!root.isDirectory) return false
-        if (requireWrite && !root.canWrite()) return false
         return runCatching {
-            root.listFiles()
+            val root = DocumentFile.fromTreeUri(context, treeUri) ?: return false
+            if (!SafIo.isDirectory(root)) return false
+            if (requireWrite && !SafIo.canWrite(root)) return false
+            SafIo.listChildren(root)
             true
         }.getOrDefault(false)
     }
