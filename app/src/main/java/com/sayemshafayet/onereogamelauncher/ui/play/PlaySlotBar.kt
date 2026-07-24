@@ -1,6 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.play
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintBadge
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 
 @Composable
 fun PlaySlotBar(
@@ -29,6 +32,7 @@ fun PlaySlotBar(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val showHints = rememberShowGamepadHints()
     Surface(modifier = modifier.fillMaxWidth(), tonalElevation = 1.dp) {
         ColumnWithDivider {
             Row(
@@ -38,22 +42,44 @@ fun PlaySlotBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                IconButton(
-                    onClick = onPrevious,
-                    modifier = Modifier.focusProperties { canFocus = false },
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous slot")
+                Box {
+                    IconButton(
+                        onClick = onPrevious,
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous slot")
+                    }
+                    if (showHints) {
+                        GamepadHintBadge(
+                            "L1",
+                            compact = true,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = 2.dp, top = 2.dp),
+                        )
+                    }
                 }
                 ColumnCentered(
                     currentSlot = currentSlot,
                     slotCount = slotCount,
                     occupied = currentSlot in occupiedSlots,
                 )
-                IconButton(
-                    onClick = onNext,
-                    modifier = Modifier.focusProperties { canFocus = false },
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next slot")
+                Box {
+                    IconButton(
+                        onClick = onNext,
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next slot")
+                    }
+                    if (showHints) {
+                        GamepadHintBadge(
+                            "R1",
+                            compact = true,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 2.dp, top = 2.dp),
+                        )
+                    }
                 }
             }
         }

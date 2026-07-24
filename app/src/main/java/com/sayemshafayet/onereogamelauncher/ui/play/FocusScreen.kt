@@ -1,5 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.play
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,10 +56,12 @@ import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
 import com.sayemshafayet.onereogamelauncher.ui.components.RetroAchievementsButton
 import com.sayemshafayet.onereogamelauncher.ui.components.StarRatingInput
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
 import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
@@ -83,6 +87,9 @@ fun FocusScreen(
     var reviewText by remember { mutableStateOf("") }
     var showMoreMenu by remember { mutableStateOf(false) }
     val playFocus = rememberOrlgFocusRequester()
+    val playInteraction = remember { MutableInteractionSource() }
+    val playFocused by playInteraction.collectIsFocusedAsState()
+    val showHints = rememberShowGamepadHints()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -192,20 +199,31 @@ fun FocusScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(
-                    onClick = { viewModel.play {} },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .focusRequester(playFocus)
-                        .then(PulseModifier(true)),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = MaterialTheme.colorScheme.onSecondary,
-                    ),
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Text("Play", style = MaterialTheme.typography.titleMedium)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { viewModel.play {} },
+                        interactionSource = playInteraction,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .focusRequester(playFocus)
+                            .then(PulseModifier(true)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary,
+                        ),
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Text("Play", style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (showHints && playFocused) {
+                        GamepadHintOverlay(
+                            label = "A",
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            offsetX = (-6).dp,
+                            offsetY = (-6).dp,
+                        )
+                    }
                 }
 
                 state.launchError?.let {

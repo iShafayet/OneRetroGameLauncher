@@ -1,5 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,10 +60,12 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameCompletedStatus
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
@@ -205,6 +209,9 @@ private fun GameTabContent(
     onToggleDropped: () -> Unit,
 ) {
     val launchFocus = rememberOrlgFocusRequester()
+    val launchInteraction = remember { MutableInteractionSource() }
+    val launchFocused by launchInteraction.collectIsFocusedAsState()
+    val showHints = rememberShowGamepadHints()
     val cover = pickBoxArt(media.associate { it.type to it.path })
     val activityLabel = formatActivityLabel(
         playtimeMs = game.totalOrglPlaytimeMs(commitmentPlaytimeMs),
@@ -257,14 +264,25 @@ private fun GameTabContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(
-                    onClick = onLaunch,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(launchFocus),
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Text("Launch")
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onLaunch,
+                        interactionSource = launchInteraction,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(launchFocus),
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Text("Launch")
+                    }
+                    if (showHints && launchFocused) {
+                        GamepadHintOverlay(
+                            label = "A",
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            offsetX = (-6).dp,
+                            offsetY = (-6).dp,
+                        )
+                    }
                 }
 
                 RetroAchievementsButton(

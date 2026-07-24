@@ -2,7 +2,10 @@ package com.sayemshafayet.onereogamelauncher.ui.play
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,9 +41,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,15 +55,17 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
 import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayGamePick
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerPhase
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerViewModel
+import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 
 private val pickCardWidth = 132.dp
 private val pickRowHeight = 228.dp
@@ -90,6 +97,10 @@ private fun PlayIntroContent(
     isLoading: Boolean,
 ) {
     val scrollState = rememberScrollState()
+    val continueFocus = rememberOrlgFocusRequester()
+    val continueInteraction = remember { MutableInteractionSource() }
+    val continueFocused by continueInteraction.collectIsFocusedAsState()
+    val showHints = rememberShowGamepadHints()
 
     Column(
         modifier = Modifier
@@ -122,29 +133,42 @@ private fun PlayIntroContent(
         }
 
         Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onContinue,
-            enabled = !isLoading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (!isLoading) PulseModifier(true) else Modifier),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-            ),
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(22.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSecondary,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onContinue,
+                enabled = !isLoading,
+                interactionSource = continueInteraction,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(continueFocus)
+                    .then(if (!isLoading) PulseModifier(true) else Modifier),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                ),
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSecondary,
+                    )
+                } else {
+                    Text("Let's pick a game to play")
+                }
+            }
+            if (showHints && continueFocused && !isLoading) {
+                GamepadHintOverlay(
+                    label = "A",
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    offsetX = (-6).dp,
+                    offsetY = (-6).dp,
                 )
-            } else {
-                Text("Let's pick a game to play")
             }
         }
         Spacer(Modifier.height(8.dp))
     }
+    OrlgInitialFocus(continueFocus, enabled = !isLoading)
 }
 
 @Composable

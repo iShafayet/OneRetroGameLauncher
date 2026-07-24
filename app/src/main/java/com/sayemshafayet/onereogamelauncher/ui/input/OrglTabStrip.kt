@@ -31,12 +31,21 @@ fun OrglTabStrip(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
+    val showHints = rememberShowGamepadHints()
     Column(
         modifier
             .fillMaxWidth()
             .focusProperties { canFocus = false },
     ) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showHints) {
+                GamepadHintBadge("L1", compact = true, modifier = Modifier.padding(end = 4.dp))
+            }
             labels.forEachIndexed { index, label ->
                 Box(
                     Modifier
@@ -56,6 +65,9 @@ fun OrglTabStrip(
                         color = if (index == selectedIndex) primary else unselected,
                     )
                 }
+            }
+            if (showHints) {
+                GamepadHintBadge("R1", compact = true, modifier = Modifier.padding(start = 4.dp))
             }
         }
         Row(Modifier.fillMaxWidth()) {
@@ -83,39 +95,49 @@ fun OrglBottomNavStrip(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
+    val showHints = rememberShowGamepadHints()
     Surface(
         modifier
             .fillMaxWidth()
             .focusProperties { canFocus = false },
         tonalElevation = 3.dp,
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .focusProperties { canFocus = false },
-        ) {
-            labels.forEachIndexed { index, label ->
-                val selected = index == selectedIndex
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .focusProperties { canFocus = false }
-                        .clickable(onClick = { onTabClick(index) })
-                        .padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(Modifier.focusProperties { canFocus = false }) {
-                        icons(index, selected)
+        Column(Modifier.focusProperties { canFocus = false }) {
+            if (showHints) {
+                GamepadShoulderHints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                )
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(if (showHints) 72.dp else 80.dp)
+                    .focusProperties { canFocus = false },
+            ) {
+                labels.forEachIndexed { index, label ->
+                    val selected = index == selectedIndex
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .focusProperties { canFocus = false }
+                            .clickable(onClick = { onTabClick(index) })
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(Modifier.focusProperties { canFocus = false }) {
+                            icons(index, selected)
+                        }
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) primary else unselected,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .focusProperties { canFocus = false },
+                        )
                     }
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) primary else unselected,
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .focusProperties { canFocus = false },
-                    )
                 }
             }
         }

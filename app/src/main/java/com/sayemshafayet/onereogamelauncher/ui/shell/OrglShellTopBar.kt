@@ -1,6 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.ui.shell
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
@@ -27,11 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintBadge
+import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
@@ -158,6 +163,7 @@ private fun HubTopAppBar(
     onRequestSetupMode: () -> Unit,
     onRequestPlayMode: () -> Unit,
 ) {
+    val showHints = rememberShowGamepadHints()
     TopAppBar(
         title = {
             if (isPlay) {
@@ -182,31 +188,50 @@ private fun HubTopAppBar(
                     .focusProperties { canFocus = false },
             ) {
                 if (!isPlay) {
-                    FilledTonalIconButton(
-                        onClick = { navController.navigate(Routes.SETUP_ABOUT) },
-                        modifier = Modifier.focusProperties { canFocus = false },
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.HelpOutline,
-                            contentDescription = "About ORGL",
-                        )
+                    Box {
+                        FilledTonalIconButton(
+                            onClick = { navController.navigate(Routes.SETUP_ABOUT) },
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "About ORGL",
+                            )
+                        }
+                        if (showHints) {
+                            GamepadHintOverlay(
+                                label = "X",
+                                modifier = Modifier.align(Alignment.TopEnd),
+                            )
+                        }
                     }
                 }
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.focusProperties { canFocus = false },
-                ) {
-                    SegmentedButton(
-                        selected = !isPlay,
-                        onClick = onRequestSetupMode,
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                Box {
+                    SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.focusProperties { canFocus = false },
-                    ) { Text("Setup") }
-                    SegmentedButton(
-                        selected = isPlay,
-                        onClick = onRequestPlayMode,
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        modifier = Modifier.focusProperties { canFocus = false },
-                    ) { Text("Play") }
+                    ) {
+                        SegmentedButton(
+                            selected = !isPlay,
+                            onClick = onRequestSetupMode,
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        ) { Text("Setup") }
+                        SegmentedButton(
+                            selected = isPlay,
+                            onClick = onRequestPlayMode,
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        ) { Text("Play") }
+                    }
+                    if (showHints) {
+                        GamepadHintBadge(
+                            label = "Y",
+                            compact = true,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .offset(y = (-6).dp),
+                        )
+                    }
                 }
             }
         },
@@ -221,16 +246,27 @@ private fun SimpleTopAppBar(
     backEnabled: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val showHints = rememberShowGamepadHints()
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
             if (onBack != null) {
-                IconButton(
-                    onClick = onBack,
-                    enabled = backEnabled,
-                    modifier = Modifier.focusProperties { canFocus = false },
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Box {
+                    IconButton(
+                        onClick = onBack,
+                        enabled = backEnabled,
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                    if (showHints && backEnabled) {
+                        GamepadHintOverlay(
+                            label = "B",
+                            modifier = Modifier.align(Alignment.TopStart),
+                            offsetX = 0.dp,
+                            offsetY = (-2).dp,
+                        )
+                    }
                 }
             }
         },
