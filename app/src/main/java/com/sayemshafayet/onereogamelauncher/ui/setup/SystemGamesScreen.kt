@@ -1,6 +1,13 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.FilterChip
@@ -26,9 +34,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
@@ -61,66 +75,64 @@ fun SystemGamesScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-            SearchField(
-                value = query,
-                onValueChange = viewModel::setQuery,
-                placeholder = "Search games",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                visibleFilters.forEach { f ->
-                    FilterChip(
-                        selected = filter == f,
-                        onClick = { viewModel.setFilter(f) },
-                        label = { Text(f.label) },
-                    )
-                }
+        SearchField(
+            value = query,
+            onValueChange = viewModel::setQuery,
+            placeholder = "Search games",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            visibleFilters.forEach { f ->
+                FilterChip(
+                    selected = filter == f,
+                    onClick = { viewModel.setFilter(f) },
+                    label = { Text(f.label) },
+                )
             }
-            when (layout) {
-                GameListLayout.GRID -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(120.dp),
-                        contentPadding = PaddingValues(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
-                            GameGridTile(
-                                game = game,
-                                observeMedia = { viewModel.observeMedia(game.id) },
-                                onClick = { onGameClick(game.id) },
-                                modifier = Modifier
-                                    .orlgListFocus(index, firstFocus)
-                                    .orlgFocusable(onClick = { onGameClick(game.id) }),
-                            )
-                        }
-                    }
-                }
-                GameListLayout.LIST -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
-                            GameListRow(
-                                game = game,
-                                observeMedia = { viewModel.observeMedia(game.id) },
-                                onClick = { onGameClick(game.id) },
-                                modifier = Modifier
-                                    .orlgListFocus(index, firstFocus)
-                                    .orlgFocusable(onClick = { onGameClick(game.id) }),
-                            )
-                        }
+        }
+        when (layout) {
+            GameListLayout.GRID -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(120.dp),
+                    contentPadding = PaddingValues(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
+                        GameGridTile(
+                            game = game,
+                            observeMedia = { viewModel.observeMedia(game.id) },
+                            onClick = { onGameClick(game.id) },
+                            modifier = Modifier.orlgListFocus(index, firstFocus),
+                        )
                     }
                 }
             }
-            OrlgInitialFocus(firstFocus, enabled = games.isNotEmpty())
+            GameListLayout.LIST -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(games, key = { _, game -> game.id }) { index, game ->
+                        GameListRow(
+                            game = game,
+                            observeMedia = { viewModel.observeMedia(game.id) },
+                            onClick = { onGameClick(game.id) },
+                            modifier = Modifier
+                                .orlgListFocus(index, firstFocus)
+                                .orlgFocusable(onClick = { onGameClick(game.id) }),
+                        )
+                    }
+                }
+            }
+        }
+        OrlgInitialFocus(firstFocus, enabled = games.isNotEmpty())
     }
 }
 
@@ -133,22 +145,72 @@ private fun GameGridTile(
 ) {
     val media by observeMedia().collectAsState(initial = emptyList())
     val cover = coverPath(media)
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val coverShape = RoundedCornerShape(12.dp)
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.06f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "gridFocusScale",
+    )
+    val accent = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)
+    val frameLight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .zIndex(if (focused) 1f else 0f)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .orlgFocusable(
+                onClick = onClick,
+                showFocusRing = false,
+                interactionSource = interactionSource,
+            ),
     ) {
-        GameCoverImage(
-            path = cover,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.75f),
-        )
+                .aspectRatio(0.75f)
+                .shadow(
+                    elevation = if (focused) 10.dp else 3.dp,
+                    shape = coverShape,
+                    clip = false,
+                )
+                .clip(coverShape),
+        ) {
+            GameCoverImage(
+                path = cover,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (focused) {
+                // Quiet dual frame — soft edge for contrast, muted amber hint inside.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .border(width = 2.dp, color = frameLight, shape = coverShape)
+                        .padding(2.dp)
+                        .border(width = 1.5.dp, color = accent, shape = RoundedCornerShape(10.dp)),
+                )
+            }
+        }
         Text(
             game.title,
             style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
+            color = if (focused) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f)
+            },
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
         )
     }
 }

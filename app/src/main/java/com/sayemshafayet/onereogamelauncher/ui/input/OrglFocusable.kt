@@ -27,20 +27,25 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 
 /**
- * Makes a row/tile focusable for D-pad / gamepad navigation with a visible focus ring.
+ * Makes a row/tile focusable for D-pad / gamepad navigation.
  * Touch taps still work via [clickable].
+ *
+ * @param showFocusRing thin Material primary ring (fine for list rows). Grid tiles
+ * usually pass false and draw their own focus chrome.
  */
 fun Modifier.orlgFocusable(
     onClick: () -> Unit,
     enabled: Boolean = true,
+    showFocusRing: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
 ): Modifier = composed {
-    val interactionSource = remember { MutableInteractionSource() }
-    val focused by interactionSource.collectIsFocusedAsState()
+    val source = interactionSource ?: remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
     val shape = RoundedCornerShape(8.dp)
     val ringColor = MaterialTheme.colorScheme.primary
 
     clip(shape)
-        .focusable(enabled = enabled, interactionSource = interactionSource)
+        .focusable(enabled = enabled, interactionSource = source)
         .onKeyEvent { event ->
             if (enabled && GamepadKeys.isActivate(event)) {
                 onClick()
@@ -51,12 +56,12 @@ fun Modifier.orlgFocusable(
         }
         .clickable(
             enabled = enabled,
-            interactionSource = interactionSource,
+            interactionSource = source,
             indication = null,
             onClick = onClick,
         )
         .then(
-            if (focused) {
+            if (showFocusRing && focused) {
                 Modifier.border(2.dp, ringColor, shape)
             } else {
                 Modifier
