@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 private const val CUSTOM_OPTION = "Custom…"
@@ -119,7 +120,9 @@ fun RetroArchSettingsScreen(
                     onValueChange = viewModel::setRetroArchPackage,
                     label = { Text("Custom package name") },
                     placeholder = { Text("com.example.retroarch") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .orlgDpadFocusExit(),
                     singleLine = true,
                 )
             }

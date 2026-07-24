@@ -55,6 +55,7 @@ import com.sayemshafayet.onereogamelauncher.ui.components.RetroAchievementsButto
 import com.sayemshafayet.onereogamelauncher.ui.components.StarRatingInput
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
@@ -320,7 +321,9 @@ fun FocusScreen(
                         value = reviewText,
                         onValueChange = { reviewText = it },
                         label = { Text("Review (optional)") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .orlgDpadFocusExit(),
                         minLines = 2,
                     )
                 }

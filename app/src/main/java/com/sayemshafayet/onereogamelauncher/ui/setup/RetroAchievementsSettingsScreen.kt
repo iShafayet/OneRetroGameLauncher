@@ -37,6 +37,7 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -158,7 +159,9 @@ fun RetroAchievementsSettingsScreen(
                     viewModel.clearSaveState()
                 },
                 label = { Text("Username") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .orlgDpadFocusExit(),
                 singleLine = true,
                 enabled = saveState !is RaSettingsSaveState.Saving,
             )
@@ -171,7 +174,9 @@ fun RetroAchievementsSettingsScreen(
                 label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .orlgDpadFocusExit(),
                 singleLine = true,
                 enabled = saveState !is RaSettingsSaveState.Saving,
             )

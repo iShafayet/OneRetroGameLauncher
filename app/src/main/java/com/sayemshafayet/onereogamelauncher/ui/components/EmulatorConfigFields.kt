@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.CoreChoice
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.EmulatorChoice
 
@@ -49,6 +50,7 @@ fun EmulatorDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded && enabled) },
             modifier = Modifier
                 .fillMaxWidth()
+                .orlgDpadFocusExit(enabled = !(expanded && enabled))
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
@@ -103,6 +105,7 @@ fun CoreDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded && enabled) },
             modifier = Modifier
                 .fillMaxWidth()
+                .orlgDpadFocusExit(enabled = !(expanded && enabled))
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(

@@ -60,6 +60,7 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
@@ -313,7 +314,9 @@ private fun GameTabContent(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = onNotesChange,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .orlgDpadFocusExit(),
                     minLines = 4,
                     placeholder = { Text("Add your thoughts…") },
                 )
@@ -617,7 +620,9 @@ private fun ConfigTabContent(
                         onValueChange = onCoreTextChange,
                         enabled = launchConfig.useOverride,
                         label = { Text("Core filename") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .orlgDpadFocusExit(),
                     )
                 }
 
@@ -626,7 +631,9 @@ private fun ConfigTabContent(
                     onValueChange = onCustomConfigChange,
                     enabled = launchConfig.useOverride,
                     label = { Text("Custom config path (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .orlgDpadFocusExit(),
                 )
 
                 if (launchConfig.useOverride) {

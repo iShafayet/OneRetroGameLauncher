@@ -14,9 +14,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 
 /**
@@ -55,6 +62,24 @@ fun Modifier.orlgFocusable(
                 Modifier
             },
         )
+}
+
+/**
+ * On search / text fields, D-pad up/down leaves the field and focuses the next control.
+ * Left/right stay with the field for caret movement.
+ *
+ * @param enabled set false while a dropdown/menu is open so D-pad stays in the menu.
+ */
+fun Modifier.orlgDpadFocusExit(enabled: Boolean = true): Modifier = composed {
+    val focusManager = LocalFocusManager.current
+    onPreviewKeyEvent { event ->
+        if (!enabled || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+        when (event.key) {
+            Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+            Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+            else -> false
+        }
+    }
 }
 
 fun Modifier.orlgListFocus(index: Int, firstItemFocus: FocusRequester): Modifier =

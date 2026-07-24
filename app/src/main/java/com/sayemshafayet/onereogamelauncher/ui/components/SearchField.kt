@@ -10,6 +10,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 
 @Composable
 fun SearchField(
@@ -21,7 +22,9 @@ fun SearchField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .orlgDpadFocusExit(),
         placeholder = { Text(placeholder) },
         singleLine = true,
         leadingIcon = {

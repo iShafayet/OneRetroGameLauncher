@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
@@ -508,7 +509,9 @@ private fun RetroAchievementsStep(
                 value = state.raUser,
                 onValueChange = onUserChange,
                 label = { Text("Username") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .orlgDpadFocusExit(),
                 singleLine = true,
                 enabled = !busy,
                 colors = fieldColors,
@@ -520,7 +523,9 @@ private fun RetroAchievementsStep(
                 label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .orlgDpadFocusExit(),
                 singleLine = true,
                 enabled = !busy,
                 colors = fieldColors,

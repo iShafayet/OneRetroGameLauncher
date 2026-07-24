@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemEmulatorViewModel
 
 @Composable
@@ -67,7 +68,9 @@ fun SystemEmulatorSettingsScreen(
                     onValueChange = viewModel::setCore,
                     label = { Text("Core filename") },
                     supportingText = { Text("e.g. snes9x_libretro_android.so") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .orlgDpadFocusExit(),
                 )
             }
 
