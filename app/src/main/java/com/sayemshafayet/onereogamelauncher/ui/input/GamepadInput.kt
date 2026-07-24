@@ -60,8 +60,8 @@ object GamepadKeys {
     fun isAbout(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key == Key.ButtonX
 
-    /** Y intentionally unassigned — consume so it does not proxy other actions. */
-    fun isUnassignedFaceButton(event: KeyEvent): Boolean =
+    /** Y — mode toggle on root pages (double-press); otherwise consumed. */
+    fun isModeToggle(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key == Key.ButtonY
 
     fun isShoulderLeft(event: KeyEvent): Boolean =

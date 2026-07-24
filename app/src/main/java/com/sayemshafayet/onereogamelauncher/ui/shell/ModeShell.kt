@@ -26,10 +26,14 @@ import com.sayemshafayet.onereogamelauncher.R
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
 import com.sayemshafayet.onereogamelauncher.ui.input.ShellHardwareKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressConfirmHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressExitHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
 import android.view.KeyEvent as AndroidKeyEvent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -149,8 +153,56 @@ fun ModeShell(
         }
     }
 
+    var showSetupGuard by remember { mutableStateOf(false) }
+    fun switchToSetup() {
+        shellViewModel.setMode(AppMode.SETUP)
+        navController.navigate(Routes.SETUP_LIBRARY) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    fun switchToPlay() {
+        shellViewModel.setMode(AppMode.PLAY)
+        navController.navigate(Routes.playEntryHub(visibleActiveCommitments)) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                inclusive = true
+            }
+            launchSingleTop = true
+        }
+    }
+    fun requestSetupMode() {
+        if (isPlay && visibleActiveCommitments.isNotEmpty()) {
+            showSetupGuard = true
+        } else {
+            switchToSetup()
+        }
+    }
+    val onDoublePressModeSwitch = rememberDoublePressConfirmHandler(
+        resetKey = currentRoute to isPlay,
+        message = stringResource(
+            if (isPlay) R.string.press_again_to_setup else R.string.press_again_to_play,
+        ),
+        onConfirm = {
+            if (isPlay) requestSetupMode() else switchToPlay()
+        },
+    )
+
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
     val showAboutButton = !isPlay && isHubRoute
+
+    if (showSetupGuard) {
+        PlayToSetupGuardDialog(
+            activeRunCount = visibleActiveCommitments.size,
+            onDismiss = { showSetupGuard = false },
+            onConfirmed = {
+                showSetupGuard = false
+                switchToSetup()
+            },
+        )
+    }
 
     GamepadBackHandler(
         canPopBack = canPopBack,
@@ -252,7 +304,10 @@ fun ModeShell(
     Scaffold(
         modifier = Modifier.onPreviewKeyEvent { event ->
             when {
-                GamepadKeys.isUnassignedFaceButton(event) -> true
+                GamepadKeys.isModeToggle(event) -> {
+                    if (canDoublePressExit) onDoublePressModeSwitch()
+                    true
+                }
                 GamepadKeys.isAbout(event) -> {
                     if (showAboutButton) navController.navigate(Routes.SETUP_ABOUT)
                     true
@@ -275,9 +330,9 @@ fun ModeShell(
                     backStackEntry = backStack,
                     currentRoute = currentRoute,
                     isPlay = isPlay,
-                    activeCommitments = visibleActiveCommitments,
                     canPopBack = canPopBack,
-                    onSetMode = shellViewModel::setMode,
+                    onRequestSetupMode = ::requestSetupMode,
+                    onRequestPlayMode = ::switchToPlay,
                 )
                 if (showPlaySlotBar) {
                     PlaySlotBar(

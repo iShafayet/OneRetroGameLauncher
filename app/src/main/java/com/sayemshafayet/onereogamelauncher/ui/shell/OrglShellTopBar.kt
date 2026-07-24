@@ -23,21 +23,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.sayemshafayet.onereogamelauncher.BuildConfig
-import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
-import com.sayemshafayet.onereogamelauncher.domain.AppMode
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
@@ -60,18 +54,18 @@ fun OrglShellTopBar(
     backStackEntry: NavBackStackEntry?,
     currentRoute: String?,
     isPlay: Boolean,
-    activeCommitments: List<CommitmentEntity>,
     canPopBack: Boolean,
-    onSetMode: (AppMode) -> Unit,
+    onRequestSetupMode: () -> Unit,
+    onRequestPlayMode: () -> Unit,
 ) {
     val onBack: () -> Unit = { navController.popBackStack(); Unit }
 
     when {
         isHubRoute(currentRoute) -> HubTopAppBar(
             isPlay = isPlay,
-            activeCommitments = activeCommitments,
             navController = navController,
-            onSetMode = onSetMode,
+            onRequestSetupMode = onRequestSetupMode,
+            onRequestPlayMode = onRequestPlayMode,
         )
         currentRoute == Routes.SETUP_SYSTEM -> backStackEntry?.let { entry ->
             val viewModel: SystemGamesViewModel = hiltViewModel(entry)
@@ -160,44 +154,10 @@ fun OrglShellTopBar(
 @Composable
 private fun HubTopAppBar(
     isPlay: Boolean,
-    activeCommitments: List<CommitmentEntity>,
     navController: NavHostController,
-    onSetMode: (AppMode) -> Unit,
+    onRequestSetupMode: () -> Unit,
+    onRequestPlayMode: () -> Unit,
 ) {
-    var showSetupGuard by remember { mutableStateOf(false) }
-
-    fun switchToSetup() {
-        onSetMode(AppMode.SETUP)
-        navController.navigate(Routes.SETUP_LIBRARY) {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
-
-    fun requestSetupMode() {
-        if (isPlay && activeCommitments.isNotEmpty()) {
-            showSetupGuard = true
-        } else {
-            switchToSetup()
-        }
-    }
-
-    fun playDestination(): String = Routes.playEntryHub(activeCommitments)
-
-    if (showSetupGuard) {
-        PlayToSetupGuardDialog(
-            activeRunCount = activeCommitments.size,
-            onDismiss = { showSetupGuard = false },
-            onConfirmed = {
-                showSetupGuard = false
-                switchToSetup()
-            },
-        )
-    }
-
     TopAppBar(
         title = {
             if (isPlay) {
@@ -237,21 +197,13 @@ private fun HubTopAppBar(
                 ) {
                     SegmentedButton(
                         selected = !isPlay,
-                        onClick = { requestSetupMode() },
+                        onClick = onRequestSetupMode,
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         modifier = Modifier.focusProperties { canFocus = false },
                     ) { Text("Setup") }
                     SegmentedButton(
                         selected = isPlay,
-                        onClick = {
-                            onSetMode(AppMode.PLAY)
-                            navController.navigate(playDestination()) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    inclusive = true
-                                }
-                                launchSingleTop = true
-                            }
-                        },
+                        onClick = onRequestPlayMode,
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         modifier = Modifier.focusProperties { canFocus = false },
                     ) { Text("Play") }

@@ -6,4 +6,6 @@
     <string name="scrape_notification_title">Scraping artwork</string>
     <string name="scrape_cancel">Cancel</string>
     <string name="press_again_to_exit">Press again to exit</string>
+    <string name="press_again_to_play">Press again to switch to Play</string>
+    <string name="press_again_to_setup">Press again to switch to Setup</string>
 </resources>
