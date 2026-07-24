@@ -37,7 +37,7 @@ fun bumpOrglBuildVersion() {
     versionPropertiesFile.writeText(
         """
         |# ORGL semver — bump MAJOR/MINOR/PATCH manually when cutting a release.
-        |# VERSION_BUILD is the monotonic Android versionCode (+build in versionName); auto-increments on debug builds.
+        |# VERSION_BUILD is the monotonic Android versionCode (+build in versionName); bump with: make bump
         |VERSION_MAJOR=${props.getProperty("VERSION_MAJOR", "0")}
         |VERSION_MINOR=${props.getProperty("VERSION_MINOR", "0")}
         |VERSION_PATCH=${props.getProperty("VERSION_PATCH", "0")}
@@ -154,6 +154,16 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
+tasks.register("bumpVersion") {
+    group = "versioning"
+    description = "Increment VERSION_BUILD in version.properties"
+    doLast {
+        val before = orglVersionName()
+        bumpOrglBuildVersion()
+        logger.lifecycle("Bumped build version: $before → ${orglVersionName()}")
+    }
+}
+
 tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configureEach {
     doLast {
         val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
@@ -168,7 +178,5 @@ tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configur
         } else {
             logger.warn("Expected APK missing: $apk")
         }
-        bumpOrglBuildVersion()
-        logger.lifecycle("Next debug build version: ${orglVersionName()}")
     }
 }

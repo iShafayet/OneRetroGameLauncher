@@ -35,7 +35,7 @@ export ANDROID_HOME
 
 GRADLEW := ./gradlew
 
-.PHONY: help build assemble release test build-play build-fdroid \
+.PHONY: help build assemble release test build-play build-fdroid bump \
 	install uninstall reinstall \
 	emulator emulator-list devices wait-device run launch run-play run-fdroid logcat \
 	clean deep-clean doctor compile
@@ -66,7 +66,7 @@ doctor: ## Check JDK, SDK, adb, and listed AVDs
 compile: ## Compile Kotlin (debug) for FLAVOR
 	$(GRADLEW) :app:compile$(FLAVOR_CAP)DebugKotlin
 
-build: ## Build debug APK for FLAVOR (default: fdroid); copies to .local/apk and bumps patch
+build: ## Build debug APK for FLAVOR (default: fdroid); copies/overwrites .local/apk
 	$(GRADLEW) assemble$(FLAVOR_CAP)Debug
 	@echo "Local copy: $(LOCAL_APK)"
 
@@ -77,6 +77,9 @@ build-fdroid: ## Build FOSS / F-Droid debug APK
 
 build-play: ## Build Google Play debug APK
 	$(MAKE) build FLAVOR=play
+
+bump: ## Increment VERSION_BUILD in version.properties (versionCode / +build)
+	$(GRADLEW) :app:bumpVersion
 
 release: ## Build release APK for FLAVOR (unsigned unless signing is configured)
 	$(GRADLEW) assemble$(FLAVOR_CAP)Release
