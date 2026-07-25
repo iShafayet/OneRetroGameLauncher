@@ -19,6 +19,12 @@ fun formatHours(hours: Double?): String {
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
+/** Compact HLTB label for the game-detail rail, e.g. `20h` / `999h`. */
+fun formatHltbCompactHours(hours: Double?): String {
+    if (hours == null || hours <= 0) return "—"
+    return "${kotlin.math.round(hours).toInt().coerceAtLeast(1)}h"
+}
+
 fun starsLabel(stars: Float): String {
     val full = stars.toInt()
     val half = stars - full >= 0.5f

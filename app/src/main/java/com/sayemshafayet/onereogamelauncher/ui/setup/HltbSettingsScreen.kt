@@ -63,7 +63,9 @@ fun HltbSettingsScreen(
                 .padding(16.dp),
         ) {
             Text(
-                "Best-effort playtime estimates from an unofficial HowLongToBeat endpoint. Cached on device; degrades gracefully offline.",
+                "Best-effort playtime estimates from an unofficial HowLongToBeat endpoint. " +
+                    "Positive matches are cached on device for about a month; misses are not cached. " +
+                    "Degrades gracefully offline.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

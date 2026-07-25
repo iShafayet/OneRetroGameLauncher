@@ -128,6 +128,14 @@ data class HltbEstimate(
     val completionistHours: Double?,
 )
 
+/** Compact HLTB column display phase (loading / value / empty / transport error). */
+enum class HltbUiPhase {
+    Loading,
+    Ready,
+    Missing,
+    Error,
+}
+
 data class RaProgress(
     val gameId: Int?,
     val title: String?,

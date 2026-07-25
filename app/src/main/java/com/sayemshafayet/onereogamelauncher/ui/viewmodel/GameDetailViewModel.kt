@@ -12,9 +12,13 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigured
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.HltbEstimate
+import com.sayemshafayet.onereogamelauncher.domain.HltbUiPhase
 import com.sayemshafayet.onereogamelauncher.domain.RaButtonState
 import com.sayemshafayet.onereogamelauncher.domain.RaResult
 import com.sayemshafayet.onereogamelauncher.domain.RaVisualState
+import com.sayemshafayet.onereogamelauncher.hltb.HltbLookupResult
+import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
@@ -50,6 +54,12 @@ data class GameLaunchConfigUi(
     val systemCoreLabel: String = "",
 )
 
+data class GameHltbUiState(
+    val enabled: Boolean = true,
+    val phase: HltbUiPhase = HltbUiPhase.Loading,
+    val estimate: HltbEstimate? = null,
+)
+
 @HiltViewModel
 class GameDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -64,6 +74,7 @@ class GameDetailViewModel @Inject constructor(
     private val raClient: RetroAchievementsClient,
     private val raSupportEvaluator: RaSupportEvaluator,
     private val romHashCalculator: RomHashCalculator,
+    private val hltbClient: HowLongToBeatClient,
 ) : ViewModel() {
     val gameId: Long = savedStateHandle.get<String>("gameId")?.toLongOrNull() ?: 0L
 
@@ -100,10 +111,14 @@ class GameDetailViewModel @Inject constructor(
     private val _raUi = MutableStateFlow(GameRaUiState())
     val raUi: StateFlow<GameRaUiState> = _raUi.asStateFlow()
 
+    private val _hltbUi = MutableStateFlow(GameHltbUiState())
+    val hltbUi: StateFlow<GameHltbUiState> = _hltbUi.asStateFlow()
+
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
     private var systemCache: SystemEntity? = null
+    private var lastHltbTitle: String? = null
 
     init {
         viewModelScope.launch {
@@ -117,6 +132,7 @@ class GameDetailViewModel @Inject constructor(
                     reloadChoices(g.systemId)
                     refreshCommitmentPlaytime()
                     refreshRaStatus(g)
+                    refreshHltb(g)
                 }
             }
         }
@@ -188,6 +204,59 @@ class GameDetailViewModel @Inject constructor(
             playStatsTracker.onAppForeground()
             refreshCommitmentPlaytime()
             refreshRaStatus(game.value)
+            game.value?.let { refreshHltb(it, force = false) }
+        }
+    }
+
+    private fun refreshHltb(game: GameEntity, force: Boolean = false) {
+        viewModelScope.launch {
+            val settings = settingsRepository.settings.first()
+            if (!settings.hltbEnabled) {
+                lastHltbTitle = null
+                _hltbUi.value = GameHltbUiState(
+                    enabled = false,
+                    phase = HltbUiPhase.Missing,
+                    estimate = null,
+                )
+                return@launch
+            }
+            val title = game.title.trim()
+            if (!force &&
+                title == lastHltbTitle &&
+                _hltbUi.value.enabled &&
+                _hltbUi.value.phase != HltbUiPhase.Loading
+            ) {
+                return@launch
+            }
+            lastHltbTitle = title
+            _hltbUi.value = GameHltbUiState(
+                enabled = true,
+                phase = HltbUiPhase.Loading,
+                estimate = _hltbUi.value.estimate,
+            )
+            when (val result = hltbClient.search(title)) {
+                is HltbLookupResult.Found -> {
+                    _hltbUi.value = GameHltbUiState(
+                        enabled = true,
+                        phase = HltbUiPhase.Ready,
+                        estimate = result.estimate,
+                    )
+                }
+                HltbLookupResult.NotFound -> {
+                    _hltbUi.value = GameHltbUiState(
+                        enabled = true,
+                        phase = HltbUiPhase.Missing,
+                        estimate = null,
+                    )
+                }
+                is HltbLookupResult.Failed -> {
+                    _hltbUi.value = GameHltbUiState(
+                        enabled = true,
+                        phase = HltbUiPhase.Error,
+                        estimate = null,
+                    )
+                }
+            }
         }
     }
 

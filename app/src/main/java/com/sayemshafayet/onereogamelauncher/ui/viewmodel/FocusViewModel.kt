@@ -12,10 +12,12 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.retroAchievementsConfigur
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import com.sayemshafayet.onereogamelauncher.domain.HltbEstimate
+import com.sayemshafayet.onereogamelauncher.domain.HltbUiPhase
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.domain.RaButtonState
 import com.sayemshafayet.onereogamelauncher.domain.RaResult
 import com.sayemshafayet.onereogamelauncher.domain.RaVisualState
+import com.sayemshafayet.onereogamelauncher.hltb.HltbLookupResult
 import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
@@ -49,6 +51,8 @@ data class FocusUiState(
     val playtimeMs: Long = 0,
     val sessionCount: Int = 0,
     val hltb: HltbEstimate? = null,
+    val hltbEnabled: Boolean = true,
+    val hltbPhase: HltbUiPhase = HltbUiPhase.Loading,
     val launchError: String? = null,
     val loadingExtras: Boolean = false,
     val extrasLoaded: Boolean = false,
@@ -133,9 +137,60 @@ class FocusViewModel @Inject constructor(
         viewModelScope.launch {
             val game = _state.value.game ?: return@launch
             val settings = settingsRepository.current()
-            _state.update { it.copy(loadingExtras = true) }
-            val hltb = if (settings.hltbEnabled) hltbClient.search(game.title) else null
-            _state.update { it.copy(hltb = hltb, loadingExtras = false, extrasLoaded = true) }
+            _state.update {
+                it.copy(
+                    loadingExtras = true,
+                    hltbEnabled = settings.hltbEnabled,
+                    hltbPhase = if (settings.hltbEnabled) HltbUiPhase.Loading else HltbUiPhase.Missing,
+                )
+            }
+            if (!settings.hltbEnabled) {
+                _state.update {
+                    it.copy(
+                        hltb = null,
+                        hltbEnabled = false,
+                        hltbPhase = HltbUiPhase.Missing,
+                        loadingExtras = false,
+                        extrasLoaded = true,
+                    )
+                }
+                return@launch
+            }
+            when (val result = hltbClient.search(game.title)) {
+                is HltbLookupResult.Found -> {
+                    _state.update {
+                        it.copy(
+                            hltb = result.estimate,
+                            hltbEnabled = true,
+                            hltbPhase = HltbUiPhase.Ready,
+                            loadingExtras = false,
+                            extrasLoaded = true,
+                        )
+                    }
+                }
+                HltbLookupResult.NotFound -> {
+                    _state.update {
+                        it.copy(
+                            hltb = null,
+                            hltbEnabled = true,
+                            hltbPhase = HltbUiPhase.Missing,
+                            loadingExtras = false,
+                            extrasLoaded = true,
+                        )
+                    }
+                }
+                is HltbLookupResult.Failed -> {
+                    _state.update {
+                        it.copy(
+                            hltb = null,
+                            hltbEnabled = true,
+                            hltbPhase = HltbUiPhase.Error,
+                            loadingExtras = false,
+                            extrasLoaded = true,
+                        )
+                    }
+                }
+            }
         }
     }
 

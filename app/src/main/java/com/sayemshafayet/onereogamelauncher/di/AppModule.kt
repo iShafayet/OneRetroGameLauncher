@@ -43,11 +43,18 @@ object AppModule {
             .readTimeout(2, TimeUnit.MINUTES)
             .writeTimeout(2, TimeUnit.MINUTES)
             .addInterceptor { chain ->
-                chain.proceed(
-                    chain.request().newBuilder()
-                        .header("User-Agent", "OneRetroGameLauncher/${BuildConfig.VERSION_NAME} (Android)")
-                        .build(),
-                )
+                val request = chain.request()
+                val next = if (request.header("User-Agent").isNullOrBlank()) {
+                    request.newBuilder()
+                        .header(
+                            "User-Agent",
+                            "OneRetroGameLauncher/${BuildConfig.VERSION_NAME} (Android)",
+                        )
+                        .build()
+                } else {
+                    request
+                }
+                chain.proceed(next)
             }
             .build()
 }

@@ -71,8 +71,8 @@ import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.GameVideoPlayer
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
-import com.sayemshafayet.onereogamelauncher.ui.components.RetroAchievementsButton
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
+import com.sayemshafayet.onereogamelauncher.ui.components.RaWithHltbRow
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
 import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
@@ -81,6 +81,7 @@ import com.sayemshafayet.onereogamelauncher.ui.util.formatReleaseYear
 import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
 import com.sayemshafayet.onereogamelauncher.ui.util.totalOrglPlaytimeMs
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameHltbUiState
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameLaunchConfigUi
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameRaUiState
 import kotlinx.coroutines.launch
@@ -101,6 +102,7 @@ fun GameDetailScreen(
     val activePlayRunCount by viewModel.activePlayRunCount.collectAsState()
     val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
     val raUi by viewModel.raUi.collectAsState()
+    val hltbUi by viewModel.hltbUi.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -156,6 +158,7 @@ fun GameDetailScreen(
                                 }
                             },
                             raUi = raUi,
+                            hltbUi = hltbUi,
                             onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
                             onSaveNotes = { viewModel.saveNotes(notes) },
                             onToggleFavorite = viewModel::toggleFavorite,
@@ -201,6 +204,7 @@ private fun GameTabContent(
     notes: String,
     onNotesChange: (String) -> Unit,
     raUi: GameRaUiState,
+    hltbUi: GameHltbUiState,
     onOpenRetroAchievements: () -> Unit,
     onLaunch: () -> Unit,
     onSaveNotes: () -> Unit,
@@ -285,11 +289,15 @@ private fun GameTabContent(
                     }
                 }
 
-                RetroAchievementsButton(
-                    state = raUi.button,
-                    loading = raUi.loading,
-                    onClick = onOpenRetroAchievements,
-                    modifier = Modifier.fillMaxWidth(),
+                RaWithHltbRow(
+                    raState = raUi.button,
+                    raLoading = raUi.loading,
+                    onOpenRetroAchievements = onOpenRetroAchievements,
+                    hltbPhase = hltbUi.phase,
+                    hltbMainHours = hltbUi.estimate?.let {
+                        it.mainHours ?: it.mainExtraHours ?: it.completionistHours
+                    },
+                    hltbVisible = hltbUi.enabled,
                 )
 
                 HorizontalDivider()

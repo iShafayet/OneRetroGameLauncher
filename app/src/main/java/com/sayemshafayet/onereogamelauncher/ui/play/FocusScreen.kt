@@ -53,7 +53,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sayemshafayet.onereogamelauncher.domain.CommitmentStatus
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
-import com.sayemshafayet.onereogamelauncher.ui.components.RetroAchievementsButton
+import com.sayemshafayet.onereogamelauncher.ui.components.RaWithHltbRow
 import com.sayemshafayet.onereogamelauncher.ui.components.StarRatingInput
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
@@ -66,7 +66,6 @@ import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
 import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
 import com.sayemshafayet.onereogamelauncher.ui.util.formatDate
-import com.sayemshafayet.onereogamelauncher.ui.util.formatHours
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.FocusViewModel
 
 @Composable
@@ -235,11 +234,15 @@ fun FocusScreen(
                 }
 
                 game?.let { g ->
-                    RetroAchievementsButton(
-                        state = raUi.button,
-                        loading = raUi.loading,
-                        onClick = { onOpenRetroAchievements(g.id) },
-                        modifier = Modifier.fillMaxWidth(),
+                    RaWithHltbRow(
+                        raState = raUi.button,
+                        raLoading = raUi.loading,
+                        onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
+                        hltbPhase = state.hltbPhase,
+                        hltbMainHours = state.hltb?.let {
+                            it.mainHours ?: it.mainExtraHours ?: it.completionistHours
+                        },
+                        hltbVisible = state.hltbEnabled,
                     )
                 }
 
@@ -254,14 +257,6 @@ fun FocusScreen(
                         value = formatDate(game?.combinedLastPlayed()),
                     )
                     FocusStatBlock(label = "This run", value = activityLabel)
-                }
-
-                state.hltb?.mainHours?.let { h ->
-                    Text(
-                        "HLTB main: ${formatHours(h)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
 
                 Box(modifier = Modifier.fillMaxWidth()) {
