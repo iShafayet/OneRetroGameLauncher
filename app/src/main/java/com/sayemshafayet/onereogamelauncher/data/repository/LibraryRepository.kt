@@ -18,6 +18,8 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameConfigEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
+import com.sayemshafayet.onereogamelauncher.domain.SystemScanSummary
 import com.sayemshafayet.onereogamelauncher.library.RomScanResult
 import com.sayemshafayet.onereogamelauncher.library.RomScanner
 import com.sayemshafayet.onereogamelauncher.systems.EmulatorPackageActivity
@@ -52,6 +54,8 @@ class LibraryRepository @Inject constructor(
     val journal = journalDao.observeJournal()
     val activeCommitment = commitmentDao.observeActive()
     val scanProgress = romScanner.scanProgress
+
+    fun observeGameCountsBySystem() = gameDao.observeGameCountsBySystem()
 
     fun requestCancelScan() = romScanner.requestCancelScan()
 
@@ -312,10 +316,45 @@ class LibraryRepository @Inject constructor(
 
     suspend fun countGames(systemId: Long? = null): Int =
         if (systemId == null) {
-            systemDao.getAll().sumOf { gameDao.countForSystem(it.id) }
+            gameDao.countAll()
         } else {
             gameDao.countForSystem(systemId)
         }
+
+    /**
+     * Builds a per-system library breakdown from Room after a scan (or for resume).
+     * [unknownFiles] comes from the latest [RomScanResult] when available.
+     */
+    suspend fun buildLibraryScanSummary(unknownFiles: Int = 0): LibraryScanSummary {
+        val systemsById = systemDao.getAll().associateBy { it.id }
+        val scanStats = gameDao.scanStatsBySystem().associateBy { it.systemId }
+        val mediaStats = gameDao.mediaStatsBySystem().associateBy { it.systemId }
+        val rows = scanStats.values
+            .filter { it.gameCount > 0 }
+            .mapNotNull { stats ->
+                val system = systemsById[stats.systemId] ?: return@mapNotNull null
+                val media = mediaStats[stats.systemId]
+                SystemScanSummary(
+                    systemId = system.id,
+                    displayName = system.displayName,
+                    folderName = system.folderName,
+                    gameCount = stats.gameCount,
+                    withMetadata = stats.withMetadata.toInt(),
+                    withMedia = media?.gamesWithMedia ?: 0,
+                    mediaFiles = media?.mediaFiles ?: 0,
+                )
+            }
+            .sortedBy { it.displayName.lowercase() }
+        return LibraryScanSummary(
+            systemsWithGames = rows.size,
+            gamesFound = rows.sumOf { it.gameCount },
+            gamesWithMetadata = rows.sumOf { it.withMetadata },
+            gamesWithMedia = rows.sumOf { it.withMedia },
+            mediaLinked = rows.sumOf { it.mediaFiles },
+            unknownFiles = unknownFiles,
+            systems = rows,
+        )
+    }
 
     private fun EmulatorPackageActivity.toProfile(
         emulatorKey: String,

@@ -8,14 +8,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,10 +24,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.domain.ScanStage
+import com.sayemshafayet.onereogamelauncher.ui.components.LibraryScanSummaryPanel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryScanOutcome
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryScanViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScanScreen(
     onDone: () -> Unit,
@@ -52,56 +51,64 @@ fun LibraryScanScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        Text(
+            when (ui.outcome) {
+                LibraryScanOutcome.RUNNING -> progress?.statusMessage ?: "Starting scan…"
+                LibraryScanOutcome.SUCCESS -> "Scan complete"
+                LibraryScanOutcome.CANCELLED -> "Scan cancelled"
+                LibraryScanOutcome.FAILED -> "Scan failed"
+            },
+            style = MaterialTheme.typography.headlineSmall,
+        )
+
+        if (ui.esdeLinked) {
             Text(
-                when (ui.outcome) {
-                    LibraryScanOutcome.RUNNING -> progress?.statusMessage ?: "Starting scan…"
-                    LibraryScanOutcome.SUCCESS -> "Scan complete"
-                    LibraryScanOutcome.CANCELLED -> "Scan cancelled"
-                    LibraryScanOutcome.FAILED -> "Scan failed"
-                },
-                style = MaterialTheme.typography.headlineSmall,
+                "Including ES-DE gamelists and downloaded_media in this scan.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
 
-            if (ui.esdeLinked) {
+        if (running) {
+            LinearProgressIndicator(
+                progress = { progress?.progressFraction ?: 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            progress?.let { p ->
                 Text(
-                    "Including ES-DE gamelists and downloaded_media in this scan.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    when (p.stage) {
+                        ScanStage.PREPARING -> "Preparing…"
+                        ScanStage.SCANNING_SYSTEM -> buildString {
+                            append("System ${p.systemsDone + 1} of ${p.systemsTotal}")
+                            if (p.systemName.isNotBlank()) append(": ${p.systemName}")
+                        }
+                    },
+                    style = MaterialTheme.typography.titleMedium,
                 )
-            }
-
-            if (running) {
-                LinearProgressIndicator(
-                    progress = { progress?.progressFraction ?: 0f },
-                    modifier = Modifier.fillMaxWidth(),
+                ScanStatGrid(
+                    systemsDone = p.systemsDone,
+                    systemsTotal = p.systemsTotal,
+                    gamesTotal = p.gamesTotal,
+                    mediaTotal = p.mediaTotal,
+                    unknownFiles = p.unknownFiles,
+                    gamesInSystem = p.gamesProcessedInSystem,
+                    gamesInSystemTotal = p.gamesInCurrentSystem,
                 )
-                progress?.let { p ->
-                    Text(
-                        when (p.stage) {
-                            ScanStage.PREPARING -> "Preparing…"
-                            ScanStage.SCANNING_SYSTEM -> buildString {
-                                append("System ${p.systemsDone + 1} of ${p.systemsTotal}")
-                                if (p.systemName.isNotBlank()) append(": ${p.systemName}")
-                            }
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    ScanStatGrid(
-                        systemsDone = p.systemsDone,
-                        systemsTotal = p.systemsTotal,
-                        gamesTotal = p.gamesTotal,
-                        mediaTotal = p.mediaTotal,
-                        unknownFiles = p.unknownFiles,
-                        gamesInSystem = p.gamesProcessedInSystem,
-                        gamesInSystemTotal = p.gamesInCurrentSystem,
-                    )
-                } ?: Text(
-                    "Loading catalog and media indexes…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                ui.result?.let { result ->
+            } ?: Text(
+                "Loading catalog and media indexes…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ui.summary?.let { summary ->
+                    LibraryScanSummaryPanel(summary = summary)
+                } ?: ui.result?.let { result ->
                     ScanStatGrid(
                         systemsDone = result.systemsScanned,
                         systemsTotal = result.systemsScanned,
@@ -120,24 +127,24 @@ fun LibraryScanScreen(
                     )
                 }
             }
+        }
 
+        if (running) {
             Spacer(Modifier.weight(1f))
-
-            if (running) {
-                OutlinedButton(
-                    onClick = viewModel::abort,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Abort scan")
-                }
-            } else {
-                Button(
-                    onClick = onDone,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Done")
-                }
+            OutlinedButton(
+                onClick = viewModel::abort,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Abort scan")
             }
+        } else {
+            Button(
+                onClick = onDone,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Done")
+            }
+        }
     }
 }
 

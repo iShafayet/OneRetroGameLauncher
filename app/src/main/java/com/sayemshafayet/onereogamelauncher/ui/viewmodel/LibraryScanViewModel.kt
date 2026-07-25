@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.library.RomScanResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class LibraryScanOutcome {
@@ -30,6 +30,7 @@ data class LibraryScanUi(
     val outcome: LibraryScanOutcome = LibraryScanOutcome.RUNNING,
     val message: String? = null,
     val result: RomScanResult? = null,
+    val summary: LibraryScanSummary? = null,
     val esdeLinked: Boolean = false,
 )
 
@@ -77,10 +78,14 @@ class LibraryScanViewModel @Inject constructor(
             runCatching {
                 libraryRepository.scanLibrary()
             }.onSuccess { result ->
+                val summary = libraryRepository.buildLibraryScanSummary(
+                    unknownFiles = result.unknownFiles.size,
+                )
                 _ui.value = LibraryScanUi(
                     outcome = LibraryScanOutcome.SUCCESS,
-                    message = formatSuccess(result, esdeLinked),
+                    message = formatSuccess(result, summary, esdeLinked),
                     result = result,
+                    summary = summary,
                     esdeLinked = esdeLinked,
                 )
             }.onFailure { e ->
@@ -105,19 +110,33 @@ class LibraryScanViewModel @Inject constructor(
         scanJob?.cancel()
     }
 
-    private fun formatSuccess(result: RomScanResult, esdeLinked: Boolean): String =
+    private fun formatSuccess(
+        result: RomScanResult,
+        summary: LibraryScanSummary,
+        esdeLinked: Boolean,
+    ): String =
         when {
-            result.gamesFound > 0 ->
+            summary.gamesFound > 0 ->
                 buildString {
-                    append("Found ${result.gamesFound} games across ${result.systemsScanned} systems")
+                    append(
+                        "Found ${summary.gamesFound} games across ${summary.systemsWithGames} systems",
+                    )
+                    append(
+                        " (${summary.gamesWithMetadata} with metadata, " +
+                            "${summary.gamesWithMedia} with media)",
+                    )
                     when {
-                        result.mediaLinked > 0 -> append(", linked ${result.mediaLinked} media files")
+                        summary.mediaLinked > 0 ->
+                            append(", linked ${summary.mediaLinked} media files")
                         esdeLinked -> append(
                             ". No media linked — check ES-DE data folder contains downloaded_media/",
                         )
                         else -> append(". No media linked — link ES-DE or scrape artwork")
                     }
                     if (esdeLinked) append(" ES-DE metadata and media were included in this scan.")
+                    if (result.unknownFiles.isNotEmpty()) {
+                        append(" ${result.unknownFiles.size} unrecognized files.")
+                    }
                 }
             result.systemsScanned == 0 ->
                 "No system folders found under the selected directory. " +

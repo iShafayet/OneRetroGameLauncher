@@ -136,3 +136,28 @@ data class RaProgress(
     val softcoreEarned: Int = 0,
     val recentUnlocks: List<String> = emptyList(),
 )
+
+/** Per-system row for post-scan library breakdown. */
+data class SystemScanSummary(
+    val systemId: Long,
+    val displayName: String,
+    val folderName: String,
+    val gameCount: Int,
+    /** Games with imported metadata (description, developer, genre, etc.). */
+    val withMetadata: Int,
+    /** Games that have at least one linked media file. */
+    val withMedia: Int,
+    /** Total media rows linked for games in this system. */
+    val mediaFiles: Int,
+)
+
+/** Aggregate + per-system breakdown after a library scan. */
+data class LibraryScanSummary(
+    val systemsWithGames: Int,
+    val gamesFound: Int,
+    val gamesWithMetadata: Int,
+    val gamesWithMedia: Int,
+    val mediaLinked: Int,
+    val unknownFiles: Int = 0,
+    val systems: List<SystemScanSummary> = emptyList(),
+)

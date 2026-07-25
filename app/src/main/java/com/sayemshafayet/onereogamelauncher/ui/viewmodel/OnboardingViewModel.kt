@@ -9,17 +9,20 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
-import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
+import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
+import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,7 +55,10 @@ data class OnboardingUiState(
     val raSaving: Boolean = false,
     val scanning: Boolean = false,
     val scanError: String? = null,
+    /** True after a successful initial scan + summary build. */
     val scanDone: Boolean = false,
+    val scanSummary: LibraryScanSummary? = null,
+    val buildingSummary: Boolean = false,
 )
 
 @HiltViewModel
@@ -68,12 +74,73 @@ class OnboardingViewModel @Inject constructor(
 
     val scanProgress: StateFlow<ScanProgress?> = libraryRepository.scanProgress
 
+    private var scanJob: Job? = null
+    private var hydrated = false
+
+    init {
+        viewModelScope.launch { hydrateFromSettingsIfNeeded() }
+    }
+
+    /**
+     * If SAF folders were already chosen but onboarding never finalized, jump to the
+     * scan/summary page and resume (show existing summary or start scan).
+     */
+    private suspend fun hydrateFromSettingsIfNeeded() {
+        if (hydrated) return
+        hydrated = true
+        val settings = settingsRepository.settings.first()
+        if (settings.onboardingDone) return
+
+        val romsUri = settings.romsDirUri
+        val orglUri = settings.orglDataDirUri
+        val esdeUri = settings.esdeDataDirUri
+        val hasRoms = !romsUri.isNullOrBlank()
+        val hasOrgl = !orglUri.isNullOrBlank()
+        if (!hasRoms && !hasOrgl && esdeUri.isNullOrBlank()) return
+
+        _state.update {
+            it.copy(
+                romsUri = romsUri ?: it.romsUri,
+                romsPath = settings.romsDirPath ?: it.romsPath,
+                orglUri = orglUri ?: it.orglUri,
+                orglPath = settings.orglDataDirPath ?: it.orglPath,
+                esdeUri = esdeUri ?: it.esdeUri,
+                esdePath = settings.esdeDataDirPath ?: it.esdePath,
+                page = if (hasRoms && hasOrgl) PAGE_DONE else it.page,
+            )
+        }
+        if (hasRoms && hasOrgl) {
+            resumeScanOrSummary()
+        }
+    }
+
+    private suspend fun resumeScanOrSummary() {
+        val existingGames = libraryRepository.countGames()
+        if (existingGames > 0) {
+            _state.update { it.copy(buildingSummary = true, scanError = null) }
+            val summary = libraryRepository.buildLibraryScanSummary()
+            _state.update {
+                it.copy(
+                    buildingSummary = false,
+                    scanning = false,
+                    scanDone = true,
+                    scanSummary = summary,
+                )
+            }
+        } else {
+            startInitialScan()
+        }
+    }
+
     fun nextPage() {
         val current = _state.value.page
         val next = (current + 1).coerceAtMost(LAST_PAGE)
         _state.update { it.copy(page = next) }
         if (next == PAGE_RA) {
             prepareRetroAchievements()
+        }
+        if (next == PAGE_DONE) {
+            startInitialScan()
         }
     }
 
@@ -89,11 +156,15 @@ class OnboardingViewModel @Inject constructor(
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
         }
         val pathHint = SafPathResolver.resolvePath(context, uri)
+        val uriString = uri.toString()
         _state.update {
             it.copy(
-                romsUri = uri.toString(),
+                romsUri = uriString,
                 romsPath = pathHint,
             )
+        }
+        viewModelScope.launch {
+            settingsRepository.setRomsDir(uriString, pathHint)
         }
     }
 
@@ -163,16 +234,23 @@ class OnboardingViewModel @Inject constructor(
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
         }
         val pathHint = SafPathResolver.resolvePath(context, uri)
+        val uriString = uri.toString()
         _state.update {
             it.copy(
-                esdeUri = uri.toString(),
+                esdeUri = uriString,
                 esdePath = pathHint,
             )
+        }
+        viewModelScope.launch {
+            settingsRepository.setEsdeDataDir(uriString, pathHint)
         }
     }
 
     fun clearEsdeFolder() {
         _state.update { it.copy(esdeUri = null, esdePath = null) }
+        viewModelScope.launch {
+            settingsRepository.clearEsdeDataDir()
+        }
     }
 
     fun updateRaUser(value: String) {
@@ -324,11 +402,13 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun finishOnboarding(onComplete: () -> Unit) {
-        viewModelScope.launch {
-            val current = _state.value
-            val romsUri = current.romsUri ?: return@launch
-            val orglUri = current.orglUri ?: return@launch
+    /** Start or retry the initial library scan. Does not finalize onboarding. */
+    fun startInitialScan() {
+        if (scanJob?.isActive == true) return
+        val current = _state.value
+        val romsUri = current.romsUri ?: return
+        val orglUri = current.orglUri ?: return
+        scanJob = viewModelScope.launch {
             settingsRepository.setRomsDir(romsUri, current.romsPath)
             settingsRepository.setOrglDataDir(orglUri, current.orglPath)
             val esdeUri = current.esdeUri
@@ -337,28 +417,57 @@ class OnboardingViewModel @Inject constructor(
             } else {
                 settingsRepository.clearEsdeDataDir()
             }
-            settingsRepository.setOnboardingDone(true)
             settingsRepository.setPreferredRetroArchPackage(RetroArchLauncher.DEFAULT_PACKAGE)
-            _state.update { it.copy(scanning = true, scanError = null) }
+            _state.update {
+                it.copy(
+                    scanning = true,
+                    scanError = null,
+                    scanDone = false,
+                    scanSummary = null,
+                    buildingSummary = false,
+                )
+            }
             libraryRepository.ensureCatalogLoaded()
             runCatching { libraryRepository.scanLibrary() }
-                .onSuccess {
+                .onSuccess { result ->
                     runCatching { orglExternalSync.loadDuringSetup() }
-                    _state.update { it.copy(scanning = false, scanDone = true) }
-                    onComplete()
+                    _state.update { it.copy(scanning = false, buildingSummary = true) }
+                    val summary = libraryRepository.buildLibraryScanSummary(
+                        unknownFiles = result.unknownFiles.size,
+                    )
+                    _state.update {
+                        it.copy(
+                            buildingSummary = false,
+                            scanDone = true,
+                            scanSummary = summary,
+                            scanError = null,
+                        )
+                    }
                 }
                 .onFailure { e ->
                     runCatching { orglExternalSync.loadDuringSetup() }
                     _state.update {
                         it.copy(
                             scanning = false,
+                            buildingSummary = false,
+                            scanDone = false,
+                            scanSummary = null,
                             scanError = e.message
-                                ?: "Scan failed — open Settings → Folders and rescan.",
-                            scanDone = true,
+                                ?: "Scan failed — check your ROMs folder and try again.",
                         )
                     }
-                    onComplete()
                 }
+        }
+    }
+
+    /** Mark onboarding complete and enter the app. Requires a successful scan summary. */
+    fun finalizeOnboarding(onComplete: () -> Unit) {
+        val current = _state.value
+        if (!current.scanDone || current.scanSummary == null) return
+        viewModelScope.launch {
+            settingsRepository.setOnboardingDone(true)
+            settingsRepository.setPreferredRetroArchPackage(RetroArchLauncher.DEFAULT_PACKAGE)
+            onComplete()
         }
     }
 

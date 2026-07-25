@@ -37,6 +37,23 @@ data class JournalEntryRow(
     val sessionCount: Int,
 )
 
+data class SystemGameCountRow(
+    val systemId: Long,
+    val gameCount: Int,
+)
+
+data class SystemScanStatsRow(
+    val systemId: Long,
+    val gameCount: Int,
+    val withMetadata: Long,
+)
+
+data class SystemMediaStatsRow(
+    val systemId: Long,
+    val gamesWithMedia: Int,
+    val mediaFiles: Int,
+)
+
 @Dao
 interface SystemDao {
     @Query("SELECT * FROM systems ORDER BY displayName COLLATE NOCASE")
@@ -157,6 +174,57 @@ interface GameDao {
 
     @Query("SELECT COUNT(*) FROM games WHERE systemId = :systemId AND lastScrapedAt IS NOT NULL")
     suspend fun countScrapedForSystem(systemId: Long): Int
+
+    @Query(
+        """
+        SELECT systemId AS systemId, COUNT(*) AS gameCount
+        FROM games
+        GROUP BY systemId
+        """,
+    )
+    fun observeGameCountsBySystem(): Flow<List<SystemGameCountRow>>
+
+    @Query(
+        """
+        SELECT systemId AS systemId, COUNT(*) AS gameCount
+        FROM games
+        GROUP BY systemId
+        """,
+    )
+    suspend fun gameCountsBySystem(): List<SystemGameCountRow>
+
+    @Query(
+        """
+        SELECT systemId AS systemId,
+               COUNT(*) AS gameCount,
+               SUM(
+                   CASE WHEN
+                       (description IS NOT NULL AND TRIM(description) != '')
+                       OR (developer IS NOT NULL AND TRIM(developer) != '')
+                       OR (publisher IS NOT NULL AND TRIM(publisher) != '')
+                       OR (genre IS NOT NULL AND TRIM(genre) != '')
+                       OR (releaseDate IS NOT NULL AND TRIM(releaseDate) != '')
+                       OR (players IS NOT NULL AND TRIM(players) != '')
+                       OR rating IS NOT NULL
+                   THEN 1 ELSE 0 END
+               ) AS withMetadata
+        FROM games
+        GROUP BY systemId
+        """,
+    )
+    suspend fun scanStatsBySystem(): List<SystemScanStatsRow>
+
+    @Query(
+        """
+        SELECT g.systemId AS systemId,
+               COUNT(DISTINCT g.id) AS gamesWithMedia,
+               COUNT(m.id) AS mediaFiles
+        FROM games g
+        INNER JOIN media m ON m.gameId = g.id
+        GROUP BY g.systemId
+        """,
+    )
+    suspend fun mediaStatsBySystem(): List<SystemMediaStatsRow>
 }
 
 @Dao

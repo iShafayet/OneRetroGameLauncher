@@ -49,6 +49,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
+import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
+import com.sayemshafayet.onereogamelauncher.ui.components.LibraryScanSummaryPanel
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
@@ -163,8 +165,10 @@ fun OnboardingScreen(
                     )
                     5 -> DoneStep(
                         scanning = state.scanning,
+                        buildingSummary = state.buildingSummary,
                         scanProgress = scanProgress,
                         scanError = state.scanError,
+                        scanSummary = state.scanSummary,
                     )
                 }
 
@@ -174,56 +178,76 @@ fun OnboardingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (page == 5 && state.scanning) {
+                    if (page == 5 && (state.scanning || state.buildingSummary)) {
                         CircularProgressIndicator(color = AmberAccent)
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            scanProgress?.let {
-                                "Scanning ${it.systemName}… ${it.gamesTotal} games"
-                            } ?: "Preparing library…",
+                            when {
+                                state.buildingSummary -> "Building library summary…"
+                                else -> scanProgress?.let {
+                                    "Scanning ${it.systemName}… ${it.gamesTotal} games"
+                                } ?: "Preparing library…"
+                            },
                             color = Mist.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Spacer(Modifier.height(16.dp))
                     }
 
+                    val pageBusy = state.scanning || state.buildingSummary
                     val ctaEnabled = when (page) {
                         1 -> state.romsUri != null
                         2 -> state.orglUri != null
                         3 -> state.raPhase != OnboardingRaPhase.Checking && !state.raSaving
-                        5 -> !state.scanning && state.romsUri != null && state.orglUri != null
+                        5 -> when {
+                            pageBusy -> false
+                            state.scanDone && state.scanSummary != null -> true
+                            state.scanError != null ->
+                                state.romsUri != null && state.orglUri != null
+                            else -> false
+                        }
                         else -> true
                     }
 
-                    Button(
-                        onClick = {
-                            when (page) {
-                                5 -> viewModel.finishOnboarding(onFinished)
-                                else -> viewModel.nextPage()
-                            }
-                        },
-                        enabled = ctaEnabled,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(PulseModifier(page == 0)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AmberAccent,
-                            contentColor = InkDeep,
-                        ),
-                    ) {
-                        Text(
-                            when (page) {
-                                0 -> "Let's finish some games"
-                                1, 2 -> "Continue"
-                                3 -> when (state.raPhase) {
-                                    OnboardingRaPhase.Connected -> "Continue"
-                                    OnboardingRaPhase.Checking -> "Checking…"
-                                    else -> "Skip for now"
+                    // Finalize only after summary; otherwise retry/start scan. Auto-scan starts on page entry.
+                    if (page != 5 || state.scanDone || state.scanError != null) {
+                        Button(
+                            onClick = {
+                                when (page) {
+                                    5 -> when {
+                                        state.scanDone -> viewModel.finalizeOnboarding(onFinished)
+                                        else -> viewModel.startInitialScan()
+                                    }
+                                    else -> viewModel.nextPage()
                                 }
-                                4 -> if (state.esdeUri != null) "Continue" else "Skip for now"
-                                else -> if (state.scanning) "Scanning…" else "Enter ORGL"
                             },
-                        )
+                            enabled = ctaEnabled,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(PulseModifier(page == 0)),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AmberAccent,
+                                contentColor = InkDeep,
+                            ),
+                        ) {
+                            Text(
+                                when (page) {
+                                    0 -> "Let's finish some games"
+                                    1, 2 -> "Continue"
+                                    3 -> when (state.raPhase) {
+                                        OnboardingRaPhase.Connected -> "Continue"
+                                        OnboardingRaPhase.Checking -> "Checking…"
+                                        else -> "Skip for now"
+                                    }
+                                    4 -> if (state.esdeUri != null) "Continue" else "Skip for now"
+                                    else -> when {
+                                        state.scanDone -> "Enter ORGL"
+                                        state.scanError != null -> "Retry scan"
+                                        else -> "Scan library"
+                                    }
+                                },
+                            )
+                        }
                     }
 
                     if (page in 1..4) {
@@ -580,21 +604,35 @@ private fun RetroAchievementsStep(
 @Composable
 private fun DoneStep(
     scanning: Boolean,
+    buildingSummary: Boolean,
     scanProgress: com.sayemshafayet.onereogamelauncher.domain.ScanProgress?,
     scanError: String?,
+    scanSummary: LibraryScanSummary?,
 ) {
     Spacer(Modifier.height(24.dp))
     Text(
-        "You're set",
+        when {
+            scanSummary != null -> "Library ready"
+            scanning || buildingSummary -> "Scanning library"
+            scanError != null -> "Scan needed"
+            else -> "You're set"
+        },
         style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
         color = Mist,
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        if (scanning) {
-            "First scan running in the background…"
-        } else {
-            "Library ready. Pick Setup to browse and scrape, or Play to commit to your first game."
+        when {
+            scanSummary != null ->
+                "Review what we found. Enter ORGL when you're ready — your library is already loaded."
+            scanning ->
+                "Scanning your ROMs folder. This finishes before you can enter the app."
+            buildingSummary ->
+                "Scan finished. Building the per-system breakdown…"
+            scanError != null ->
+                "Fix the issue below, then retry the scan."
+            else ->
+                "We'll scan your library next and show a full breakdown before you enter."
         },
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.85f),
@@ -602,5 +640,28 @@ private fun DoneStep(
     scanError?.let {
         Spacer(Modifier.height(12.dp))
         Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+    }
+    if (scanning && scanProgress != null) {
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "System ${scanProgress.systemsDone + 1} of ${scanProgress.systemsTotal}" +
+                if (scanProgress.systemName.isNotBlank()) ": ${scanProgress.systemName}" else "",
+            color = Mist.copy(alpha = 0.75f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "${scanProgress.gamesTotal} games · ${scanProgress.mediaTotal} media",
+            color = Mist.copy(alpha = 0.65f),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    scanSummary?.let { summary ->
+        Spacer(Modifier.height(20.dp))
+        LibraryScanSummaryPanel(
+            summary = summary,
+            labelColor = Mist.copy(alpha = 0.65f),
+            valueColor = Mist,
+            titleColor = Mist,
+        )
     }
 }
