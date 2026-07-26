@@ -1,6 +1,7 @@
 package com.sayemshafayet.onereogamelauncher.data.prefs
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -59,6 +60,12 @@ data class AppSettings(
     val appMode: AppMode = AppMode.SETUP,
     /** Grid vs list for system game browsing. */
     val gameListLayout: GameListLayout = GameListLayout.GRID,
+    /**
+     * Grid vs list for the Library systems hub (non-portrait only).
+     * `null` = unset; UI defaults to list when width/height &lt; 15:9, else grid.
+     * Portrait always forces list regardless of this value.
+     */
+    val librarySystemsLayout: GameListLayout? = null,
     /** Epoch millis when the last scrape batch finished. */
     val lastScrapeAt: Long? = null,
     /** How many independent play slots are available in Play mode (1 = classic one-game). */
@@ -72,6 +79,29 @@ data class AppSettings(
 )
 
 enum class GameListLayout { GRID, LIST }
+
+/**
+ * Effective Library systems layout.
+ * Portrait always uses list. Otherwise: saved preference, or if unset —
+ * list when width/height &lt; 15:9, else grid.
+ */
+fun resolveLibrarySystemsLayout(
+    preference: GameListLayout?,
+    orientation: Int,
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+): GameListLayout {
+    if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+        return GameListLayout.LIST
+    }
+    if (preference != null) return preference
+    val ratio = screenWidthDp.toFloat() / screenHeightDp.coerceAtLeast(1).toFloat()
+    return if (ratio < 15f / 9f) {
+        GameListLayout.LIST
+    } else {
+        GameListLayout.GRID
+    }
+}
 
 val AppSettings.romsRootPath: String? get() = romsDirPath
 val AppSettings.romsRootUri: String? get() = romsDirUri
@@ -112,6 +142,7 @@ class SettingsRepository @Inject constructor(
         val raPackage = stringPreferencesKey("ra_package")
         val hltbEnabled = booleanPreferencesKey("hltb_enabled")
         val gameListLayout = stringPreferencesKey("game_list_layout")
+        val librarySystemsLayout = stringPreferencesKey("library_systems_layout")
         val lastScrapeAt = stringPreferencesKey("last_scrape_at")
         val playSlotCount = intPreferencesKey("play_slot_count")
         val libraryShowFavorites = booleanPreferencesKey("library_show_favorites")
@@ -164,6 +195,9 @@ class SettingsRepository @Inject constructor(
             gameListLayout = runCatching {
                 GameListLayout.valueOf(backup[BackupKeys.gameListLayout] ?: GameListLayout.GRID.name)
             }.getOrDefault(GameListLayout.GRID),
+            librarySystemsLayout = backup[BackupKeys.librarySystemsLayout]?.let { raw ->
+                runCatching { GameListLayout.valueOf(raw) }.getOrNull()
+            },
             lastScrapeAt = backup[BackupKeys.lastScrapeAt]?.toLongOrNull(),
             playSlotCount = coercePlaySlotCount(backup[BackupKeys.playSlotCount] ?: MIN_PLAY_SLOTS),
             libraryShowFavorites = backup[BackupKeys.libraryShowFavorites] ?: true,
@@ -270,6 +304,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setGameListLayout(layout: GameListLayout) {
         context.backupDataStore.edit { it[BackupKeys.gameListLayout] = layout.name }
+    }
+
+    suspend fun setLibrarySystemsLayout(layout: GameListLayout) {
+        context.backupDataStore.edit { it[BackupKeys.librarySystemsLayout] = layout.name }
     }
 
     suspend fun setLastScrapeAt(epochMs: Long) {

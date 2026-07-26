@@ -3,6 +3,7 @@ package com.sayemshafayet.onereogamelauncher.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
+import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.VirtualLibrarySystem
@@ -87,6 +88,22 @@ class LibraryViewModel @Inject constructor(
     val totalGames: StateFlow<Int> = systemsWithCounts
         .map { list -> list.sumOf { it.gameCount } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Unset until the user toggles; UI applies form-factor default while null. */
+    val systemsLayoutPreference: StateFlow<GameListLayout?> = settingsRepository.settings
+        .map { it.librarySystemsLayout }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun toggleSystemsLayout(currentEffective: GameListLayout) {
+        viewModelScope.launch {
+            val next = if (currentEffective == GameListLayout.GRID) {
+                GameListLayout.LIST
+            } else {
+                GameListLayout.GRID
+            }
+            settingsRepository.setLibrarySystemsLayout(next)
+        }
+    }
 
     init {
         viewModelScope.launch {

@@ -39,12 +39,14 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
+import com.sayemshafayet.onereogamelauncher.data.prefs.resolveLibrarySystemsLayout
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintBadge
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MediaViewerViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
@@ -77,6 +79,7 @@ fun OrglShellTopBar(
             isPlay = isPlay,
             currentRoute = currentRoute,
             navController = navController,
+            backStackEntry = backStackEntry,
             onRequestSetupMode = onRequestSetupMode,
             onRequestPlayMode = onRequestPlayMode,
         )
@@ -178,6 +181,7 @@ private fun HubTopAppBar(
     isPlay: Boolean,
     currentRoute: String?,
     navController: NavHostController,
+    backStackEntry: NavBackStackEntry?,
     onRequestSetupMode: () -> Unit,
     onRequestPlayMode: () -> Unit,
 ) {
@@ -189,6 +193,7 @@ private fun HubTopAppBar(
     val widthToHeightRatio =
         configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.coerceAtLeast(1).toFloat()
     val stackVersionUnderTitle = isPortraitOrientation && widthToHeightRatio < 1f
+    val showLibrarySystemsLayoutToggle = showLibrarySearch && !isPortraitOrientation
     val versionStyle = MaterialTheme.typography.labelSmall.let { base ->
         base.copy(fontSize = (base.fontSize.value - 2f).sp)
     }
@@ -225,6 +230,26 @@ private fun HubTopAppBar(
                     .padding(end = 8.dp)
                     .focusProperties { canFocus = false },
             ) {
+                if (showLibrarySystemsLayoutToggle && backStackEntry != null) {
+                    val libraryViewModel: LibraryViewModel = hiltViewModel(backStackEntry)
+                    val systemsLayoutPreference by libraryViewModel.systemsLayoutPreference.collectAsState()
+                    val systemsLayout = resolveLibrarySystemsLayout(
+                        preference = systemsLayoutPreference,
+                        orientation = configuration.orientation,
+                        screenWidthDp = configuration.screenWidthDp,
+                        screenHeightDp = configuration.screenHeightDp,
+                    )
+                    FilledTonalIconButton(
+                        onClick = { libraryViewModel.toggleSystemsLayout(systemsLayout) },
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        if (systemsLayout == GameListLayout.GRID) {
+                            Icon(Icons.Default.ViewList, contentDescription = "List view")
+                        } else {
+                            Icon(Icons.Default.GridView, contentDescription = "Grid view")
+                        }
+                    }
+                }
                 if (showLibrarySearch) {
                     Box {
                         FilledTonalIconButton(
