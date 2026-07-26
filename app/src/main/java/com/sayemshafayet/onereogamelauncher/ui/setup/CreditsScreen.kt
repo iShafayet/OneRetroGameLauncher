@@ -1,21 +1,42 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.flavor.StoreFlavorLabel
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+
+private const val LicenseUrl =
+    "https://github.com/iShafayet/OneRetroGameLauncher/blob/main/LICENSE"
 
 @Composable
 fun CreditsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val openLicense: () -> Unit = {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LicenseUrl)))
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -30,8 +51,14 @@ fun CreditsScreen(onBack: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            "GPL-3.0. One-game-at-a-time frontend for retro libraries — ES-DE compatible, external emulators only.",
+            "Created by Sayem Shafayet. GPL-3.0 — a one-game-at-a-time frontend for retro libraries " +
+                "(ES-DE compatible, external emulators only).",
             style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "Website: oneretrogamelauncher.com · Source: github.com/iShafayet/OneRetroGameLauncher",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Text("Data sources", style = MaterialTheme.typography.titleMedium)
@@ -47,7 +74,27 @@ fun CreditsScreen(onBack: () -> Unit) {
         )
 
         Text("License", style = MaterialTheme.typography.titleMedium)
-        Text("See LICENSE in the project root (GNU GPL v3).")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .orlgFocusable(onClick = openLicense)
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "GNU GPL v3",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                Icons.AutoMirrored.Filled.OpenInNew,
+                contentDescription = "Opens in browser",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
 
         Text(
             "v${BuildConfig.VERSION_NAME}",

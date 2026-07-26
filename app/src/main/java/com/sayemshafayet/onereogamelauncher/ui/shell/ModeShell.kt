@@ -416,7 +416,6 @@ fun ModeShell(
             }
             composable(Routes.SETUP_ABOUT) {
                 AboutScreen(
-                    onBack = { navController.popBackStack() },
                     onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                 )
             }
