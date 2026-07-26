@@ -72,6 +72,8 @@ class LibraryRepository @Inject constructor(
 
     suspend fun mediaForGame(gameId: Long) = mediaDao.forGame(gameId)
 
+    suspend fun mediaById(id: Long) = mediaDao.getById(id)
+
     fun observeGameConfig(gameId: Long) = gameConfigDao.observe(gameId)
     fun observeEmulators() = emulatorProfileDao.observeAll()
 

@@ -139,7 +139,7 @@ fun GameVideoPlayer(
                     setVideoURI(uri)
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             update = { it.setVideoURI(uri) },
         )
     }

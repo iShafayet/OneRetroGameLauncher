@@ -68,6 +68,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameRetroAchievementsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameDetailScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.MediaViewerScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HistoryScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
@@ -239,8 +240,7 @@ fun ModeShell(
     val currentPlaySlot = Routes.slotIndexFromEntry(backStack)
         .coerceIn(0, (settings.playSlotCount - 1).coerceAtLeast(0))
 
-    val isGameDetailRoute = currentRoute?.startsWith("setup/game/") == true &&
-        currentRoute?.contains("retroachievements") != true
+    val isGameDetailRoute = currentRoute == Routes.SETUP_GAME
     val gameDetailViewModel: GameDetailViewModel? =
         if (isGameDetailRoute && backStack != null) hiltViewModel(backStack!!) else null
 
@@ -434,7 +434,19 @@ fun ModeShell(
                     onOpenRetroAchievements = { gameId ->
                         navController.navigate(Routes.gameRetroAchievements(gameId))
                     },
+                    onOpenMedia = { gameId, mediaId ->
+                        navController.navigate(Routes.gameMedia(gameId, mediaId))
+                    },
                 )
+            }
+            composable(
+                route = Routes.SETUP_GAME_MEDIA,
+                arguments = listOf(
+                    navArgument("gameId") { type = NavType.LongType },
+                    navArgument("mediaId") { type = NavType.LongType },
+                ),
+            ) {
+                MediaViewerScreen()
             }
             composable(Routes.SETUP_GAME_RA) {
                 GameRetroAchievementsScreen(

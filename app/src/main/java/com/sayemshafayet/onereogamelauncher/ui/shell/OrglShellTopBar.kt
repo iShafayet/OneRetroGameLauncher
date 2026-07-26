@@ -37,9 +37,11 @@ import com.sayemshafayet.onereogamelauncher.BuildConfig
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintBadge
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
+import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MediaViewerViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
@@ -111,6 +113,14 @@ fun OrglShellTopBar(
             val viewModel: GameDetailViewModel = hiltViewModel(entry)
             val game by viewModel.game.collectAsState()
             SimpleTopAppBar(game?.title ?: "Game", onBack)
+        }
+        currentRoute == Routes.SETUP_GAME_MEDIA -> backStackEntry?.let { entry ->
+            val viewModel: MediaViewerViewModel = hiltViewModel(entry)
+            val media by viewModel.media.collectAsState()
+            SimpleTopAppBar(
+                title = media?.let { mediaTypeLabel(it.type) } ?: "Media",
+                onBack = onBack,
+            )
         }
         currentRoute == Routes.SETUP_GAME_RA -> SimpleTopAppBar("RetroAchievements", onBack)
         currentRoute == Routes.SETUP_SETTINGS_FOLDERS -> SimpleTopAppBar("Library folders", onBack)

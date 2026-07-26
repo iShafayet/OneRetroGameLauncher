@@ -364,6 +364,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE gameId = :gameId AND type = :type LIMIT 1")
     suspend fun get(gameId: Long, type: MediaType): MediaEntity?
 
+    @Query("SELECT * FROM media WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): MediaEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(media: List<MediaEntity>)
 

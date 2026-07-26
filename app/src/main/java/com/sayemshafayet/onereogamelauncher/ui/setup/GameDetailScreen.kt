@@ -1,12 +1,16 @@
 package com.sayemshafayet.onereogamelauncher.ui.setup
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -14,8 +18,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,9 +60,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -67,16 +85,18 @@ import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
+import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
-import com.sayemshafayet.onereogamelauncher.ui.components.GameVideoPlayer
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
 import com.sayemshafayet.onereogamelauncher.ui.components.RaWithHltbRow
+import com.sayemshafayet.onereogamelauncher.ui.theme.FocusRing
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLastPlayed
 import com.sayemshafayet.onereogamelauncher.ui.util.combinedLaunchCount
 import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
@@ -97,6 +117,7 @@ private enum class GameDetailTab { GAME, MEDIA, CONFIG }
 fun GameDetailScreen(
     onBack: () -> Unit,
     onOpenRetroAchievements: (Long) -> Unit,
+    onOpenMedia: (gameId: Long, mediaId: Long) -> Unit,
     viewModel: GameDetailViewModel = hiltViewModel(),
 ) {
     val game by viewModel.game.collectAsState()
@@ -172,7 +193,11 @@ fun GameDetailScreen(
                         )
                     }
                     GameDetailTab.MEDIA.ordinal -> game?.let { g ->
-                        MediaTabContent(game = g, media = media)
+                        MediaTabContent(
+                            game = g,
+                            media = media,
+                            onOpenMedia = { mediaId -> onOpenMedia(g.id, mediaId) },
+                        )
                     }
                     GameDetailTab.CONFIG.ordinal -> ConfigTabContent(
                         launchConfig = launchConfig,
@@ -447,84 +472,147 @@ private fun StatBlock(label: String, value: String) {
 private fun MediaTabContent(
     game: GameEntity,
     media: List<MediaEntity>,
+    onOpenMedia: (Long) -> Unit,
 ) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        if (media.isEmpty()) {
-            Text(
-                "No media found for this game.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Text("Artwork & video", style = MaterialTheme.typography.titleMedium)
-            media.sortedBy { it.type.ordinal }.forEach { item ->
-                MediaItemCard(item)
+    val sorted = remember(media) { media.sortedBy { it.type.ordinal } }
+    val firstFocus = rememberOrlgFocusRequester()
+    val contentPadding = 14.dp
+    val horizontalSpacing = 12.dp
+    val minCellWidth = 120.dp
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val availableWidth = maxWidth - contentPadding * 2
+        val columns = (1..4).lastOrNull { count ->
+            minCellWidth * count + horizontalSpacing * (count - 1) <= availableWidth
+        } ?: 1
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            contentPadding = PaddingValues(contentPadding),
+            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            if (sorted.isEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        "No media found for this game.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            } else {
+                itemsIndexed(sorted, key = { _, item -> item.id }) { index, item ->
+                    MediaGridTile(
+                        item = item,
+                        onClick = { onOpenMedia(item.id) },
+                        modifier = Modifier.orlgListFocus(index, firstFocus),
+                    )
+                }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.padding(top = 8.dp)) {
+                    MetadataSection(
+                        game = game,
+                        modifier = Modifier.orlgListFocus(
+                            index = if (sorted.isEmpty()) 0 else sorted.size,
+                            firstItemFocus = firstFocus,
+                        ),
+                    )
+                    Spacer(Modifier.height(48.dp))
+                }
             }
         }
-
-        MetadataSection(game)
-
-        Spacer(Modifier.height(48.dp))
     }
+    OrlgInitialFocus(
+        firstFocus,
+        enabled = sorted.isNotEmpty() || gameHasDisplayMetadata(game),
+    )
 }
 
 @Composable
-private fun MediaItemCard(item: MediaEntity) {
+private fun MediaGridTile(
+    item: MediaEntity,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val coverShape = RoundedCornerShape(12.dp)
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.03f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "mediaGridFocusScale",
+    )
+    val accent = FocusRing.copy(alpha = 0.85f)
+    val borderColor = if (focused) {
+        accent
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    }
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .zIndex(if (focused) 1f else 0f)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .orlgFocusable(
+                onClick = onClick,
+                showFocusRing = false,
+                interactionSource = interactionSource,
+            ),
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(coverShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                .border(
+                    width = if (focused) 2.dp else 1.dp,
+                    color = borderColor,
+                    shape = coverShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (item.type == MediaType.VIDEO) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                GameCoverImage(
+                    path = item.path,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                )
+            }
+        }
         Text(
             mediaTypeLabel(item.type),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (focused) 1f else 0.88f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
         )
-        when (item.type) {
-            MediaType.VIDEO -> {
-                GameVideoPlayer(
-                    path = item.path,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f),
-                )
-            }
-            MediaType.FANART -> {
-                GameCoverImage(
-                    path = item.path,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f),
-                )
-            }
-            MediaType.MARQUEE, MediaType.TITLE -> {
-                GameCoverImage(
-                    path = item.path,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp),
-                )
-            }
-            else -> {
-                GameCoverImage(
-                    path = item.path,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(if (item.type == MediaType.SCREENSHOT) 16f / 9f else 0.75f),
-                )
-            }
-        }
     }
 }
 
-@Composable
-private fun MetadataSection(game: GameEntity) {
-    val hasMetadata = listOfNotNull(
+private fun gameHasDisplayMetadata(game: GameEntity): Boolean =
+    listOfNotNull(
         game.description,
         game.genre,
         game.developer,
@@ -534,9 +622,15 @@ private fun MetadataSection(game: GameEntity) {
         game.rating?.let { starsLabel(it) },
     ).any { it.isNotBlank() }
 
-    if (!hasMetadata) return
+@Composable
+private fun MetadataSection(
+    game: GameEntity,
+    modifier: Modifier = Modifier,
+) {
+    if (!gameHasDisplayMetadata(game)) return
 
     Card(
+        modifier = modifier.orlgFocusable(onClick = {}),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
