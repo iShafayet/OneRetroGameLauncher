@@ -1,9 +1,12 @@
 package com.sayemshafayet.onereogamelauncher.ui.shell
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,8 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -179,16 +183,35 @@ private fun HubTopAppBar(
 ) {
     val showHints = rememberShowGamepadHints()
     val showLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
+    val configuration = LocalConfiguration.current
+    val isPortraitOrientation =
+        configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val widthToHeightRatio =
+        configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.coerceAtLeast(1).toFloat()
+    val stackVersionUnderTitle = isPortraitOrientation && widthToHeightRatio < 1f
+    val versionStyle = MaterialTheme.typography.labelSmall.let { base ->
+        base.copy(fontSize = (base.fontSize.value - 2f).sp)
+    }
+
     TopAppBar(
         title = {
             if (isPlay) {
                 Text("Play")
+            } else if (stackVersionUnderTitle) {
+                Column {
+                    Text("ORGL")
+                    Text(
+                        text = BuildConfig.VERSION_NAME,
+                        style = versionStyle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("ORGL")
                     Text(
                         text = " ${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = versionStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

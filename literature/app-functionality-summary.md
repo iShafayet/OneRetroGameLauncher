@@ -1,7 +1,8 @@
 # One Retro Game Launcher (ORGL) — Full Functionality Summary
 
 > Literature inventory of every user-facing capability, with emphasis on **copy**, **CTAs**, and **benefit to the user**.  
-> Derived from in-app UI strings, About/Credits, README, and product architecture as of the current codebase.
+> Derived from in-app UI strings, About/Credits, README, and product architecture as of the current codebase  
+> (includes wishlist play queue, media gallery/viewer, About/Credits external links, soft cyan focus chrome, and gamepad IME handling).
 
 ---
 
@@ -19,13 +20,15 @@ ORGL is a **commitment-first** Android frontend for retro ROM libraries. It is n
 | Benefit | How ORGL delivers it |
 |--------|----------------------|
 | Finish games instead of hoarding | Play mode locks a game until finish/drop |
+| Build a play queue without mixing “love it” and “play next” | **Wishlist** is separate from favorites; feeds Tonight’s trio |
 | Keep ownership of files | ROMs are read-only; app data lives in a dedicated ORGL folder |
 | Use what you already scraped | Optional ES-DE `downloaded_media/` + `gamelists/` (read-only) |
+| Browse artwork without a vertical dump | Media tab gallery (max 4 across) → fullscreen image/video viewer |
 | Launch with your preferred emulator | RetroArch cores or standalone packages, per system or per game |
 | See progress without another app hop | Optional RetroAchievements progress (ORGL reads; unlocks happen in RetroArch) |
 | Know how long a game might take | Optional HowLongToBeat estimates in Play mode |
 | Keep a personal play journal | History of finished/dropped runs with ratings, reviews, and saveable run cards |
-| Controller-friendly living-room use | Gamepad focus, shoulder tab cycling, double-press exit |
+| Controller-friendly living-room use | Soft cyan focus chrome, shoulder tab cycling, gamepad IME lock, double-press exit |
 
 ### About-screen mission (canonical product copy)
 
@@ -39,7 +42,15 @@ ORGL is a **commitment-first** Android frontend for retro ROM libraries. It is n
 > - Your folders — ROMs are read-only; scrapes write only to ORGL data.
 > - Your choice of emulator — RetroArch or standalone, per system or per game.
 
-**About CTAs:** `Credits` · `Back to library`
+### About — Project & author (external links open in browser)
+
+| Section | Content / CTAs |
+|---------|----------------|
+| Hero | Logo · `One Retro Game Launcher` · tagline *Stop scrolling your library. Start finishing it.* |
+| **Project** | **Website** → `oneretrogamelauncher.com` · **Source code** → `github.com/iShafayet/OneRetroGameLauncher` |
+| **Author** | **Sayem Shafayet** — FOSS engineer/maintainer bio (libre.money, nkrypt.xyz, open ethos) |
+| Author links | **Website** → `sayemshafayet.com` · **GitHub** → `github.com/iShafayet` |
+| **CTA** | **`Credits`** (top bar handles back) |
 
 ---
 
@@ -60,6 +71,10 @@ ORGL is a **commitment-first** Android frontend for retro ROM libraries. It is n
 | **Play** | Commit, play, finish/drop, celebrate | Intro → picker → confirm → focus → completion |
 
 **Mode switcher CTAs (top bar):** `Setup` | `Play`
+
+**Setup hub title:** `ORGL` plus version (`VERSION_NAME`). On **vertical phone form factors only** (portrait orientation **and** width/height ratio &lt; 1), the version stacks under the ORGL label; otherwise it stays inline beside the title.
+
+**Setup hub actions:** Library search (Library tab) · About (help) · Setup/Play segmented control. Gamepad hint badges appear when a controller is connected (e.g. search **X**, mode switch **Y**).
 
 Switching from Play → Setup while runs are active shows a trust/guard dialog (see §9). Play uses a distinct amber-forward theme so the commitment mode feels different from Setup browsing.
 
@@ -166,20 +181,22 @@ Six pages that teach the product promise and wire required folders before the us
 - Empty state: **`No games found — set your ROMs folder in Settings → Folders, then rescan.`**
 - Optional virtual rows (Appearance toggles):
   - **Favorites** — `"All favorites"`
+  - **Wishlist** — `"Play queue"` (separate from favorites)
   - **Recent** — `"Recently played"`
+- Hub top-bar search opens **Search library** (cross-system title search).
 
-**User benefit:** Fast jump into systems; favorites/recent reduce hunting across platforms.
+**User benefit:** Fast jump into systems; favorites / wishlist / recent reduce hunting across platforms.
 
 ### System games list
 
 | Control | Copy / behavior |
 |---------|-----------------|
 | Search | `Search games` |
-| Filters | `All` · `★` · `Done` · `Dropped` |
+| Filters | `All` · `★` · `Wish` · `Done` · `Dropped` (`Wish` / `★` hidden when already inside that virtual list) |
 | View toggle | `List view` / `Grid view` |
 | Emulator gear | `Emulator settings` (physical systems) |
 
-**User benefit:** Filter by personal status (favorite / finished / dropped) and find titles quickly.
+**User benefit:** Filter by personal status (favorite / wishlist / finished / dropped) and find titles quickly.
 
 ### System emulator defaults
 
@@ -198,18 +215,24 @@ Six pages that teach the product promise and wire required folders before the us
 | Primary action | **`Launch`** |
 | RA | RetroAchievements button (progress / sign-in prompts) |
 | Stats | `Last played` · `Activity` |
-| Status chips | `Favorite` · `Done` · `Dropped` |
+| Status chips | `Favorite` · `Wishlist` · `Done` · `Dropped` |
 | Notes | Label `Personal notes for this game` · placeholder `Add your thoughts…` · **`Save notes`** |
 | Snackbar | `Launched` or launch error |
 
+**Wishlist vs Favorite:** Favorite is “I love this”; Wishlist is the **play queue** used by Play mode’s Tonight’s trio. They are independent flags in the DB.
+
 #### Media tab
 
-| Element | Copy |
-|---------|------|
+| Element | Copy / behavior |
+|---------|-----------------|
 | Empty | `No media found for this game.` |
-| Section | `Artwork & video` |
-| Types | Box art, 3D box, Screenshot, Title screen, Marquee, Video, Fan art |
-| Metadata | Description, Genre, Developer, Publisher, Release, Players, Rating |
+| Gallery | Adaptive grid, **max 4 tiles per row**, min cell ~120dp; square tiles with subtle fill + border; image/video thumbnails centered (`Fit`) |
+| Tile label | Media type (Box art, 3D box, Screenshot, Title screen, Marquee, Video, Fan art, …) |
+| Open | Activate tile → fullscreen **Media viewer** route (`setup/game/{gameId}/media/{mediaId}`) |
+| Viewer | Image Fit / video player; top bar title = media type label |
+| Metadata | Full-width section under the grid: Description, Genre, Developer, Publisher, Release, Players, Rating — **focusable** so D-pad can reach it after the tiles |
+
+**User benefit:** Modern gallery browsing instead of a tall vertical image dump; inspect one asset at a time fullscreen.
 
 #### Config tab
 
@@ -295,6 +318,7 @@ History entries open the same **run card** UI used after Play completion (histor
 |---------|------|
 | Theme chips | `SYSTEM` / `LIGHT` / `DARK` |
 | **Favorites section** | `Virtual system at the top of the library` |
+| **Wishlist section** | `Play-queue games highlighted in Play suggestions` |
 | **Recent section** | `Recently played games across all systems` |
 
 ### Debug
@@ -418,9 +442,11 @@ History entries open the same **run card** UI used after Play completion (histor
 ### Credits
 
 - Flavor label: `F-Droid / FOSS build` or `Google Play build`
-- Tagline: GPL-3.0 one-game-at-a-time frontend — ES-DE compatible, external emulators only
+- Author line: Created by **Sayem Shafayet**; GPL-3.0 one-game-at-a-time frontend — ES-DE compatible, external emulators only
+- Project pointers: `oneretrogamelauncher.com` · `github.com/iShafayet/OneRetroGameLauncher`
 - Data sources: ES-DE defs, ScreenScraper, libretro-thumbnails, RetroAchievements, HowLongToBeat
 - Libraries: Compose, Material 3, Room, DataStore, Hilt, OkHttp, Coil, Coroutines
+- **License:** focusable **`GNU GPL v3`** → opens [`LICENSE` on GitHub](https://github.com/iShafayet/OneRetroGameLauncher/blob/main/LICENSE) in the browser
 - Version: `v{VERSION_NAME}`
 
 ---
@@ -453,15 +479,20 @@ Play mode is the product’s emotional core. Copy repeatedly reinforces lock-in,
 | Empty library | `Scan your ROM folders in Setup first — then come back to commit to a game.` |
 | Search | Placeholder `Search your library…` |
 | No matches | `No matches — try another title or clear search to see suggestions.` |
-| Section | **Tonight's trio** — Three picks from shelf, favorites, and unplayed games |
-| CTAs | **`Shuffle trio`** · **`Wild card`** |
-| Wild card section | `Feeling lucky? Commit to this one.` |
-| Shelf | **Your shelf** — `Shortlisted games — max 5 in Setup.` |
-| Badge | `★ Favorite` |
+| Section | **Tonight's trio** — subtitle: `Wishlist picks first when available; the rest are suggested at random.` |
+| Badges | `Wishlist` · `Suggested` |
+| CTA | **`Shuffle trio`** |
+| Shelf | **Your shelf** — `Shortlisted games — max 5 in Setup.` (shown when non-empty) |
 
-**User benefit:** Decision aids (trio shuffle, wild card, shelf, search) reduce paralysis without dumping the full library first.
+**Tonight’s trio rules (implementation):**
 
-> Implementation note: shelf is shown in Play; DB/API support `onShelf`, but Setup UI for adding/removing shelf games may be incomplete.
+1. Slot 1 — Wishlist if any wishlisted games exist, else random **Suggested**
+2. Slot 2 — Second Wishlist pick if wishlist size &gt; 10, else **Suggested**
+3. Slot 3 — Always **Suggested** (random from remaining)
+
+**User benefit:** Decision aid biased toward the user’s play queue, with shuffle for fresh suggestions — without a separate “wild card” path.
+
+> Implementation note: shelf is shown in Play; DB/API support `onShelf`, but Setup UI for adding/removing shelf games may be incomplete. Wishlist is the primary Setup-managed play queue.
 
 ### 8.3 Confirm selection
 
@@ -622,18 +653,22 @@ Local / ORGL / ES-DE / ScreenScraper (when scraping is enabled) / libretro-thumb
 
 ---
 
-## 14. Hardware / gamepad / focus
+## 14. Hardware / gamepad / focus / IME
 
 - Optional `android.hardware.gamepad` feature
-- Focus helpers (`orlgFocusable`, `OrlgInitialFocus`) for D-pad navigation
+- Focus helpers (`orlgFocusable`, `OrlgInitialFocus`, `orlgListFocus`) for D-pad navigation
+- **Focus chrome:** soft logo-cyan ring / wash (`FocusRing`, `FocusFill`, `SelectionIndicator`) — quiet enough not to compete with content; grid tiles often draw their own border/scale
+- **Filter chips / tabs:** `OrglFilterChip` and tab strips keep focus fill inside the control; L1/R1 hint badges sit inline on tab bars when a gamepad is connected
 - Typical mappings:
   - Activate: Enter / D-pad Center / Space / A / Start
-  - Back: B / Esc / Back
+  - Back: B / Esc / Back — **dismisses IME first** (if open) before navigating
   - About (Setup hubs): X
-  - Shoulders L1/R1 (or PageUp/Down): cycle Setup tabs, Play slots, or Game detail tabs
+  - Mode switch hint: Y
+  - Shoulders L1/R1 (or PageUp/Down): cycle Setup tabs, Play slots, or Game detail tabs (game detail only — not media viewer)
+- **Text fields (gamepad):** `orlgDpadFocusExit` — D-pad can leave the field; soft keyboard stays locked until **A / gamepad confirm** (`isGamepadConfirm`); touch focus still opens IME normally. Shared `OrglKeyboardOptions` + Done/Search dismiss helpers on search/single-line/password fields.
 - Double-press back to exit on mode roots
 
-**User benefit:** Couch / handheld use without hunting for a touchscreen.
+**User benefit:** Couch / handheld use without hunting for a touchscreen; keyboards don’t fight D-pad navigation.
 
 ---
 
@@ -645,10 +680,11 @@ Local / ORGL / ES-DE / ScreenScraper (when scraping is enabled) / libretro-thumb
 ### On device (Room + prefs)
 
 - Systems, games, media links, emulator profiles
+- Game flags: favorite, **wishlisted** (play queue), onShelf, completed status, notes
 - Commitments (ACTIVE / FINISHED / DROPPED) + slot index
 - Play sessions, reviews (stars, text, collage path)
 - HLTB cache
-- Theme, slot count, favorites/recent toggles, integration settings
+- Theme, slot count, favorites / **wishlist** / recent toggles, integration settings
 - Folder URIs/paths, onboarding flag, current app mode
 
 ### In ORGL data folder (portable)
@@ -707,6 +743,7 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 | Run card | **Save run card to gallery** |
 | Guard | **Enter Setup** · Stay in Play |
 | Setup launch bypass | I understand · Launch anyway |
+| Tonight’s trio | Shuffle trio · badges Wishlist / Suggested |
 
 ### Library & settings
 
@@ -714,9 +751,12 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 |---------|------------|
 | Rescan | **Rescan library** |
 | Empty library | No games found — set your ROMs folder in Settings → Folders, then rescan. |
+| Wishlist chip | Wishlist |
+| Media empty | No media found for this game. |
 | ScreenScraper | Under construction — use ES-DE for media |
 | RA connect | **Save & verify** |
 | RA success | Connected. Your achievement progress will appear when you open a game. |
+| License | GNU GPL v3 (opens GitHub LICENSE) |
 | Exit | Press again to exit |
 
 ### Tone notes (product voice)
@@ -731,7 +771,7 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 ## 18. Known incomplete / in-progress surfaces
 
 1. **ScreenScraper UI** — Settings + placeholder screen say under construction; scrape wizard/service still in codebase but not the recommended path today.
-2. **Shelf management in Setup** — Play shows “Your shelf”; Setup shortlist UI may be missing.
+2. **Shelf management in Setup** — Play shows “Your shelf”; Setup shortlist UI may be missing (Wishlist is the shipped play-queue UX).
 3. **ScreenScraper credential form** — prefs may exist; Settings form not shipped in the placeholder screen.
 4. **Database debug** — copy promises more cleanup options later.
 
@@ -746,7 +786,7 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 3. Optional RA / ES-DE → **Skip** or **Continue**
 4. **Enter ORGL** (scan completes)
 5. Switch to **Play** → **Let's pick a game to play**
-6. Pick from trio / wild card / search → **Confirm selection**
+6. Pick from Tonight’s trio / shelf / search → **Confirm selection**
 7. **Play** → play in emulator → return
 8. **Mark as finished** → rate/review → **Release lock**
 9. Celebrate → optional **Save run card to gallery** → **Start a new adventure**
@@ -757,7 +797,7 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 
 1. Onboard or Settings → link ES-DE data
 2. **Rescan library**
-3. Browse Setup library with artwork/metadata already present
+3. Browse Setup library with artwork/metadata already present; open Media gallery → fullscreen viewer as needed
 4. Optionally still use Play commitment loop
 
 **Benefit:** Zero re-scrape to get a beautiful library.
@@ -771,8 +811,17 @@ Same application id; flavor-specific label only. License: GPL-3.0.
 
 **Benefit:** Maintenance without abandoning the lock philosophy.
 
+### Journey D — Build a play queue
+
+1. In Setup, open games → mark **Wishlist** (and optionally Favorite)
+2. Enable **Wishlist section** in Appearance if desired
+3. Switch to Play → Tonight’s trio prefers wishlist titles
+4. **Shuffle trio** until a pick feels right → **Confirm selection**
+
+**Benefit:** Curate “play next” separately from permanent favorites.
+
 ---
 
 ## 20. One-line product summary
 
-**ORGL helps retro collectors stop doom-scrolling their ROM libraries by committing to one game at a time, launching it in their preferred external emulator, optionally enriching it with ES-DE/RA/HLTB data, and journaling finished or dropped runs — all while keeping ROMs read-only and app data portable.**
+**ORGL helps retro collectors stop doom-scrolling their ROM libraries by committing to one game at a time (with a wishlist play queue feeding suggestions), launching it in their preferred external emulator, optionally enriching it with ES-DE/RA/HLTB data and a modern media gallery, and journaling finished or dropped runs — all while keeping ROMs read-only and app data portable.**
