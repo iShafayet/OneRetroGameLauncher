@@ -677,6 +677,7 @@ class RomScanner @Inject constructor(
             romPathsJson = romPathsJson,
             fileName = scanned.fileName,
             favorite = existing?.favorite ?: gl?.favorite ?: false,
+            wishlisted = existing?.wishlisted ?: false,
             description = pickMetadata(existing?.description, gl?.desc),
             notes = existing?.notes,
             rating = existing?.rating ?: gl?.rating,

@@ -64,11 +64,15 @@ class LibraryViewModel @Inject constructor(
         systemsWithCounts,
         settingsRepository.settings,
         libraryRepository.observeFavorites().map { it.size },
+        libraryRepository.observeWishlist().map { it.size },
         libraryRepository.observeRecent().map { it.size },
-    ) { systems, settings, favoriteCount, recentCount ->
+    ) { systems, settings, favoriteCount, wishlistCount, recentCount ->
         buildList {
             if (settings.libraryShowFavorites) {
                 add(LibrarySystemRow.Virtual(VirtualLibrarySystem.FAVORITES, favoriteCount))
+            }
+            if (settings.libraryShowWishlist) {
+                add(LibrarySystemRow.Virtual(VirtualLibrarySystem.WISHLIST, wishlistCount))
             }
             if (settings.libraryShowRecent) {
                 add(LibrarySystemRow.Virtual(VirtualLibrarySystem.RECENT, recentCount))

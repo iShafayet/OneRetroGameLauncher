@@ -38,6 +38,7 @@ data class SystemEntity(
         Index(value = ["systemId", "romPath"], unique = true),
         Index("systemId"),
         Index("favorite"),
+        Index("wishlisted"),
         Index("onShelf"),
     ],
 )
@@ -49,6 +50,8 @@ data class GameEntity(
     val romPathsJson: String = "[]",
     val fileName: String,
     val favorite: Boolean = false,
+    /** Play-queue / wishlist — separate from [favorite]. */
+    val wishlisted: Boolean = false,
     /** Scraped / gamelist synopsis — not user notes. */
     val description: String? = null,
     /** User-written notes in ORGL only. */

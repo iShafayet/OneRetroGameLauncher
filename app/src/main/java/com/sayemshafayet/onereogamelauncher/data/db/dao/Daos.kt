@@ -115,6 +115,9 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE favorite = 1 ORDER BY title COLLATE NOCASE")
     fun observeFavorites(): Flow<List<GameEntity>>
 
+    @Query("SELECT * FROM games WHERE wishlisted = 1 ORDER BY title COLLATE NOCASE")
+    fun observeWishlist(): Flow<List<GameEntity>>
+
     @Query(
         """
         SELECT * FROM games
@@ -126,6 +129,9 @@ interface GameDao {
 
     @Query("SELECT COUNT(*) FROM games WHERE favorite = 1")
     suspend fun countFavorites(): Int
+
+    @Query("SELECT COUNT(*) FROM games WHERE wishlisted = 1")
+    suspend fun countWishlist(): Int
 
     @Query("SELECT * FROM games WHERE onShelf = 1 ORDER BY title COLLATE NOCASE LIMIT 5")
     fun observeShelf(): Flow<List<GameEntity>>

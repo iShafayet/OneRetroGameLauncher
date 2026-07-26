@@ -65,6 +65,8 @@ data class AppSettings(
     val playSlotCount: Int = MIN_PLAY_SLOTS,
     /** Show Favorites virtual system at the top of the library. */
     val libraryShowFavorites: Boolean = true,
+    /** Show Wishlist virtual system at the top of the library. */
+    val libraryShowWishlist: Boolean = true,
     /** Show Recent virtual system at the top of the library. */
     val libraryShowRecent: Boolean = true,
 )
@@ -113,6 +115,7 @@ class SettingsRepository @Inject constructor(
         val lastScrapeAt = stringPreferencesKey("last_scrape_at")
         val playSlotCount = intPreferencesKey("play_slot_count")
         val libraryShowFavorites = booleanPreferencesKey("library_show_favorites")
+        val libraryShowWishlist = booleanPreferencesKey("library_show_wishlist")
         val libraryShowRecent = booleanPreferencesKey("library_show_recent")
     }
 
@@ -164,6 +167,7 @@ class SettingsRepository @Inject constructor(
             lastScrapeAt = backup[BackupKeys.lastScrapeAt]?.toLongOrNull(),
             playSlotCount = coercePlaySlotCount(backup[BackupKeys.playSlotCount] ?: MIN_PLAY_SLOTS),
             libraryShowFavorites = backup[BackupKeys.libraryShowFavorites] ?: true,
+            libraryShowWishlist = backup[BackupKeys.libraryShowWishlist] ?: true,
             libraryShowRecent = backup[BackupKeys.libraryShowRecent] ?: true,
         )
 
@@ -278,6 +282,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setLibraryShowFavorites(enabled: Boolean) {
         context.backupDataStore.edit { it[BackupKeys.libraryShowFavorites] = enabled }
+    }
+
+    suspend fun setLibraryShowWishlist(enabled: Boolean) {
+        context.backupDataStore.edit { it[BackupKeys.libraryShowWishlist] = enabled }
     }
 
     suspend fun setLibraryShowRecent(enabled: Boolean) {

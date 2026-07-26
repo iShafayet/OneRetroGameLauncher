@@ -64,6 +64,7 @@ class LibraryRepository @Inject constructor(
     fun observeGamesBySystem(systemId: Long) = gameDao.observeBySystem(systemId)
     fun observeSearch(systemId: Long?, query: String) = gameDao.observeSearch(systemId, query)
     fun observeFavorites() = gameDao.observeFavorites()
+    fun observeWishlist() = gameDao.observeWishlist()
     fun observeRecent() = gameDao.observeRecent()
     fun observeShelf() = gameDao.observeShelf()
     fun observeGame(gameId: Long) = gameDao.observeById(gameId)
@@ -204,6 +205,16 @@ class LibraryRepository @Inject constructor(
     suspend fun toggleFavorite(gameId: Long) {
         val game = gameDao.getById(gameId) ?: return
         gameDao.update(game.copy(favorite = !game.favorite))
+    }
+
+    suspend fun setWishlisted(gameId: Long, wishlisted: Boolean) {
+        val game = gameDao.getById(gameId) ?: return
+        gameDao.update(game.copy(wishlisted = wishlisted))
+    }
+
+    suspend fun toggleWishlist(gameId: Long) {
+        val game = gameDao.getById(gameId) ?: return
+        gameDao.update(game.copy(wishlisted = !game.wishlisted))
     }
 
     suspend fun setOnShelf(gameId: Long, onShelf: Boolean) {

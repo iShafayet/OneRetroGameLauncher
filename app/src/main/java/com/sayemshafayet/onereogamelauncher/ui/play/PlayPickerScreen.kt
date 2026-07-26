@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,11 +60,12 @@ import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
+import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayGamePick
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerPhase
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerViewModel
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlaySuggestionBadge
 
 private val pickCardWidth = 132.dp
 private val pickRowHeight = 228.dp
@@ -208,7 +208,6 @@ private fun PlayPickerContent(
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
-    val wildCard by viewModel.wildCard.collectAsState()
     val shelf by viewModel.shelf.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val libraryEmpty by viewModel.libraryEmpty.collectAsState()
@@ -267,7 +266,10 @@ private fun PlayPickerContent(
                 }
             } else {
                 item {
-                    SectionLabel("Tonight's trio", subtitle = "Three picks from your shelf, favorites, and unplayed games.")
+                    SectionLabel(
+                        "Tonight's trio",
+                        subtitle = "Wishlist picks first when available; the rest are suggested at random.",
+                    )
                 }
                 item {
                     PickCardRow(
@@ -279,39 +281,13 @@ private fun PlayPickerContent(
                     )
                 }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(
-                            onClick = viewModel::refreshSuggestions,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Default.Shuffle, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Shuffle trio")
-                        }
-                        OutlinedButton(
-                            onClick = viewModel::drawWildCard,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Wild card")
-                        }
-                    }
-                }
-
-                wildCard?.let { pick ->
-                    item {
-                        SectionLabel("Wild card", subtitle = "Feeling lucky? Commit to this one.")
-                    }
-                    item {
-                        PlayPickCard(
-                            pick = pick,
-                            viewModel = viewModel,
-                            highlighted = true,
-                            modifier = Modifier
-                                .width(pickCardWidth)
-                                .orlgFocusable(onClick = { onGameSelected(pick.game.id) }),
-                        )
+                    OutlinedButton(
+                        onClick = viewModel::refreshSuggestions,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.Shuffle, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Shuffle trio")
                     }
                 }
             }
@@ -419,6 +395,11 @@ private fun PlayPickCard(
         ?: media.firstOrNull { it.type == MediaType.SCREENSHOT }?.path
     val shape = RoundedCornerShape(12.dp)
     val borderColor = if (highlighted) AmberAccent else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val badgeLabel = when (pick.badge) {
+        PlaySuggestionBadge.WISHLIST -> "Wishlist"
+        PlaySuggestionBadge.SUGGESTED -> "Suggested"
+        null -> null
+    }
 
     Card(
         modifier = modifier
@@ -459,11 +440,15 @@ private fun PlayPickCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (pick.game.favorite) {
+            badgeLabel?.let { label ->
                 Text(
-                    "★ Favorite",
+                    label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = if (pick.badge == PlaySuggestionBadge.WISHLIST) {
+                        AmberAccent
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }

@@ -19,6 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -162,6 +164,7 @@ fun GameDetailScreen(
                             onOpenRetroAchievements = { onOpenRetroAchievements(g.id) },
                             onSaveNotes = { viewModel.saveNotes(notes) },
                             onToggleFavorite = viewModel::toggleFavorite,
+                            onToggleWishlist = viewModel::toggleWishlist,
                             onToggleFinished = viewModel::toggleFinished,
                             onToggleDropped = viewModel::toggleDropped,
                         )
@@ -209,6 +212,7 @@ private fun GameTabContent(
     onLaunch: () -> Unit,
     onSaveNotes: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onToggleWishlist: () -> Unit,
     onToggleFinished: () -> Unit,
     onToggleDropped: () -> Unit,
 ) {
@@ -312,8 +316,10 @@ private fun GameTabContent(
 
                 StatusChips(
                     favorite = game.favorite,
+                    wishlisted = game.wishlisted,
                     completedStatus = game.completedStatus,
                     onToggleFavorite = onToggleFavorite,
+                    onToggleWishlist = onToggleWishlist,
                     onToggleFinished = onToggleFinished,
                     onToggleDropped = onToggleDropped,
                 )
@@ -361,8 +367,10 @@ private fun GameTabContent(
 @Composable
 private fun StatusChips(
     favorite: Boolean,
+    wishlisted: Boolean,
     completedStatus: GameCompletedStatus?,
     onToggleFavorite: () -> Unit,
+    onToggleWishlist: () -> Unit,
     onToggleFinished: () -> Unit,
     onToggleDropped: () -> Unit,
 ) {
@@ -377,6 +385,18 @@ private fun StatusChips(
             leadingIcon = {
                 Icon(
                     if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    modifier = Modifier.height(18.dp),
+                )
+            },
+        )
+        FilterChip(
+            selected = wishlisted,
+            onClick = onToggleWishlist,
+            label = { Text("Wishlist") },
+            leadingIcon = {
+                Icon(
+                    if (wishlisted) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                     contentDescription = null,
                     modifier = Modifier.height(18.dp),
                 )

@@ -68,10 +68,13 @@ fun SystemGamesScreen(
     val layout by viewModel.layout.collectAsState()
     val firstFocus = rememberOrlgFocusRequester()
     val hideFavoriteFilter = VirtualLibrarySystem.fromId(viewModel.systemId) == VirtualLibrarySystem.FAVORITES
-    val visibleFilters = if (hideFavoriteFilter) {
-        GameListFilter.entries.filter { it != GameListFilter.FAVORITE }
-    } else {
-        GameListFilter.entries
+    val hideWishlistFilter = VirtualLibrarySystem.fromId(viewModel.systemId) == VirtualLibrarySystem.WISHLIST
+    val visibleFilters = GameListFilter.entries.filter { f ->
+        when (f) {
+            GameListFilter.FAVORITE -> !hideFavoriteFilter
+            GameListFilter.WISHLIST -> !hideWishlistFilter
+            else -> true
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -259,6 +262,7 @@ private val GameListFilter.label: String
     get() = when (this) {
         GameListFilter.ALL -> "All"
         GameListFilter.FAVORITE -> "★"
+        GameListFilter.WISHLIST -> "Wish"
         GameListFilter.FINISHED -> "Done"
         GameListFilter.DROPPED -> "Dropped"
     }

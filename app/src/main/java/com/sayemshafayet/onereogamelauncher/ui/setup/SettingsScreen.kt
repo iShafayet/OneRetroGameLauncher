@@ -155,6 +155,17 @@ fun SettingsScreen(
             modifier = Modifier.orlgFocusable(onClick = { viewModel.setLibraryShowFavorites(!ui.libraryShowFavorites) }),
         )
         ListItem(
+            headlineContent = { Text("Wishlist section") },
+            supportingContent = { Text("Play-queue games highlighted in Play suggestions") },
+            trailingContent = {
+                Switch(
+                    checked = ui.libraryShowWishlist,
+                    onCheckedChange = viewModel::setLibraryShowWishlist,
+                )
+            },
+            modifier = Modifier.orlgFocusable(onClick = { viewModel.setLibraryShowWishlist(!ui.libraryShowWishlist) }),
+        )
+        ListItem(
             headlineContent = { Text("Recent section") },
             supportingContent = { Text("Recently played games across all systems") },
             trailingContent = {

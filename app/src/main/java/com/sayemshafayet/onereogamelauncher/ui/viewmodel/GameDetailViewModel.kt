@@ -287,6 +287,10 @@ class GameDetailViewModel @Inject constructor(
         viewModelScope.launch { libraryRepository.toggleFavorite(gameId) }
     }
 
+    fun toggleWishlist() {
+        viewModelScope.launch { libraryRepository.toggleWishlist(gameId) }
+    }
+
     fun toggleFinished() {
         viewModelScope.launch {
             val g = libraryRepository.getGame(gameId) ?: return@launch

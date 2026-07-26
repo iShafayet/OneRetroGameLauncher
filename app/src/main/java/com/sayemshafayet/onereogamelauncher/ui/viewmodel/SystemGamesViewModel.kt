@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class GameListFilter { ALL, FAVORITE, FINISHED, DROPPED }
+enum class GameListFilter { ALL, FAVORITE, WISHLIST, FINISHED, DROPPED }
 
 @HiltViewModel
 class SystemGamesViewModel @Inject constructor(
@@ -54,6 +54,7 @@ class SystemGamesViewModel @Inject constructor(
 
     private val sourceGames: StateFlow<List<GameEntity>> = when (virtualSystem) {
         VirtualLibrarySystem.FAVORITES -> libraryRepository.observeFavorites()
+        VirtualLibrarySystem.WISHLIST -> libraryRepository.observeWishlist()
         VirtualLibrarySystem.RECENT -> libraryRepository.observeRecent()
         null -> libraryRepository.observeGamesBySystem(systemId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -70,6 +71,7 @@ class SystemGamesViewModel @Inject constructor(
             val matchesFilter = when (f) {
                 GameListFilter.ALL -> true
                 GameListFilter.FAVORITE -> game.favorite
+                GameListFilter.WISHLIST -> game.wishlisted
                 GameListFilter.FINISHED -> game.completedStatus == GameCompletedStatus.FINISHED
                 GameListFilter.DROPPED -> game.completedStatus == GameCompletedStatus.DROPPED
             }

@@ -48,6 +48,7 @@ data class SettingsHubUi(
     val syncMessage: String? = null,
     val playSlotCount: Int = 1,
     val libraryShowFavorites: Boolean = true,
+    val libraryShowWishlist: Boolean = true,
     val libraryShowRecent: Boolean = true,
 )
 
@@ -88,6 +89,7 @@ class SettingsViewModel @Inject constructor(
                         hltbEnabled = s.hltbEnabled,
                         playSlotCount = s.playSlotCount,
                         libraryShowFavorites = s.libraryShowFavorites,
+                        libraryShowWishlist = s.libraryShowWishlist,
                         libraryShowRecent = s.libraryShowRecent,
                     )
                 }
@@ -101,6 +103,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setLibraryShowFavorites(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setLibraryShowFavorites(enabled) }
+    }
+
+    fun setLibraryShowWishlist(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setLibraryShowWishlist(enabled) }
     }
 
     fun setLibraryShowRecent(enabled: Boolean) {
