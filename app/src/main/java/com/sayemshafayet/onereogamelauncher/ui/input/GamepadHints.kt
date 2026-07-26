@@ -55,7 +55,7 @@ fun GamepadHintBadge(
     }
 }
 
-/** Corner overlay for icon buttons / CTAs (e.g. X on About, A on focused Launch). */
+/** Corner overlay for icon buttons / CTAs (e.g. X on Library search, A on focused Launch). */
 @Composable
 fun GamepadHintOverlay(
     label: String,

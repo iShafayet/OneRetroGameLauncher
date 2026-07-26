@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +69,7 @@ fun OrglShellTopBar(
     when {
         isHubRoute(currentRoute) -> HubTopAppBar(
             isPlay = isPlay,
+            currentRoute = currentRoute,
             navController = navController,
             onRequestSetupMode = onRequestSetupMode,
             onRequestPlayMode = onRequestPlayMode,
@@ -103,6 +105,7 @@ fun OrglShellTopBar(
                 },
             )
         }
+        currentRoute == Routes.SETUP_LIBRARY_SEARCH -> SimpleTopAppBar("Search library", onBack)
         currentRoute == Routes.SETUP_SYSTEM_EMULATOR -> SimpleTopAppBar("Emulator", onBack)
         currentRoute == Routes.SETUP_GAME -> backStackEntry?.let { entry ->
             val viewModel: GameDetailViewModel = hiltViewModel(entry)
@@ -159,11 +162,13 @@ fun OrglShellTopBar(
 @Composable
 private fun HubTopAppBar(
     isPlay: Boolean,
+    currentRoute: String?,
     navController: NavHostController,
     onRequestSetupMode: () -> Unit,
     onRequestPlayMode: () -> Unit,
 ) {
     val showHints = rememberShowGamepadHints()
+    val showLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
     TopAppBar(
         title = {
             if (isPlay) {
@@ -187,16 +192,13 @@ private fun HubTopAppBar(
                     .padding(end = 8.dp)
                     .focusProperties { canFocus = false },
             ) {
-                if (!isPlay) {
+                if (showLibrarySearch) {
                     Box {
                         FilledTonalIconButton(
-                            onClick = { navController.navigate(Routes.SETUP_ABOUT) },
+                            onClick = { navController.navigate(Routes.SETUP_LIBRARY_SEARCH) },
                             modifier = Modifier.focusProperties { canFocus = false },
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "About ORGL",
-                            )
+                            Icon(Icons.Default.Search, contentDescription = "Search library")
                         }
                         if (showHints) {
                             GamepadHintOverlay(
@@ -204,6 +206,17 @@ private fun HubTopAppBar(
                                 modifier = Modifier.align(Alignment.TopEnd),
                             )
                         }
+                    }
+                }
+                if (!isPlay) {
+                    FilledTonalIconButton(
+                        onClick = { navController.navigate(Routes.SETUP_ABOUT) },
+                        modifier = Modifier.focusProperties { canFocus = false },
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.HelpOutline,
+                            contentDescription = "About ORGL",
+                        )
                     }
                 }
                 Box {

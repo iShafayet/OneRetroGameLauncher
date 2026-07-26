@@ -60,6 +60,9 @@ object GamepadKeys {
     fun isAbout(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key == Key.ButtonX
 
+    /** X — library search on the Library hub; otherwise unassigned. */
+    fun isButtonX(event: KeyEvent): Boolean = isAbout(event)
+
     /** Y — mode toggle on root pages (double-press); otherwise consumed. */
     fun isModeToggle(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key == Key.ButtonY

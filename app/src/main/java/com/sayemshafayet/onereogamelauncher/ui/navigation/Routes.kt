@@ -8,6 +8,7 @@ object Routes {
     const val HOME = "home"
 
     const val SETUP_LIBRARY = "setup/library"
+    const val SETUP_LIBRARY_SEARCH = "setup/library/search"
     const val SETUP_ABOUT = "setup/about"
     const val SETUP_SYSTEM = "setup/system/{systemId}"
     const val SETUP_SYSTEM_EMULATOR = "setup/system/{systemId}/emulator"

@@ -57,6 +57,7 @@ import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlaySlotBar
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.LibrarySearchScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.GameRetroAchievementsScreen
@@ -191,7 +192,7 @@ fun ModeShell(
     )
 
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
-    val showAboutButton = !isPlay && isHubRoute
+    val canLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
 
     if (showSetupGuard) {
         PlayToSetupGuardDialog(
@@ -308,8 +309,10 @@ fun ModeShell(
                     if (canDoublePressExit) onDoublePressModeSwitch()
                     true
                 }
-                GamepadKeys.isAbout(event) -> {
-                    if (showAboutButton) navController.navigate(Routes.SETUP_ABOUT)
+                GamepadKeys.isButtonX(event) -> {
+                    if (canLibrarySearch) {
+                        navController.navigate(Routes.SETUP_LIBRARY_SEARCH)
+                    }
                     true
                 }
                 GamepadKeys.isGamepadBack(event) -> {
@@ -388,6 +391,11 @@ fun ModeShell(
         ) {
             composable(Routes.SETUP_LIBRARY) {
                 LibraryScreen(onSystemClick = { navController.navigate(Routes.setupSystem(it)) })
+            }
+            composable(Routes.SETUP_LIBRARY_SEARCH) {
+                LibrarySearchScreen(
+                    onGameClick = { navController.navigate(Routes.setupGame(it)) },
+                )
             }
             composable(Routes.SETUP_ABOUT) {
                 AboutScreen(
