@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,15 +37,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.data.prefs.resolveLibrarySystemsLayout
+import com.sayemshafayet.onereogamelauncher.ui.components.SystemIconResolver
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
@@ -149,6 +155,7 @@ private fun SystemGridTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     val tileShape = RoundedCornerShape(12.dp)
@@ -166,10 +173,26 @@ private fun SystemGridTile(
     } else {
         MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     }
-    val supporting = when (row) {
-        is LibrarySystemRow.Virtual -> "${row.gameCount} games"
-        is LibrarySystemRow.Physical -> "${row.gameCount} games"
+    val folderName = (row as? LibrarySystemRow.Physical)?.row?.system?.folderName
+    val hasIconMapping = folderName != null &&
+        SystemIconResolver.iconFileForFolder(folderName) != null
+    val iconModel = remember(folderName, hasIconMapping) {
+        if (!hasIconMapping) {
+            null
+        } else {
+            SystemIconResolver.assetPathForFolder(folderName!!)?.let { path ->
+                ImageRequest.Builder(context)
+                    .data(path)
+                    .crossfade(true)
+                    .build()
+            }
+        }
     }
+    // Theme-aware tile plate — icons are transparent; bottom ~40% is reserved for the name.
+    val tileBackground = MaterialTheme.colorScheme.surfaceContainerHighest
+    val onTile = MaterialTheme.colorScheme.onSurface
+    val showNameOverlay = hasIconMapping
+    val showNameInTile = !hasIconMapping
 
     Column(
         modifier = modifier
@@ -191,29 +214,59 @@ private fun SystemGridTile(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(tileShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                .background(tileBackground)
                 .border(
                     width = if (focused) 2.dp else 1.dp,
                     color = borderColor,
                     shape = tileShape,
-                )
-                .padding(12.dp),
-            contentAlignment = Alignment.Center,
+                ),
         ) {
-            Text(
-                row.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (iconModel != null) {
+                AsyncImage(
+                    model = iconModel,
+                    contentDescription = row.displayName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            if (showNameOverlay) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.40f)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        row.displayName,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        color = onTile,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else if (showNameInTile) {
+                Text(
+                    row.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    color = onTile,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(12.dp),
+                )
+            }
         }
         Text(
-            supporting,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (focused) 1f else 0.88f),
+            "${row.gameCount} games",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),

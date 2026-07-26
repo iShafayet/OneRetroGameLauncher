@@ -27,13 +27,15 @@ import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 
 private const val LicenseUrl =
     "https://github.com/iShafayet/OneRetroGameLauncher/blob/main/LICENSE"
+private const val SystemIconsUrl =
+    "https://github.com/KyleBing/retro-game-console-icons"
 
 @Composable
 fun CreditsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val openLicense: () -> Unit = {
+    val openUrl: (String) -> Unit = { url ->
         runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LicenseUrl)))
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }
     }
 
@@ -68,38 +70,59 @@ fun CreditsScreen(onBack: () -> Unit) {
         Text("• RetroAchievements (optional account)")
         Text("• HowLongToBeat (optional)")
 
+        Text("Artwork", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "System console icons by KyleBing (GPL-3.0)",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        CreditsLinkRow(
+            label = "github.com/KyleBing/retro-game-console-icons",
+            onClick = { openUrl(SystemIconsUrl) },
+        )
+
         Text("Libraries", style = MaterialTheme.typography.titleMedium)
         Text(
             "Jetpack Compose, Material 3, Room, DataStore, Hilt, OkHttp, Coil, Kotlin Coroutines",
         )
 
         Text("License", style = MaterialTheme.typography.titleMedium)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .orlgFocusable(onClick = openLicense)
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "GNU GPL v3",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                Icons.AutoMirrored.Filled.OpenInNew,
-                contentDescription = "Opens in browser",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        CreditsLinkRow(
+            label = "GNU GPL v3",
+            onClick = { openUrl(LicenseUrl) },
+        )
 
         Text(
             "v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun CreditsLinkRow(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .orlgFocusable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = "Opens in browser",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
         )
     }
 }

@@ -1,0 +1,9 @@
+System console icons bundled from:
+
+  https://github.com/KyleBing/retro-game-console-icons
+
+Author: KyleBing
+License: GNU GPL v3 (same as ORGL)
+
+Icons are TrimUI / handheld-theme naming (FC, SFC, MD, …), mapped to ES-DE
+folder names at runtime via SystemIconResolver.
