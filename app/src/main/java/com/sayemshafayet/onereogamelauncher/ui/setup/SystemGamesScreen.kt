@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -50,10 +49,12 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.domain.VirtualLibrarySystem
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.components.SearchField
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglFilterChip
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
+import com.sayemshafayet.onereogamelauncher.ui.theme.FocusRing
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameListFilter
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 
@@ -91,7 +92,7 @@ fun SystemGamesScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             visibleFilters.forEach { f ->
-                FilterChip(
+                OrglFilterChip(
                     selected = filter == f,
                     onClick = { viewModel.setFilter(f) },
                     label = { Text(f.label) },
@@ -152,15 +153,15 @@ private fun GameGridTile(
     val focused by interactionSource.collectIsFocusedAsState()
     val coverShape = RoundedCornerShape(12.dp)
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.06f else 1f,
+        targetValue = if (focused) 1.03f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMediumLow,
         ),
         label = "gridFocusScale",
     )
-    val accent = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)
-    val frameLight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+    val accent = FocusRing.copy(alpha = 0.85f)
+    val frameLight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
 
     Column(
         modifier = modifier
@@ -181,7 +182,7 @@ private fun GameGridTile(
                 .fillMaxWidth()
                 .aspectRatio(0.75f)
                 .shadow(
-                    elevation = if (focused) 10.dp else 3.dp,
+                    elevation = if (focused) 8.dp else 3.dp,
                     shape = coverShape,
                     clip = false,
                 )
@@ -192,13 +193,12 @@ private fun GameGridTile(
                 modifier = Modifier.fillMaxSize(),
             )
             if (focused) {
-                // Quiet dual frame — soft edge for contrast, muted amber hint inside.
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .border(width = 2.dp, color = frameLight, shape = coverShape)
+                        .border(width = 2.dp, color = accent, shape = coverShape)
                         .padding(2.dp)
-                        .border(width = 1.5.dp, color = accent, shape = RoundedCornerShape(10.dp)),
+                        .border(width = 1.dp, color = frameLight, shape = RoundedCornerShape(10.dp)),
                 )
             }
         }
@@ -206,11 +206,7 @@ private fun GameGridTile(
             game.title,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
-            color = if (focused) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f)
-            },
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (focused) 1f else 0.88f),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),

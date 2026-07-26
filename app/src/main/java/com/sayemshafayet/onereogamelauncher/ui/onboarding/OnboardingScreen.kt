@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -44,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,7 +50,9 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.ui.components.LibraryScanSummaryPanel
 import com.sayemshafayet.onereogamelauncher.ui.components.PulseModifier
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
@@ -537,6 +537,8 @@ private fun RetroAchievementsStep(
                     .fillMaxWidth()
                     .orlgDpadFocusExit(),
                 singleLine = true,
+                keyboardOptions = OrglKeyboardOptions.SingleLine,
+                keyboardActions = rememberOrglImeDismissActions(),
                 enabled = !busy,
                 colors = fieldColors,
             )
@@ -546,7 +548,8 @@ private fun RetroAchievementsStep(
                 onValueChange = onPasswordChange,
                 label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = OrglKeyboardOptions.Password,
+                keyboardActions = rememberOrglImeDismissActions(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .orlgDpadFocusExit(),

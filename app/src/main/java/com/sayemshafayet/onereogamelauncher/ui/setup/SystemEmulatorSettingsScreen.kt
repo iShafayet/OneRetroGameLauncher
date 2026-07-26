@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemEmulatorViewModel
 
 @Composable
@@ -71,6 +73,9 @@ fun SystemEmulatorSettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .orlgDpadFocusExit(),
+                    singleLine = true,
+                    keyboardOptions = OrglKeyboardOptions.SingleLine,
+                    keyboardActions = rememberOrglImeDismissActions(),
                 )
             }
 

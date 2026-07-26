@@ -57,6 +57,7 @@ import com.sayemshafayet.onereogamelauncher.ui.components.RaWithHltbRow
 import com.sayemshafayet.onereogamelauncher.ui.components.StarRatingInput
 import com.sayemshafayet.onereogamelauncher.ui.components.pickBoxArt
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
@@ -338,6 +339,7 @@ fun FocusScreen(
                             .fillMaxWidth()
                             .orlgDpadFocusExit(),
                         minLines = 2,
+                        keyboardOptions = OrglKeyboardOptions.Multiline,
                     )
                 }
             },

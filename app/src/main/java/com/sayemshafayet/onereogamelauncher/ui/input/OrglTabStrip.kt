@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.ui.theme.SelectionIndicator
 
 /** Tab strip — touch selects a tab; cycle with L1 / R1 via [onPreviewKeyEvent] on a parent. */
 @Composable
@@ -29,7 +31,7 @@ fun OrglTabStrip(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val primary = MaterialTheme.colorScheme.primary
+    val selectedColor = SelectionIndicator
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
     val showHints = rememberShowGamepadHints()
     Column(
@@ -40,13 +42,14 @@ fun OrglTabStrip(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showHints) {
                 GamepadHintBadge("L1", compact = true, modifier = Modifier.padding(end = 4.dp))
             }
             labels.forEachIndexed { index, label ->
+                val selected = index == selectedIndex
                 Box(
                     Modifier
                         .weight(1f)
@@ -56,13 +59,18 @@ fun OrglTabStrip(
                             indication = null,
                             onClick = { onTabSelected(index) },
                         )
-                        .padding(vertical = 14.dp),
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         label,
                         style = MaterialTheme.typography.titleSmall,
-                        color = if (index == selectedIndex) primary else unselected,
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            unselected
+                        },
                     )
                 }
             }
@@ -75,8 +83,8 @@ fun OrglTabStrip(
                 Box(
                     Modifier
                         .weight(1f)
-                        .height(3.dp)
-                        .background(if (index == selectedIndex) primary else Color.Transparent),
+                        .height(2.dp)
+                        .background(if (index == selectedIndex) selectedColor else Color.Transparent),
                 )
             }
         }
@@ -93,7 +101,7 @@ fun OrglBottomNavStrip(
     icons: @Composable (index: Int, selected: Boolean) -> Unit,
     onTabClick: (Int) -> Unit,
 ) {
-    val primary = MaterialTheme.colorScheme.primary
+    val selectedColor = SelectionIndicator
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
     val showHints = rememberShowGamepadHints()
     Surface(
@@ -103,19 +111,17 @@ fun OrglBottomNavStrip(
         tonalElevation = 3.dp,
     ) {
         Column(Modifier.focusProperties { canFocus = false }) {
-            if (showHints) {
-                GamepadShoulderHints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                )
-            }
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height(if (showHints) 72.dp else 80.dp)
+                    .height(72.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
                     .focusProperties { canFocus = false },
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (showHints) {
+                    GamepadHintBadge("L1", compact = true, modifier = Modifier.padding(end = 4.dp))
+                }
                 labels.forEachIndexed { index, label ->
                     val selected = index == selectedIndex
                     Column(
@@ -123,7 +129,7 @@ fun OrglBottomNavStrip(
                             .weight(1f)
                             .focusProperties { canFocus = false }
                             .clickable(onClick = { onTabClick(index) })
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.focusProperties { canFocus = false }) {
@@ -132,12 +138,32 @@ fun OrglBottomNavStrip(
                         Text(
                             label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (selected) primary else unselected,
+                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                unselected
+                            },
                             modifier = Modifier
                                 .padding(top = 4.dp)
                                 .focusProperties { canFocus = false },
                         )
                     }
+                }
+                if (showHints) {
+                    GamepadHintBadge("R1", compact = true, modifier = Modifier.padding(start = 4.dp))
+                }
+            }
+            Row(Modifier.fillMaxWidth()) {
+                labels.forEachIndexed { index, _ ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(2.dp)
+                            .background(
+                                if (index == selectedIndex) selectedColor else Color.Transparent,
+                            ),
+                    )
                 }
             }
         }

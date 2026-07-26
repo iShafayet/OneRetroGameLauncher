@@ -50,7 +50,10 @@ fun EmulatorDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded && enabled) },
             modifier = Modifier
                 .fillMaxWidth()
-                .orlgDpadFocusExit(enabled = !(expanded && enabled))
+                .orlgDpadFocusExit(
+                    enabled = !(expanded && enabled),
+                    openImeOnActivate = false,
+                )
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
@@ -105,7 +108,10 @@ fun CoreDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded && enabled) },
             modifier = Modifier
                 .fillMaxWidth()
-                .orlgDpadFocusExit(enabled = !(expanded && enabled))
+                .orlgDpadFocusExit(
+                    enabled = !(expanded && enabled),
+                    openImeOnActivate = false,
+                )
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(

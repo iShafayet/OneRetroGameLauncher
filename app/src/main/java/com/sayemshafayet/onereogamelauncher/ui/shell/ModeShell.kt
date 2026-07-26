@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.activity.compose.LocalActivity
@@ -26,14 +27,19 @@ import com.sayemshafayet.onereogamelauncher.R
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadBackHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadKeys
 import com.sayemshafayet.onereogamelauncher.ui.input.ShellHardwareKeys
+import com.sayemshafayet.onereogamelauncher.ui.input.isSoftKeyboardVisible
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressConfirmHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberDoublePressExitHandler
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglBottomNavStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.cycleTabIndex
+import com.sayemshafayet.onereogamelauncher.ui.theme.SelectionIndicator
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -193,6 +199,9 @@ fun ModeShell(
 
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
     val canLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
+    val shellView = LocalView.current
+    val shellKeyboard = LocalSoftwareKeyboardController.current
+    val shellFocusManager = LocalFocusManager.current
 
     if (showSetupGuard) {
         PlayToSetupGuardDialog(
@@ -315,12 +324,15 @@ fun ModeShell(
                     }
                     true
                 }
-                GamepadKeys.isGamepadBack(event) -> {
-                    handleBackPress()
-                    true
-                }
-                GamepadKeys.isSystemBack(event) -> {
-                    handleBackPress()
+                GamepadKeys.isGamepadBack(event) || GamepadKeys.isSystemBack(event) -> {
+                    if (shellView.isSoftKeyboardVisible()) {
+                        shellFocusManager.clearFocus(force = true)
+                        shellKeyboard?.hide()
+                        shellView.post { shellKeyboard?.hide() }
+                        shellView.postDelayed({ shellKeyboard?.hide() }, 80)
+                    } else {
+                        handleBackPress()
+                    }
                     true
                 }
                 else -> false
@@ -371,11 +383,16 @@ fun ModeShell(
                 OrglBottomNavStrip(
                     labels = listOf("Library", "History", "Settings"),
                     selectedIndex = setupTabSelectedIndex,
-                    icons = { index, _ ->
+                    icons = { index, selected ->
+                        val tint = if (selected) {
+                            SelectionIndicator
+                        } else {
+                            LocalContentColor.current.copy(alpha = 0.72f)
+                        }
                         when (index) {
-                            0 -> Icon(Icons.Default.ViewModule, contentDescription = null)
-                            1 -> Icon(Icons.Default.History, contentDescription = null)
-                            else -> Icon(Icons.Default.Settings, contentDescription = null)
+                            0 -> Icon(Icons.Default.ViewModule, contentDescription = null, tint = tint)
+                            1 -> Icon(Icons.Default.History, contentDescription = null, tint = tint)
+                            else -> Icon(Icons.Default.Settings, contentDescription = null, tint = tint)
                         }
                     },
                     onTabClick = { navigateSetupTab(navController, it) },

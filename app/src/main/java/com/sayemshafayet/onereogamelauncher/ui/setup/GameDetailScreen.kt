@@ -28,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,10 +62,13 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.MediaEntity
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglFilterChip
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.OrglTabStrip
 import com.sayemshafayet.onereogamelauncher.ui.input.OrlgInitialFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.components.CoreDropdown
 import com.sayemshafayet.onereogamelauncher.ui.components.EmulatorDropdown
@@ -351,6 +353,7 @@ private fun GameTabContent(
                         .orlgDpadFocusExit(),
                     minLines = 4,
                     placeholder = { Text("Add your thoughts…") },
+                    keyboardOptions = OrglKeyboardOptions.Multiline,
                 )
                 OutlinedButton(onClick = onSaveNotes) {
                     Text("Save notes")
@@ -378,7 +381,7 @@ private fun StatusChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
+        OrglFilterChip(
             selected = favorite,
             onClick = onToggleFavorite,
             label = { Text("Favorite") },
@@ -390,7 +393,7 @@ private fun StatusChips(
                 )
             },
         )
-        FilterChip(
+        OrglFilterChip(
             selected = wishlisted,
             onClick = onToggleWishlist,
             label = { Text("Wishlist") },
@@ -402,12 +405,12 @@ private fun StatusChips(
                 )
             },
         )
-        FilterChip(
+        OrglFilterChip(
             selected = completedStatus == GameCompletedStatus.FINISHED,
             onClick = onToggleFinished,
             label = { Text("Done") },
         )
-        FilterChip(
+        OrglFilterChip(
             selected = completedStatus == GameCompletedStatus.DROPPED,
             onClick = onToggleDropped,
             label = { Text("Dropped") },
@@ -669,6 +672,9 @@ private fun ConfigTabContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .orlgDpadFocusExit(),
+                        singleLine = true,
+                        keyboardOptions = OrglKeyboardOptions.SingleLine,
+                        keyboardActions = rememberOrglImeDismissActions(),
                     )
                 }
 
@@ -680,6 +686,9 @@ private fun ConfigTabContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .orlgDpadFocusExit(),
+                    singleLine = true,
+                    keyboardOptions = OrglKeyboardOptions.SingleLine,
+                    keyboardActions = rememberOrglImeDismissActions(),
                 )
 
                 if (launchConfig.useOverride) {

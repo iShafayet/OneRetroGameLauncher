@@ -5,6 +5,7 @@ import android.hardware.input.InputManager
 import android.os.Handler
 import android.os.Looper
 import android.view.InputDevice
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -18,6 +19,11 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 object GamepadKeys {
     private val activateKeys = setOf(
@@ -50,6 +56,14 @@ object GamepadKeys {
 
     fun isActivate(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key in activateKeys
+
+    /**
+     * Face-button / D-pad center confirm only — excludes Enter/Space so IME Done
+     * does not re-open the soft keyboard on text fields.
+     */
+    fun isGamepadConfirm(event: KeyEvent): Boolean =
+        event.type == KeyEventType.KeyUp &&
+            event.key in setOf(Key.ButtonA, Key.DirectionCenter, Key.ButtonStart)
 
     fun isGamepadBack(event: KeyEvent): Boolean =
         event.type == KeyEventType.KeyUp && event.key in gamepadBackKeys
@@ -115,8 +129,8 @@ fun rememberGamepadConnected(): Boolean {
 }
 
 /**
- * Handles back / B: pops [onBack] when [canPopBack]; otherwise runs [onRootBack] when provided
- * (e.g. double-press to exit at a mode root).
+ * Handles back / B: dismisses the soft keyboard first when it is open; otherwise pops
+ * [onBack] when [canPopBack], or runs [onRootBack] when provided (e.g. double-press exit).
  */
 @Composable
 fun GamepadBackHandler(
@@ -124,10 +138,25 @@ fun GamepadBackHandler(
     onBack: () -> Unit,
     onRootBack: (() -> Unit)? = null,
 ) {
+    val view = LocalView.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     BackHandler {
+        if (view.isSoftKeyboardVisible()) {
+            focusManager.clearFocus(force = true)
+            keyboard?.hide()
+            view.post { keyboard?.hide() }
+            view.postDelayed({ keyboard?.hide() }, 80)
+            return@BackHandler
+        }
         when {
             canPopBack -> onBack()
             onRootBack != null -> onRootBack()
         }
     }
 }
+
+/** True when the IME / soft keyboard is currently visible. */
+fun View.isSoftKeyboardVisible(): Boolean =
+    ViewCompat.getRootWindowInsets(this)
+        ?.isVisible(WindowInsetsCompat.Type.ime()) == true

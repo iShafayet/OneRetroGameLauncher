@@ -33,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
+import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 private const val CUSTOM_OPTION = "Custom…"
@@ -87,6 +89,7 @@ fun RetroArchSettingsScreen(
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .orlgDpadFocusExit(enabled = !expanded, openImeOnActivate = false)
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 )
                 ExposedDropdownMenu(
@@ -124,6 +127,8 @@ fun RetroArchSettingsScreen(
                         .fillMaxWidth()
                         .orlgDpadFocusExit(),
                     singleLine = true,
+                    keyboardOptions = OrglKeyboardOptions.SingleLine,
+                    keyboardActions = rememberOrglImeDismissActions(),
                 )
             }
 

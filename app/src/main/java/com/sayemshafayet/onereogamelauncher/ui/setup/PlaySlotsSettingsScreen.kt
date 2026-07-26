@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sayemshafayet.onereogamelauncher.data.prefs.MAX_PLAY_SLOTS
 import com.sayemshafayet.onereogamelauncher.data.prefs.MIN_PLAY_SLOTS
+import com.sayemshafayet.onereogamelauncher.ui.input.OrglFilterChip
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
 @Composable
@@ -66,7 +66,7 @@ fun PlaySlotsSettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             (MIN_PLAY_SLOTS..MAX_PLAY_SLOTS).forEach { count ->
-                FilterChip(
+                OrglFilterChip(
                     selected = ui.playSlotCount == count,
                     onClick = { viewModel.setPlaySlotCount(count) },
                     label = {
