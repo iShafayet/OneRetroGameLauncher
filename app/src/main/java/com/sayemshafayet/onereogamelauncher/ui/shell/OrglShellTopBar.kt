@@ -143,6 +143,14 @@ fun OrglShellTopBar(
         currentRoute == Routes.SETUP_SETTINGS_SYSTEM_INFO -> SimpleTopAppBar("System Info", onBack)
         currentRoute == Routes.SETUP_SETTINGS_CREDITS -> SimpleTopAppBar("Credits", onBack)
         currentRoute == Routes.SETUP_ABOUT -> SimpleTopAppBar("About ORGL", onBack)
+        currentRoute?.startsWith("setup/legal/") == true -> SimpleTopAppBar(
+            title = when {
+                currentRoute.endsWith("/privacy") -> "Privacy Policy"
+                currentRoute.endsWith("/terms") -> "Terms of Service"
+                else -> "Legal"
+            },
+            onBack = onBack,
+        )
         currentRoute == Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->
             val viewModel: ScrapeViewModel = hiltViewModel(entry)
             val wizard by viewModel.wizard.collectAsState()

@@ -63,6 +63,8 @@ import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayPickerScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlaySlotBar
 import com.sayemshafayet.onereogamelauncher.ui.setup.AboutScreen
+import com.sayemshafayet.onereogamelauncher.ui.legal.LegalDocumentScreen
+import com.sayemshafayet.onereogamelauncher.legal.LegalDocumentKind
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibrarySearchScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.CreditsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.EsdeSettingsScreen
@@ -436,6 +438,29 @@ fun ModeShell(
             composable(Routes.SETUP_ABOUT) {
                 AboutScreen(
                     onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
+                    onOpenPrivacy = {
+                        navController.navigate(Routes.setupLegalDocument("privacy"))
+                    },
+                    onOpenTerms = {
+                        navController.navigate(Routes.setupLegalDocument("terms"))
+                    },
+                )
+            }
+            composable(
+                route = Routes.SETUP_LEGAL_DOCUMENT,
+                arguments = listOf(
+                    navArgument("documentKind") { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val kind = entry.arguments?.getString("documentKind").orEmpty()
+                val document = when (kind) {
+                    "privacy" -> LegalDocumentKind.Privacy
+                    "terms" -> LegalDocumentKind.Terms
+                    else -> LegalDocumentKind.Privacy
+                }
+                LegalDocumentScreen(
+                    document = document,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETUP_SYSTEM) {

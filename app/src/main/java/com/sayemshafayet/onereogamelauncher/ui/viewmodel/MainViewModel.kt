@@ -8,6 +8,7 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
+import com.sayemshafayet.onereogamelauncher.legal.LegalDocuments
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.ui.util.SafFolderAccess
@@ -95,6 +96,13 @@ class MainViewModel @Inject constructor(
                     .onFailure { Log.w(TAG, "Failed to purge ES-DE media rows", it) }
                 settingsRepository.clearEsdeDataDir()
             }
+        }
+    }
+
+    fun acceptLegalDocuments(onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            settingsRepository.setLegalAcceptedVersion(LegalDocuments.VERSION)
+            onDone()
         }
     }
 

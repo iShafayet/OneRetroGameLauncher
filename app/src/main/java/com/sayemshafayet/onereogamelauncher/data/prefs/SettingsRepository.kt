@@ -76,6 +76,8 @@ data class AppSettings(
     val libraryShowWishlist: Boolean = true,
     /** Show Recent virtual system at the top of the library. */
     val libraryShowRecent: Boolean = true,
+    /** Latest Terms/Privacy version the user accepted (0 = never). */
+    val legalAcceptedVersion: Int = 0,
 )
 
 enum class GameListLayout { GRID, LIST }
@@ -157,6 +159,7 @@ class SettingsRepository @Inject constructor(
         val esdeDataDirPath = stringPreferencesKey("esde_data_dir_path")
         val appDataDirUri = stringPreferencesKey("app_data_dir_uri")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
+        val legalAcceptedVersion = intPreferencesKey("legal_accepted_version")
         val appMode = stringPreferencesKey("app_mode")
     }
 
@@ -187,6 +190,7 @@ class SettingsRepository @Inject constructor(
             preferredRetroArchPackage = backup[BackupKeys.raPackage].orEmpty(),
             hltbEnabled = backup[BackupKeys.hltbEnabled] ?: true,
             onboardingDone = device[DeviceKeys.onboardingDone] ?: false,
+            legalAcceptedVersion = device[DeviceKeys.legalAcceptedVersion] ?: 0,
             appMode = runCatching {
                 AppMode.valueOf(device[DeviceKeys.appMode] ?: AppMode.SETUP.name)
             }.getOrDefault(AppMode.SETUP),
@@ -292,6 +296,10 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setOnboardingDone(done: Boolean) {
         context.deviceDataStore.edit { it[DeviceKeys.onboardingDone] = done }
+    }
+
+    suspend fun setLegalAcceptedVersion(version: Int) {
+        context.deviceDataStore.edit { it[DeviceKeys.legalAcceptedVersion] = version }
     }
 
     suspend fun current(): AppSettings = settings.first()

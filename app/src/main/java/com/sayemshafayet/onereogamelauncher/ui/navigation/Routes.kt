@@ -5,11 +5,14 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.CommitmentEntity
 
 object Routes {
     const val ONBOARDING = "onboarding"
+    const val LEGAL = "legal"
+    const val LEGAL_DOCUMENT = "legal/{documentKind}"
     const val HOME = "home"
 
     const val SETUP_LIBRARY = "setup/library"
     const val SETUP_LIBRARY_SEARCH = "setup/library/search"
     const val SETUP_ABOUT = "setup/about"
+    const val SETUP_LEGAL_DOCUMENT = "setup/legal/{documentKind}"
     const val SETUP_SYSTEM = "setup/system/{systemId}"
     const val SETUP_SYSTEM_EMULATOR = "setup/system/{systemId}/emulator"
     const val SETUP_GAME = "setup/game/{gameId}"
@@ -38,6 +41,8 @@ object Routes {
     const val PLAY_COMPLETE = "play/complete/{slotIndex}"
 
     fun setupSystem(systemId: Long) = "setup/system/$systemId"
+    fun legalDocument(documentKind: String) = "legal/$documentKind"
+    fun setupLegalDocument(documentKind: String) = "setup/legal/$documentKind"
     fun setupSystemEmulator(systemId: Long) = "setup/system/$systemId/emulator"
     fun setupGame(gameId: Long) = "setup/game/$gameId"
     fun gameRetroAchievements(gameId: Long) = "setup/game/$gameId/retroachievements"

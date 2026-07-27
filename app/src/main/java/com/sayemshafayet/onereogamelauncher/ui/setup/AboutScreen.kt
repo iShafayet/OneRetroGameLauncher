@@ -51,6 +51,8 @@ private const val AuthorGithubUrl = "https://github.com/iShafayet"
 @Composable
 fun AboutScreen(
     onOpenCredits: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
 ) {
     val context = LocalContext.current
     val firstFocus = rememberOrlgFocusRequester()
@@ -174,6 +176,22 @@ fun AboutScreen(
                 title = "GitHub",
                 subtitle = "github.com/iShafayet",
                 onClick = { openUrl(AuthorGithubUrl) },
+            )
+        }
+
+        AboutSectionCard(title = "Legal") {
+            AboutLinkRow(
+                icon = Icons.Default.Language,
+                title = "Privacy Policy",
+                subtitle = "How ORGL handles your data",
+                onClick = onOpenPrivacy,
+            )
+            HorizontalDivider(Modifier.padding(horizontal = 12.dp))
+            AboutLinkRow(
+                icon = Icons.Default.Language,
+                title = "Terms of Service",
+                subtitle = "Rules for using ORGL",
+                onClick = onOpenTerms,
             )
         }
 
