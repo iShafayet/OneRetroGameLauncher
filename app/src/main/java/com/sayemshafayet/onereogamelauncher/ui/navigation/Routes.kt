@@ -32,7 +32,7 @@ object Routes {
     const val SETUP_SETTINGS_CREDITS = "setup/settings/credits"
     const val SETUP_HISTORY = "setup/history"
     const val SETUP_HISTORY_RUN = "setup/history/run/{commitmentId}"
-    const val SETUP_SCRAPE_WIZARD = "setup/scrape/wizard"
+    const val SETUP_SCRAPE_WIZARD = "setup/scrape/wizard?systemId={systemId}"
 
     const val PLAY_HOME = "play/home"
     const val PLAY_PICKER = "play/picker/{slotIndex}"
@@ -47,6 +47,12 @@ object Routes {
     fun setupGame(gameId: Long) = "setup/game/$gameId"
     fun gameRetroAchievements(gameId: Long) = "setup/game/$gameId/retroachievements"
     fun gameMedia(gameId: Long, mediaId: Long) = "setup/game/$gameId/media/$mediaId"
+    fun setupScrapeWizard(systemId: Long? = null): String =
+        if (systemId == null) {
+            "setup/scrape/wizard?systemId="
+        } else {
+            "setup/scrape/wizard?systemId=$systemId"
+        }
     fun playPicker(slotIndex: Int = 0) = "play/picker/$slotIndex"
     fun playFocus(slotIndex: Int = 0) = "play/focus/$slotIndex"
     fun playCommit(gameId: Long, slotIndex: Int = 0) = "play/commit/$gameId/$slotIndex"

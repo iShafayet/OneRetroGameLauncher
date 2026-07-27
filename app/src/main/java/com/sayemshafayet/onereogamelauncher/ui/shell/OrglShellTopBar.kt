@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,6 +102,14 @@ fun OrglShellTopBar(
                         ) {
                             Icon(Icons.Default.Settings, contentDescription = "Emulator settings")
                         }
+                        IconButton(
+                            onClick = {
+                                navController.navigate(Routes.setupScrapeWizard(viewModel.systemId))
+                            },
+                            modifier = Modifier.focusProperties { canFocus = false },
+                        ) {
+                            Icon(Icons.Default.ImageSearch, contentDescription = "Scrape media")
+                        }
                     }
                     IconButton(
                         onClick = viewModel::toggleLayout,
@@ -151,7 +160,7 @@ fun OrglShellTopBar(
             },
             onBack = onBack,
         )
-        currentRoute == Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->
+        currentRoute?.startsWith("setup/scrape/wizard") == true -> backStackEntry?.let { entry ->
             val viewModel: ScrapeViewModel = hiltViewModel(entry)
             val wizard by viewModel.wizard.collectAsState()
             val session by viewModel.session.collectAsState()

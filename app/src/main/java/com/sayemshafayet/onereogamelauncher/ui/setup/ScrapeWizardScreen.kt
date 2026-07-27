@@ -59,6 +59,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ScrapeWizardScreen(
     onBack: () -> Unit,
+    preselectedSystemId: Long? = null,
     viewModel: ScrapeViewModel = hiltViewModel(),
 ) {
     val wizard by viewModel.wizard.collectAsState()
@@ -80,8 +81,8 @@ fun ScrapeWizardScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (wizard.systems.isEmpty()) viewModel.prepareWizard()
+    LaunchedEffect(preselectedSystemId) {
+        if (wizard.systems.isEmpty()) viewModel.prepareWizard(preselectedSystemId)
     }
 
     Scaffold(
@@ -239,6 +240,12 @@ private fun OptionsStep(
         Text(
             "About ${wizard.estimatedGames} games will be queued",
             style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Artwork is fetched from libretro-thumbnails (box art, titles, screenshots). " +
+                "ScreenScraper is not used.",
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 

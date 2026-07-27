@@ -103,7 +103,7 @@ class ScrapeViewModel @Inject constructor(
         }
     }
 
-    fun prepareWizard() {
+    fun prepareWizard(preselectedSystemId: Long? = null) {
         viewModelScope.launch {
             _wizard.update { it.copy(loading = true, error = null, step = ScrapeWizardStep.SYSTEMS) }
             val systems = libraryRepository.systems.first()
@@ -111,12 +111,24 @@ class ScrapeViewModel @Inject constructor(
                 val count = gameDao.countForSystem(sys.id)
                 if (count <= 0) return@mapNotNull null
                 val scraped = gameDao.countScrapedForSystem(sys.id)
-                ScrapeSystemRow(sys, count, scraped, selected = true)
+                val selected = when (preselectedSystemId) {
+                    null -> true
+                    else -> sys.id == preselectedSystemId
+                }
+                ScrapeSystemRow(sys, count, scraped, selected = selected)
             }.sortedBy { it.system.displayName.lowercase() }
+            val step = if (
+                preselectedSystemId != null && rows.any { it.selected }
+            ) {
+                ScrapeWizardStep.OPTIONS
+            } else {
+                ScrapeWizardStep.SYSTEMS
+            }
             _wizard.update {
                 it.copy(
                     loading = false,
                     systems = rows,
+                    step = step,
                     estimatedGames = estimateSelected(rows, it.filter),
                 )
             }

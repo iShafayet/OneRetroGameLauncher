@@ -577,8 +577,23 @@ fun ModeShell(
                     onMissingData = { navController.popBackStack() },
                 )
             }
-            composable(Routes.SETUP_SCRAPE_WIZARD) {
-                ScrapeWizardScreen(onBack = { navController.popBackStack() })
+            composable(
+                route = Routes.SETUP_SCRAPE_WIZARD,
+                arguments = listOf(
+                    navArgument("systemId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val raw = entry.arguments?.getString("systemId")
+                val preselectedSystemId = raw?.toLongOrNull()
+                ScrapeWizardScreen(
+                    onBack = { navController.popBackStack() },
+                    preselectedSystemId = preselectedSystemId,
+                    viewModel = hiltViewModel(entry),
+                )
             }
 
             composable(

@@ -11,7 +11,6 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.domain.ScrapeProgress
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -29,7 +28,6 @@ class ArtworkScraper @Inject constructor(
     private val http: OkHttpClient,
     private val mediaDao: MediaDao,
     private val gameDao: GameDao,
-    private val screenScraperClient: ScreenScraperClient,
     private val libretroClient: LibretroThumbnailsClient,
 ) {
     companion object {
@@ -89,48 +87,8 @@ class ArtworkScraper @Inject constructor(
         settings: OrglSettings,
         orglDataDirPath: String?,
     ): Boolean {
-        val romFile = File(game.romPath)
-        val romName = romFile.name.takeIf { it.isNotBlank() } ?: game.fileName
-        val md5 = runCatching { md5Hex(romFile) }.getOrNull()
-
-        var saved = false
-        if (settings.screenScraperUser.isNotBlank()) {
-            val info = screenScraperClient.fetchGameInfo(
-                settings = settings,
-                romName = romName,
-                md5 = md5,
-            )
-            if (info != null) {
-                applyMetadata(game, info)
-                saved = saveScreenScraperMedia(game, systemFolder, orglDataDirPath, info.media) || saved
-            }
-        }
-
-        if (!saved) {
-            saved = saveLibretroFallback(game, systemFolder, orglDataDirPath) || saved
-        }
-        return saved
-    }
-
-    private suspend fun applyMetadata(game: GameEntity, info: ScreenScraperGameInfo) {
-        val latest = gameDao.getById(game.id) ?: game
-        val newDescription = latest.description?.takeIf { it.isNotBlank() }
-            ?: info.synopsis?.takeIf { it.isNotBlank() }
-        val newTitle = when {
-            latest.title.isNotBlank() &&
-                !latest.title.equals(latest.fileName.substringBeforeLast('.'), ignoreCase = true) ->
-                latest.title
-            !info.name.isNullOrBlank() -> info.name!!
-            else -> latest.title
-        }
-        if (newDescription != latest.description || newTitle != latest.title) {
-            gameDao.update(
-                latest.copy(
-                    title = newTitle,
-                    description = newDescription,
-                ),
-            )
-        }
+        // ScreenScraper is intentionally not attempted — libretro-thumbnails only for now.
+        return saveLibretroFallback(game, systemFolder, orglDataDirPath)
     }
 
     private suspend fun markScraped(gameId: Long) {
@@ -189,27 +147,6 @@ class ArtworkScraper @Inject constructor(
         return any
     }
 
-    private suspend fun saveScreenScraperMedia(
-        game: GameEntity,
-        systemFolder: String,
-        orglDataDirPath: String?,
-        media: List<ScreenScraperMedia>,
-    ): Boolean {
-        var any = false
-        for (item in media) {
-            val type = mapScreenScraperType(item.type)
-            if (type == MediaType.UNKNOWN) continue
-            val ext = item.url.substringAfterLast('.', "png").substringBefore('?')
-            val fileName = "${sanitizeFileName(game.title)}_${type.name.lowercase()}.$ext"
-            val dest = mediaDestDir(systemFolder, type, orglDataDirPath).resolve(fileName)
-            if (downloadTo(item.url, dest)) {
-                upsertMedia(game.id, type, dest.absolutePath, PROVIDER_SCREENSCRAPER)
-                any = true
-            }
-        }
-        return any
-    }
-
     private suspend fun upsertMedia(gameId: Long, type: MediaType, path: String, provider: String) {
         writeMutex.withLock {
             mediaDao.upsert(
@@ -246,20 +183,6 @@ class ArtworkScraper @Inject constructor(
         return File(context.filesDir, relative).apply { mkdirs() }
     }
 
-    private fun mapScreenScraperType(raw: String): MediaType {
-        val key = raw.lowercase()
-        return when {
-            "box" in key && "3d" in key -> MediaType.BOX_3D
-            "box" in key || "jaquette" in key -> MediaType.BOX_2D
-            "ss" in key || "snap" in key || "screen" in key -> MediaType.SCREENSHOT
-            "title" in key -> MediaType.TITLE
-            "wheel" in key || "marquee" in key || "logo" in key -> MediaType.MARQUEE
-            "video" in key -> MediaType.VIDEO
-            "fanart" in key -> MediaType.FANART
-            else -> MediaType.UNKNOWN
-        }
-    }
-
     private fun downloadTo(url: String, dest: File): Boolean =
         runCatching {
             dest.parentFile?.mkdirs()
@@ -277,18 +200,4 @@ class ArtworkScraper @Inject constructor(
 
     private fun sanitizeFileName(name: String): String =
         name.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
-
-    private fun md5Hex(file: File): String {
-        if (!file.isFile) error("Not a file")
-        val digest = MessageDigest.getInstance("MD5")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(8192)
-            while (true) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
 }
