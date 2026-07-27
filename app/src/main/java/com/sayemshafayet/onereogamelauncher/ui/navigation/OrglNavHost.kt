@@ -107,6 +107,11 @@ fun OrglNavHost(
             LegalDocumentScreen(
                 document = document,
                 onBack = { navController.popBackStack() },
+                onOpenLinkedDocument = { linked ->
+                    navController.navigate(Routes.legalDocument(linked.name.lowercase())) {
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable(Routes.ONBOARDING) {

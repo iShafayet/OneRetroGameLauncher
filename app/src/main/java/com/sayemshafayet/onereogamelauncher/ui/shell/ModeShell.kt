@@ -461,6 +461,11 @@ fun ModeShell(
                 LegalDocumentScreen(
                     document = document,
                     onBack = { navController.popBackStack() },
+                    onOpenLinkedDocument = { linked ->
+                        navController.navigate(Routes.setupLegalDocument(linked.name.lowercase())) {
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(Routes.SETUP_SYSTEM) {
