@@ -3,15 +3,18 @@ package com.sayemshafayet.onereogamelauncher.ui.play
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +56,7 @@ import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.util.formatActivityLabel
 import com.sayemshafayet.onereogamelauncher.ui.util.starsLabel
+import com.sayemshafayet.onereogamelauncher.play.PlayCompletionData
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayCompletionViewModel
 import java.io.File
 
@@ -102,180 +106,50 @@ fun PlayCompletionScreen(
         finished -> "You finished ${data.gameTitle}. Nice work — that's what Play mode is for."
         else -> "You dropped ${data.gameTitle}. No shame — every run teaches you something."
     }
+    val isWide = rememberIsWidePlayLayout()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                headline,
-                style = MaterialTheme.typography.headlineMedium.copy(fontFamily = BrandFont),
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            ) {
+    PlayWideContainer {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (isWide) {
+                PlayCompletionWideBody(
+                    headline = headline,
+                    subtitle = subtitle,
+                    data = data,
+                )
+            } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    data.collagePath?.let { collagePath ->
-                        RunCardPreview(
-                            path = collagePath,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1080f / 1350f),
-                        )
-                    } ?: run {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1080f / 1350f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                            ) {
-                                Text(
-                                    data.gameTitle,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    data.systemName,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            data.gameTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            data.systemName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                        Text(
-                            starsLabel(data.stars),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            formatActivityLabel(data.playtimeMs, data.sessionCount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        data.reviewExcerpt?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                "\"$it\"",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                saveMessage?.let {
                     Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (savedToGallery) {
-                            MaterialTheme.colorScheme.secondary
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        },
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
+                        headline,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFamily = BrandFont),
                     )
-                }
-                OutlinedButton(
-                    onClick = viewModel::saveToGallery,
-                    enabled = data.collagePath != null && !isSaving && !savedToGallery,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                ) {
-                    when {
-                        isSaving -> CircularProgressIndicator(
-                            modifier = Modifier.height(22.dp),
-                            strokeWidth = 2.dp,
-                        )
-                        savedToGallery -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Check, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Saved to gallery")
-                        }
-                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SaveAlt, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Save run card to gallery")
-                        }
-                    }
-                }
-                if (isHistoryView && onBack != null) {
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 52.dp)
-                            .focusRequester(backFocus),
-                    ) {
-                        Text("Back to history")
-                    }
-                } else if (onStartNewAdventure != null) {
-                    Button(
-                        onClick = {
-                            viewModel.clearCompletion()
-                            onStartNewAdventure()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 52.dp)
-                            .focusRequester(newAdventureFocus)
-                            .then(PulseModifier(true)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary,
-                        ),
-                    ) {
-                        Text("Start a new adventure")
-                    }
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    PlayCompletionRunCard(data = data)
                 }
             }
+
+            PlayCompletionFooter(
+                data = data,
+                saveMessage = saveMessage,
+                savedToGallery = savedToGallery,
+                isSaving = isSaving,
+                isHistoryView = isHistoryView,
+                onBack = onBack,
+                onStartNewAdventure = onStartNewAdventure,
+                newAdventureFocus = newAdventureFocus,
+                backFocus = backFocus,
+                onClearCompletion = viewModel::clearCompletion,
+                onSaveToGallery = viewModel::saveToGallery,
+            )
         }
     }
 
@@ -283,6 +157,251 @@ fun PlayCompletionScreen(
         if (isHistoryView) backFocus else newAdventureFocus,
         enabled = completion != null,
     )
+}
+
+@Composable
+private fun ColumnScope.PlayCompletionWideBody(
+    headline: String,
+    subtitle: String,
+    data: PlayCompletionData,
+) {
+    val compact = rememberIsCompactWidePlayLayout()
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .padding(
+                horizontal = if (compact) 12.dp else 24.dp,
+                vertical = if (compact) 8.dp else 16.dp,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(if (compact) 0.38f else 0.42f)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center,
+        ) {
+            PlayCompletionCollage(data = data, fillHeight = true, compact = compact)
+        }
+        Column(
+            modifier = Modifier
+                .weight(if (compact) 0.62f else 0.58f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
+        ) {
+            Text(
+                headline,
+                style = if (compact) {
+                    MaterialTheme.typography.headlineSmall.copy(fontFamily = BrandFont)
+                } else {
+                    MaterialTheme.typography.headlineMedium.copy(fontFamily = BrandFont)
+                },
+            )
+            Text(
+                subtitle,
+                style = if (compact) {
+                    MaterialTheme.typography.bodyMedium
+                } else {
+                    MaterialTheme.typography.bodyLarge
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PlayCompletionDetails(data = data)
+        }
+    }
+}
+
+@Composable
+private fun PlayCompletionRunCard(data: PlayCompletionData) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PlayCompletionCollage(data = data, fillHeight = false)
+            PlayCompletionDetails(data = data)
+        }
+    }
+}
+
+@Composable
+private fun PlayCompletionCollage(
+    data: PlayCompletionData,
+    fillHeight: Boolean,
+    compact: Boolean = false,
+) {
+    val collageModifier = if (fillHeight) {
+        Modifier
+            .fillMaxHeight(if (compact) 0.98f else 0.95f)
+            .aspectRatio(1080f / 1350f)
+            .widthIn(max = if (compact) 260.dp else 360.dp)
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(1080f / 1350f)
+    }
+    data.collagePath?.let { collagePath ->
+        RunCardPreview(path = collagePath, modifier = collageModifier)
+    } ?: run {
+        Surface(
+            modifier = collageModifier,
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    data.gameTitle,
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    data.systemName,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayCompletionDetails(data: PlayCompletionData) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            data.gameTitle,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            data.systemName,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        Text(
+            starsLabel(data.stars),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            formatActivityLabel(data.playtimeMs, data.sessionCount),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        data.reviewExcerpt?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "\"$it\"",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayCompletionFooter(
+    data: PlayCompletionData,
+    saveMessage: String?,
+    savedToGallery: Boolean,
+    isSaving: Boolean,
+    isHistoryView: Boolean,
+    onBack: (() -> Unit)?,
+    onStartNewAdventure: (() -> Unit)?,
+    newAdventureFocus: androidx.compose.ui.focus.FocusRequester,
+    backFocus: androidx.compose.ui.focus.FocusRequester,
+    onClearCompletion: () -> Unit,
+    onSaveToGallery: () -> Unit,
+) {
+    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            saveMessage?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (savedToGallery) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            OutlinedButton(
+                onClick = onSaveToGallery,
+                enabled = data.collagePath != null && !isSaving && !savedToGallery,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+            ) {
+                when {
+                    isSaving -> CircularProgressIndicator(
+                        modifier = Modifier.height(22.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    savedToGallery -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Saved to gallery")
+                    }
+                    else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.SaveAlt, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Save run card to gallery")
+                    }
+                }
+            }
+            if (isHistoryView && onBack != null) {
+                Button(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp)
+                        .focusRequester(backFocus),
+                ) {
+                    Text("Back to history")
+                }
+            } else if (onStartNewAdventure != null) {
+                Button(
+                    onClick = {
+                        onClearCompletion()
+                        onStartNewAdventure()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp)
+                        .focusRequester(newAdventureFocus)
+                        .then(PulseModifier(true)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                    ),
+                ) {
+                    Text("Start a new adventure")
+                }
+            }
+        }
+    }
 }
 
 @Composable

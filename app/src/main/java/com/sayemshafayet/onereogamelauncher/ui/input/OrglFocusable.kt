@@ -139,6 +139,7 @@ fun Modifier.orlgFocusable(
     onClick: () -> Unit,
     enabled: Boolean = true,
     showFocusRing: Boolean = true,
+    gamepadXActivates: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
 ): Modifier = composed {
     val source = interactionSource ?: remember { MutableInteractionSource() }
@@ -147,11 +148,17 @@ fun Modifier.orlgFocusable(
     clip(shape)
         .focusable(enabled = enabled, interactionSource = source)
         .onKeyEvent { event ->
-            if (enabled && GamepadKeys.isActivate(event)) {
-                onClick()
-                true
-            } else {
-                false
+            when {
+                !enabled -> false
+                gamepadXActivates && GamepadKeys.isButtonX(event) -> {
+                    onClick()
+                    true
+                }
+                GamepadKeys.isActivate(event) -> {
+                    onClick()
+                    true
+                }
+                else -> false
             }
         }
         .clickable(

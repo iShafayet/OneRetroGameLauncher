@@ -303,10 +303,31 @@ fun ModeShell(
             }
             true
         }
-        ShellHardwareKeys.handler = handler
+        ShellHardwareKeys.shoulderHandler = handler
         onDispose {
-            if (ShellHardwareKeys.handler === handler) {
-                ShellHardwareKeys.handler = null
+            if (ShellHardwareKeys.shoulderHandler === handler) {
+                ShellHardwareKeys.shoulderHandler = null
+            }
+        }
+    }
+
+    DisposableEffect(canLibrarySearch) {
+        if (!canLibrarySearch) {
+            onDispose { }
+            return@DisposableEffect onDispose { }
+        }
+        val registered: (AndroidKeyEvent) -> Boolean = { event ->
+            if (event.action == AndroidKeyEvent.ACTION_UP) {
+                navController.navigate(Routes.SETUP_LIBRARY_SEARCH)
+                true
+            } else {
+                false
+            }
+        }
+        ShellHardwareKeys.defaultButtonXHandler = registered
+        onDispose {
+            if (ShellHardwareKeys.defaultButtonXHandler === registered) {
+                ShellHardwareKeys.defaultButtonXHandler = null
             }
         }
     }
@@ -316,12 +337,6 @@ fun ModeShell(
             when {
                 GamepadKeys.isModeToggle(event) -> {
                     if (canDoublePressExit) onDoublePressModeSwitch()
-                    true
-                }
-                GamepadKeys.isButtonX(event) -> {
-                    if (canLibrarySearch) {
-                        navController.navigate(Routes.SETUP_LIBRARY_SEARCH)
-                    }
                     true
                 }
                 GamepadKeys.isGamepadBack(event) || GamepadKeys.isSystemBack(event) -> {

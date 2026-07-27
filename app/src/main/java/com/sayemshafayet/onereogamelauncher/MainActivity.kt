@@ -44,9 +44,10 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (ShellHardwareKeys.isShoulderKey(event.keyCode)) {
-            val handled = ShellHardwareKeys.handler?.invoke(event) == true
+            val handled = ShellHardwareKeys.shoulderHandler?.invoke(event) == true
             if (handled) return true
         }
+        if (ShellHardwareKeys.dispatchButtonX(event)) return true
         return super.dispatchKeyEvent(event)
     }
 }
