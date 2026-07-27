@@ -98,12 +98,14 @@ fun OrglBottomNavStrip(
     labels: List<String>,
     selectedIndex: Int,
     modifier: Modifier = Modifier,
+    iconsOnly: Boolean = false,
     icons: @Composable (index: Int, selected: Boolean) -> Unit,
     onTabClick: (Int) -> Unit,
 ) {
     val selectedColor = SelectionIndicator
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
     val showHints = rememberShowGamepadHints()
+    val barHeight = if (iconsOnly) 48.dp else 72.dp
     Surface(
         modifier
             .fillMaxWidth()
@@ -114,8 +116,11 @@ fun OrglBottomNavStrip(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height(72.dp)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .height(barHeight)
+                    .padding(
+                        horizontal = if (iconsOnly) 4.dp else 6.dp,
+                        vertical = if (iconsOnly) 2.dp else 4.dp,
+                    )
                     .focusProperties { canFocus = false },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -129,25 +134,27 @@ fun OrglBottomNavStrip(
                             .weight(1f)
                             .focusProperties { canFocus = false }
                             .clickable(onClick = { onTabClick(index) })
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = if (iconsOnly) 4.dp else 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.focusProperties { canFocus = false }) {
                             icons(index, selected)
                         }
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                unselected
-                            },
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .focusProperties { canFocus = false },
-                        )
+                        if (!iconsOnly) {
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    unselected
+                                },
+                                modifier = Modifier
+                                    .padding(top = 4.dp)
+                                    .focusProperties { canFocus = false },
+                            )
+                        }
                     }
                 }
                 if (showHints) {

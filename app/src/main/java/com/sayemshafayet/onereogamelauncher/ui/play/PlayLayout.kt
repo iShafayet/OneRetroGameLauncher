@@ -12,19 +12,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.ui.util.rememberPhysicalLandscapeAspectRatio
 
 /**
- * Landscape with aspect ratio at least 16:9 — phone landscape, tablet, TV.
+ * Landscape with physical panel aspect at least 16:9 — phone landscape, tablet, TV.
  * Two-pane layouts must be height-safe (size art by height, scroll panes).
  */
 fun isWidePlayLayout(
     orientation: Int,
-    screenWidthDp: Int,
-    screenHeightDp: Int,
+    landscapeAspectRatio: Float,
 ): Boolean {
     if (orientation != Configuration.ORIENTATION_LANDSCAPE) return false
-    val ratio = screenWidthDp.toFloat() / screenHeightDp.coerceAtLeast(1).toFloat()
-    return ratio >= 16f / 9f
+    return landscapeAspectRatio >= 16f / 9f
 }
 
 /** Short widescreen (typical phone landscape) — denser two-pane spacing. */
@@ -33,15 +32,11 @@ fun isCompactWidePlayLayout(screenHeightDp: Int): Boolean = screenHeightDp < 500
 @Composable
 fun rememberIsWidePlayLayout(): Boolean {
     val configuration = LocalConfiguration.current
-    return remember(
-        configuration.orientation,
-        configuration.screenWidthDp,
-        configuration.screenHeightDp,
-    ) {
+    val landscapeAspectRatio = rememberPhysicalLandscapeAspectRatio()
+    return remember(configuration.orientation, landscapeAspectRatio) {
         isWidePlayLayout(
             orientation = configuration.orientation,
-            screenWidthDp = configuration.screenWidthDp,
-            screenHeightDp = configuration.screenHeightDp,
+            landscapeAspectRatio = landscapeAspectRatio,
         )
     }
 }

@@ -43,6 +43,7 @@ fun SettingsScreen(
     onOpenRetroArch: () -> Unit,
     onOpenPlaySlots: () -> Unit,
     onOpenDatabase: () -> Unit,
+    onOpenSystemInfo: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenCredits: () -> Unit,
     onStartScan: () -> Unit,
@@ -188,6 +189,11 @@ fun SettingsScreen(
                 "ORGL directory not set"
             },
             modifier = Modifier.orlgFocusable(onOpenDatabase),
+        )
+        SettingsNavRow(
+            title = "System Info",
+            subtitle = "Display, device, and layout breakpoints",
+            modifier = Modifier.orlgFocusable(onOpenSystemInfo),
         )
 
         Spacer(Modifier.height(20.dp))

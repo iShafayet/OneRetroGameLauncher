@@ -83,20 +83,18 @@ enum class GameListLayout { GRID, LIST }
 /**
  * Effective Library systems layout.
  * Portrait always uses list. Otherwise: saved preference, or if unset —
- * list when width/height &lt; 15:9, else grid.
+ * list when physical landscape aspect &lt; 15:9, else grid.
  */
 fun resolveLibrarySystemsLayout(
     preference: GameListLayout?,
     orientation: Int,
-    screenWidthDp: Int,
-    screenHeightDp: Int,
+    landscapeAspectRatio: Float,
 ): GameListLayout {
     if (orientation == Configuration.ORIENTATION_PORTRAIT) {
         return GameListLayout.LIST
     }
     if (preference != null) return preference
-    val ratio = screenWidthDp.toFloat() / screenHeightDp.coerceAtLeast(1).toFloat()
-    return if (ratio < 15f / 9f) {
+    return if (landscapeAspectRatio < 15f / 9f) {
         GameListLayout.LIST
     } else {
         GameListLayout.GRID

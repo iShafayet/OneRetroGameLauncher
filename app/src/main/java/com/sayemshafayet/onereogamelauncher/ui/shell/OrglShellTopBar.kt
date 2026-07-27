@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -49,6 +49,7 @@ import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MediaViewerViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeViewModel
+import com.sayemshafayet.onereogamelauncher.ui.util.rememberPhysicalLandscapeAspectRatio
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.ScrapeWizardStep
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SystemGamesViewModel
 
@@ -106,7 +107,7 @@ fun OrglShellTopBar(
                         modifier = Modifier.focusProperties { canFocus = false },
                     ) {
                         if (layout == GameListLayout.GRID) {
-                            Icon(Icons.Default.ViewList, contentDescription = "List view")
+                            Icon(Icons.AutoMirrored.Filled.ViewList, contentDescription = "List view")
                         } else {
                             Icon(Icons.Default.GridView, contentDescription = "Grid view")
                         }
@@ -139,6 +140,7 @@ fun OrglShellTopBar(
         currentRoute == Routes.SETUP_SETTINGS_RETROARCH -> SimpleTopAppBar("RetroArch", onBack)
         currentRoute == Routes.SETUP_SETTINGS_PLAY_SLOTS -> SimpleTopAppBar("Now Playing Slots", onBack)
         currentRoute == Routes.SETUP_SETTINGS_DATABASE -> SimpleTopAppBar("Database", onBack)
+        currentRoute == Routes.SETUP_SETTINGS_SYSTEM_INFO -> SimpleTopAppBar("System Info", onBack)
         currentRoute == Routes.SETUP_SETTINGS_CREDITS -> SimpleTopAppBar("Credits", onBack)
         currentRoute == Routes.SETUP_ABOUT -> SimpleTopAppBar("About ORGL", onBack)
         currentRoute == Routes.SETUP_SCRAPE_WIZARD -> backStackEntry?.let { entry ->
@@ -188,6 +190,7 @@ private fun HubTopAppBar(
     val showHints = rememberShowGamepadHints()
     val showLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
     val configuration = LocalConfiguration.current
+    val landscapeAspectRatio = rememberPhysicalLandscapeAspectRatio()
     val isPortraitOrientation =
         configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val widthToHeightRatio =
@@ -236,15 +239,14 @@ private fun HubTopAppBar(
                     val systemsLayout = resolveLibrarySystemsLayout(
                         preference = systemsLayoutPreference,
                         orientation = configuration.orientation,
-                        screenWidthDp = configuration.screenWidthDp,
-                        screenHeightDp = configuration.screenHeightDp,
+                        landscapeAspectRatio = landscapeAspectRatio,
                     )
                     FilledTonalIconButton(
                         onClick = { libraryViewModel.toggleSystemsLayout(systemsLayout) },
                         modifier = Modifier.focusProperties { canFocus = false },
                     ) {
                         if (systemsLayout == GameListLayout.GRID) {
-                            Icon(Icons.Default.ViewList, contentDescription = "List view")
+                            Icon(Icons.AutoMirrored.Filled.ViewList, contentDescription = "List view")
                         } else {
                             Icon(Icons.Default.GridView, contentDescription = "Grid view")
                         }

@@ -74,6 +74,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.HltbSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryFoldersScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScanScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.LibraryScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.rememberIsLibraryWideLandscape
 import com.sayemshafayet.onereogamelauncher.ui.setup.PlaySlotsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroAchievementsSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.RetroArchSettingsScreen
@@ -83,6 +84,7 @@ import com.sayemshafayet.onereogamelauncher.ui.setup.DatabaseSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemEmulatorSettingsScreen
 import com.sayemshafayet.onereogamelauncher.ui.setup.SystemGamesScreen
+import com.sayemshafayet.onereogamelauncher.ui.setup.SystemInfoScreen
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.MainViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -199,6 +201,7 @@ fun ModeShell(
     )
 
     val setupTabSelectedIndex = setupTabIndex(currentRoute)
+    val libraryWideLandscape = rememberIsLibraryWideLandscape()
     val canLibrarySearch = !isPlay && currentRoute == Routes.SETUP_LIBRARY
     val shellView = LocalView.current
     val shellKeyboard = LocalSoftwareKeyboardController.current
@@ -398,6 +401,7 @@ fun ModeShell(
                 OrglBottomNavStrip(
                     labels = listOf("Library", "History", "Settings"),
                     selectedIndex = setupTabSelectedIndex,
+                    iconsOnly = libraryWideLandscape,
                     icons = { index, selected ->
                         val tint = if (selected) {
                             SelectionIndicator
@@ -482,6 +486,9 @@ fun ModeShell(
                     onOpenRetroArch = { navController.navigate(Routes.SETUP_SETTINGS_RETROARCH) },
                     onOpenPlaySlots = { navController.navigate(Routes.SETUP_SETTINGS_PLAY_SLOTS) },
                     onOpenDatabase = { navController.navigate(Routes.SETUP_SETTINGS_DATABASE) },
+                    onOpenSystemInfo = {
+                        navController.navigate(Routes.SETUP_SETTINGS_SYSTEM_INFO)
+                    },
                     onOpenAbout = { navController.navigate(Routes.SETUP_ABOUT) },
                     onOpenCredits = { navController.navigate(Routes.SETUP_SETTINGS_CREDITS) },
                     onStartScan = { navController.navigate(Routes.SETUP_LIBRARY_SCAN) },
@@ -522,6 +529,9 @@ fun ModeShell(
             }
             composable(Routes.SETUP_SETTINGS_DATABASE) {
                 DatabaseSettingsScreen()
+            }
+            composable(Routes.SETUP_SETTINGS_SYSTEM_INFO) {
+                SystemInfoScreen()
             }
             composable(Routes.SETUP_SETTINGS_CREDITS) {
                 CreditsScreen(onBack = { navController.popBackStack() })
