@@ -47,6 +47,7 @@ Thumbs.db
 *.jks
 *.keystore
 !debug.keystore
+keystore.properties
 
 # Local tooling / scratch (PRD, JDK, ref apps, etc.)
 .local/

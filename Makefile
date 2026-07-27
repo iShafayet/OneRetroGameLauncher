@@ -15,8 +15,10 @@ FLAVOR        ?= fdroid
 # Capitalize first letter for Gradle task names (fdroid -> Fdroid, play -> Play)
 FLAVOR_CAP    := $(shell printf '%s' "$(FLAVOR)" | sed 's/^./\U&/')
 APK_DEBUG     := app/build/outputs/apk/$(FLAVOR)/debug/app-$(FLAVOR)-debug.apk
+AAB_RELEASE   := app/build/outputs/bundle/$(FLAVOR)Release/app-$(FLAVOR)-release.aab
 VERSION_NAME  := $(shell grep '^VERSION_MAJOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_MINOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_PATCH=' version.properties | cut -d= -f2)-$(shell grep '^VERSION_PRERELEASE=' version.properties | cut -d= -f2)+$(shell grep '^VERSION_BUILD=' version.properties | cut -d= -f2)
 LOCAL_APK     := .local/apk/orgl-$(FLAVOR)-debug-$(VERSION_NAME).apk
+LOCAL_AAB     := .local/bundle/orgl-$(FLAVOR)-release-$(VERSION_NAME).aab
 
 ANDROID_HOME  ?= $(HOME)/Android/Sdk
 ADB           := $(ANDROID_HOME)/platform-tools/adb
@@ -35,7 +37,7 @@ export ANDROID_HOME
 
 GRADLEW := ./gradlew
 
-.PHONY: help build assemble release test build-play build-fdroid bump \
+.PHONY: help build assemble release bundle bundle-play test build-play build-fdroid bump \
 	install uninstall reinstall \
 	emulator emulator-list devices wait-device run launch run-play run-fdroid logcat \
 	clean deep-clean doctor compile
@@ -81,8 +83,23 @@ build-play: ## Build Google Play debug APK
 bump: ## Increment VERSION_BUILD in version.properties (versionCode / +build)
 	$(GRADLEW) :app:bumpVersion
 
-release: ## Build release APK for FLAVOR (unsigned unless signing is configured)
+release: ## Build release APK for FLAVOR (signed if keystore.properties exists)
+	@test -f keystore.properties || { \
+		echo "Missing keystore.properties — copy keystore.properties.example and create your upload key."; \
+		exit 1; \
+	}
 	$(GRADLEW) assemble$(FLAVOR_CAP)Release
+
+bundle: ## Build signed release AAB for FLAVOR (Play Console upload)
+	@test -f keystore.properties || { \
+		echo "Missing keystore.properties — copy keystore.properties.example and create your upload key."; \
+		exit 1; \
+	}
+	$(GRADLEW) bundle$(FLAVOR_CAP)Release
+	@echo "Local copy: $(LOCAL_AAB)"
+
+bundle-play: ## Build signed Play release AAB (what Google Play expects)
+	$(MAKE) bundle FLAVOR=play
 
 install: build ## Build and install debug APK (FLAVOR) on a connected device/emulator
 	$(ADB) install -r "$(APK_DEBUG)"

@@ -57,6 +57,19 @@ fun storeFlavorFromAssembleTask(taskName: String): String? = when {
 val orglVersion = orglVersionName()
 val orglVersionCodeValue = orglVersionCode()
 
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigning =
+    keystorePropertiesFile.exists() &&
+        keystoreProperties.getProperty("storeFile") != null &&
+        keystoreProperties.getProperty("storePassword") != null &&
+        keystoreProperties.getProperty("keyAlias") != null &&
+        keystoreProperties.getProperty("keyPassword") != null
+
 android {
     namespace = "com.sayemshafayet.onereogamelauncher"
     compileSdk = 36
@@ -81,6 +94,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile")!!)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -88,6 +112,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -177,6 +204,32 @@ tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configur
             logger.lifecycle("Copied APK to ${dest.relativeTo(rootProject.projectDir)}")
         } else {
             logger.warn("Expected APK missing: $apk")
+        }
+    }
+}
+
+tasks.matching { it.name.matches(Regex("bundle(Fdroid|Play)Release")) }.configureEach {
+    doLast {
+        val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
+        val version = orglVersionName()
+        val aab = layout.buildDirectory
+            .file("outputs/bundle/${flavor}Release/app-$flavor-release.aab")
+            .get()
+            .asFile
+        if (aab.exists()) {
+            val destDir = rootProject.file(".local/bundle")
+            destDir.mkdirs()
+            val dest = destDir.resolve("orgl-$flavor-release-$version.aab")
+            aab.copyTo(dest, overwrite = true)
+            logger.lifecycle("Copied AAB to ${dest.relativeTo(rootProject.projectDir)}")
+            if (!hasReleaseSigning) {
+                logger.warn(
+                    "Release signing is not configured (keystore.properties missing). " +
+                        "This AAB is unsigned and will be rejected by Play Console.",
+                )
+            }
+        } else {
+            logger.warn("Expected AAB missing: $aab")
         }
     }
 }
