@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
-import com.sayemshafayet.onereogamelauncher.BuildConfig
+import com.sayemshafayet.onereogamelauncher.ui.util.orglDisplayVersionName
 import com.sayemshafayet.onereogamelauncher.data.prefs.GameListLayout
 import com.sayemshafayet.onereogamelauncher.data.prefs.resolveLibrarySystemsLayout
 import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintBadge
@@ -201,32 +201,21 @@ private fun HubTopAppBar(
     val landscapeAspectRatio = rememberPhysicalLandscapeAspectRatio()
     val isPortraitOrientation =
         configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-    val widthToHeightRatio =
-        configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.coerceAtLeast(1).toFloat()
-    val stackVersionUnderTitle = isPortraitOrientation && widthToHeightRatio < 1f
     val showLibrarySystemsLayoutToggle = showLibrarySearch && !isPortraitOrientation
     val versionStyle = MaterialTheme.typography.labelSmall.let { base ->
         base.copy(fontSize = (base.fontSize.value - 2f).sp)
     }
+    val displayVersion = orglDisplayVersionName()
 
     TopAppBar(
         title = {
             if (isPlay) {
                 Text("Play")
-            } else if (stackVersionUnderTitle) {
+            } else {
                 Column {
                     Text("ORGL")
                     Text(
-                        text = BuildConfig.VERSION_NAME,
-                        style = versionStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("ORGL")
-                    Text(
-                        text = " ${BuildConfig.VERSION_NAME}",
+                        text = displayVersion,
                         style = versionStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

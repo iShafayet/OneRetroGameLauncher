@@ -1,6 +1,11 @@
 package com.sayemshafayet.onereogamelauncher.ui.util
 
+import com.sayemshafayet.onereogamelauncher.BuildConfig
 import java.util.concurrent.TimeUnit
+
+/** User-facing semver without the +build suffix (e.g. `0.3.1-alpha`). */
+fun orglDisplayVersionName(versionName: String = BuildConfig.VERSION_NAME): String =
+    versionName.substringBefore('+')
 
 fun formatDurationMs(ms: Long): String {
     if (ms <= 0) return "0m"
