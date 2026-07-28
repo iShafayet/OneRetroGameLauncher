@@ -49,7 +49,7 @@ fun bumpOrglBuildVersion() {
 }
 
 fun storeFlavorFromAssembleTask(taskName: String): String? = when {
-    taskName.contains("Fdroid", ignoreCase = true) -> "fdroid"
+    taskName.contains("Foss", ignoreCase = true) -> "foss"
     taskName.contains("Play", ignoreCase = true) -> "play"
     else -> null
 }
@@ -57,18 +57,25 @@ fun storeFlavorFromAssembleTask(taskName: String): String? = when {
 val orglVersion = orglVersionName()
 val orglVersionCodeValue = orglVersionCode()
 
-val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties().apply {
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.inputStream().use { load(it) }
+fun loadKeystoreProperties(fileName: String): Properties? {
+    val file = rootProject.file(fileName)
+    if (!file.exists()) return null
+    val props = Properties().apply {
+        file.inputStream().use { load(it) }
     }
+    val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    return if (required.all { props.getProperty(it) != null }) props else null
 }
-val hasReleaseSigning =
-    keystorePropertiesFile.exists() &&
-        keystoreProperties.getProperty("storeFile") != null &&
-        keystoreProperties.getProperty("storePassword") != null &&
-        keystoreProperties.getProperty("keyAlias") != null &&
-        keystoreProperties.getProperty("keyPassword") != null
+
+
+val playKeystoreProperties = loadKeystoreProperties("keystore-play.properties")
+val fossKeystoreProperties = loadKeystoreProperties("keystore-foss.properties")
+
+fun hasSigningForFlavor(flavor: String): Boolean = when (flavor) {
+    "foss" -> fossKeystoreProperties != null
+    "play" -> playKeystoreProperties != null
+    else -> false
+}
 
 android {
     namespace = "com.sayemshafayet.onereogamelauncher"
@@ -84,23 +91,40 @@ android {
     }
 
     flavorDimensions += "store"
-    productFlavors {
-        create("fdroid") {
-            dimension = "store"
-            isDefault = true
+
+    signingConfigs {
+        playKeystoreProperties?.let { props ->
+            create("playRelease") {
+                storeFile = rootProject.file(props.getProperty("storeFile")!!)
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
         }
-        create("play") {
-            dimension = "store"
+        fossKeystoreProperties?.let { props ->
+            create("fossRelease") {
+                storeFile = rootProject.file(props.getProperty("storeFile")!!)
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
         }
     }
 
-    signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile")!!)
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+    productFlavors {
+        create("foss") {
+            dimension = "store"
+            isDefault = true
+            applicationId = "com.sayemshafayet.orglfoss"
+            if (fossKeystoreProperties != null) {
+                signingConfig = signingConfigs.getByName("fossRelease")
+            }
+        }
+        create("play") {
+            dimension = "store"
+            applicationId = "com.sayemshafayet.onereogamelauncher"
+            if (playKeystoreProperties != null) {
+                signingConfig = signingConfigs.getByName("playRelease")
             }
         }
     }
@@ -112,9 +136,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            }
         }
     }
 
@@ -191,7 +212,7 @@ tasks.register("bumpVersion") {
     }
 }
 
-tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configureEach {
+tasks.matching { it.name.matches(Regex("assemble(Foss|Play)Debug")) }.configureEach {
     doLast {
         val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
         val version = orglVersionName()
@@ -208,7 +229,31 @@ tasks.matching { it.name.matches(Regex("assemble(Fdroid|Play)Debug")) }.configur
     }
 }
 
-tasks.matching { it.name.matches(Regex("bundle(Fdroid|Play)Release")) }.configureEach {
+tasks.matching { it.name.matches(Regex("assemble(Foss|Play)Release")) }.configureEach {
+    doLast {
+        val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
+        val version = orglVersionName()
+        val apk = layout.buildDirectory.file("outputs/apk/$flavor/release/app-$flavor-release.apk").get().asFile
+        if (apk.exists()) {
+            val destDir = rootProject.file(".local/apk")
+            destDir.mkdirs()
+            val dest = destDir.resolve("orgl-$flavor-release-$version.apk")
+            apk.copyTo(dest, overwrite = true)
+            logger.lifecycle("Copied APK to ${dest.relativeTo(rootProject.projectDir)}")
+            if (!hasSigningForFlavor(flavor)) {
+                val propsFile = if (flavor == "foss") "keystore-foss.properties" else "keystore-play.properties"
+                logger.warn(
+                    "Release signing is not configured ($propsFile missing). " +
+                        "This APK is unsigned and should not be published.",
+                )
+            }
+        } else {
+            logger.warn("Expected APK missing: $apk")
+        }
+    }
+}
+
+tasks.matching { it.name.matches(Regex("bundle(Foss|Play)Release")) }.configureEach {
     doLast {
         val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
         val version = orglVersionName()
@@ -222,9 +267,10 @@ tasks.matching { it.name.matches(Regex("bundle(Fdroid|Play)Release")) }.configur
             val dest = destDir.resolve("orgl-$flavor-release-$version.aab")
             aab.copyTo(dest, overwrite = true)
             logger.lifecycle("Copied AAB to ${dest.relativeTo(rootProject.projectDir)}")
-            if (!hasReleaseSigning) {
+            if (!hasSigningForFlavor(flavor)) {
+                val propsFile = if (flavor == "foss") "keystore-foss.properties" else "keystore-play.properties"
                 logger.warn(
-                    "Release signing is not configured (keystore.properties missing). " +
+                    "Release signing is not configured ($propsFile missing). " +
                         "This AAB is unsigned and will be rejected by Play Console.",
                 )
             }

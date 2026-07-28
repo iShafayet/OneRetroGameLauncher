@@ -3,22 +3,27 @@
 # Usage: make <target>
 # Run `make help` (or plain `make`) for the full list.
 #
-# Store flavors: FLAVOR=fdroid (default) or FLAVOR=play
+# Store flavors: FLAVOR=foss (default) or FLAVOR=play
 
 .DEFAULT_GOAL := help
 
-APP_ID        := com.sayemshafayet.onereogamelauncher
+APP_ID        := $(if $(filter play,$(FLAVOR)),com.sayemshafayet.onereogamelauncher,com.sayemshafayet.orglfoss)
 MAIN_ACTIVITY := $(APP_ID)/.MainActivity
 AVD           ?= Medium_Phone_API_36.1
-FLAVOR        ?= fdroid
+FLAVOR        ?= foss
 
-# Capitalize first letter for Gradle task names (fdroid -> Fdroid, play -> Play)
+# Capitalize first letter for Gradle task names (foss -> Foss, play -> Play)
 FLAVOR_CAP    := $(shell printf '%s' "$(FLAVOR)" | sed 's/^./\U&/')
 APK_DEBUG     := app/build/outputs/apk/$(FLAVOR)/debug/app-$(FLAVOR)-debug.apk
+APK_RELEASE   := app/build/outputs/apk/$(FLAVOR)/release/app-$(FLAVOR)-release.apk
 AAB_RELEASE   := app/build/outputs/bundle/$(FLAVOR)Release/app-$(FLAVOR)-release.aab
 VERSION_NAME  := $(shell grep '^VERSION_MAJOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_MINOR=' version.properties | cut -d= -f2).$(shell grep '^VERSION_PATCH=' version.properties | cut -d= -f2)-$(shell grep '^VERSION_PRERELEASE=' version.properties | cut -d= -f2)+$(shell grep '^VERSION_BUILD=' version.properties | cut -d= -f2)
 LOCAL_APK     := .local/apk/orgl-$(FLAVOR)-debug-$(VERSION_NAME).apk
+LOCAL_RELEASE_APK := .local/apk/orgl-$(FLAVOR)-release-$(VERSION_NAME).apk
 LOCAL_AAB     := .local/bundle/orgl-$(FLAVOR)-release-$(VERSION_NAME).aab
+LOCAL_SHA256  := .local/apk/orgl-$(FLAVOR)-release-$(VERSION_NAME).sha256
+BUILD_TOOLS_DIR := $(lastword $(sort $(wildcard $(ANDROID_HOME)/build-tools/*)))
+APKSIGNER     := $(BUILD_TOOLS_DIR)/apksigner
 
 ANDROID_HOME  ?= $(HOME)/Android/Sdk
 ADB           := $(ANDROID_HOME)/platform-tools/adb
@@ -37,10 +42,11 @@ export ANDROID_HOME
 
 GRADLEW := ./gradlew
 
-.PHONY: help build assemble release bundle bundle-play test build-play build-fdroid bump \
+.PHONY: help build assemble release release-foss release-play bundle bundle-foss bundle-play checksum checksum-foss checksum-play cert cert-foss cert-play verify verify-foss verify-play test build-play build-foss build-fdroid bump \
 	install uninstall reinstall \
-	emulator emulator-list devices wait-device run launch run-play run-fdroid logcat \
-	clean deep-clean doctor compile
+	emulator emulator-list devices wait-device run launch run-play run-foss run-fdroid logcat \
+	clean deep-clean doctor compile \
+	_release _bundle _checksum _cert _verify
 
 help: ## Show this help
 	@echo "One Retro Game Launcher — make targets"
@@ -68,14 +74,17 @@ doctor: ## Check JDK, SDK, adb, and listed AVDs
 compile: ## Compile Kotlin (debug) for FLAVOR
 	$(GRADLEW) :app:compile$(FLAVOR_CAP)DebugKotlin
 
-build: ## Build debug APK for FLAVOR (default: fdroid); copies/overwrites .local/apk
+build: ## Build debug APK for FLAVOR (default: foss); copies/overwrites .local/apk
 	$(GRADLEW) assemble$(FLAVOR_CAP)Debug
 	@echo "Local copy: $(LOCAL_APK)"
 
 assemble: build ## Alias for build
 
-build-fdroid: ## Build FOSS / F-Droid debug APK
-	$(MAKE) build FLAVOR=fdroid
+build-foss: ## Build FOSS debug APK
+	$(MAKE) build FLAVOR=foss
+
+build-fdroid: ## Legacy alias for the FOSS debug APK
+	$(MAKE) build FLAVOR=foss
 
 build-play: ## Build Google Play debug APK
 	$(MAKE) build FLAVOR=play
@@ -83,23 +92,87 @@ build-play: ## Build Google Play debug APK
 bump: ## Increment VERSION_BUILD in version.properties (versionCode / +build)
 	$(GRADLEW) :app:bumpVersion
 
-release: ## Build release APK for FLAVOR (signed if keystore.properties exists)
-	@test -f keystore.properties || { \
-		echo "Missing keystore.properties — copy keystore.properties.example and create your upload key."; \
-		exit 1; \
-	}
-	$(GRADLEW) assemble$(FLAVOR_CAP)Release
+release bundle checksum cert verify:
+	$(error Use an explicit flavor suffix, e.g. make release-foss or make release-play)
 
-bundle: ## Build signed release AAB for FLAVOR (Play Console upload)
-	@test -f keystore.properties || { \
-		echo "Missing keystore.properties — copy keystore.properties.example and create your upload key."; \
-		exit 1; \
-	}
+release-foss: ## Build signed FOSS release APK
+	$(MAKE) _release FLAVOR=foss
+
+release-play: ## Build signed Play release APK
+	$(MAKE) _release FLAVOR=play
+
+_release:
+	@if [ "$(FLAVOR)" = "play" ]; then \
+		test -f keystore-play.properties || { \
+			echo "Missing keystore-play.properties — copy keystore-play.properties.example and create your Play upload key."; \
+			exit 1; \
+		}; \
+	else \
+		test -f keystore-foss.properties || { \
+			echo "Missing keystore-foss.properties — copy keystore-foss.properties.example and create orgl-foss.jks."; \
+			exit 1; \
+		}; \
+	fi
+	$(GRADLEW) assemble$(FLAVOR_CAP)Release
+	@echo "Local copy: $(LOCAL_RELEASE_APK)"
+
+bundle-foss: ## Build signed FOSS release AAB
+	$(MAKE) _bundle FLAVOR=foss
+
+bundle-play: ## Build signed Play release AAB (what Google Play expects)
+	$(MAKE) _bundle FLAVOR=play
+
+_bundle:
+	@if [ "$(FLAVOR)" = "play" ]; then \
+		test -f keystore-play.properties || { \
+			echo "Missing keystore-play.properties — copy keystore-play.properties.example and create your Play upload key."; \
+			exit 1; \
+		}; \
+	else \
+		test -f keystore-foss.properties || { \
+			echo "Missing keystore-foss.properties — copy keystore-foss.properties.example and create orgl-foss.jks."; \
+			exit 1; \
+		}; \
+	fi
 	$(GRADLEW) bundle$(FLAVOR_CAP)Release
 	@echo "Local copy: $(LOCAL_AAB)"
 
-bundle-play: ## Build signed Play release AAB (what Google Play expects)
-	$(MAKE) bundle FLAVOR=play
+checksum-foss: release-foss ## Write SHA-256 for the signed FOSS release APK
+	$(MAKE) _checksum FLAVOR=foss
+
+checksum-play: release-play ## Write SHA-256 for the signed Play release APK
+	$(MAKE) _checksum FLAVOR=play
+
+_checksum:
+	@mkdir -p .local/apk
+	@sha256sum "$(LOCAL_RELEASE_APK)" > "$(LOCAL_SHA256)"
+	@echo "Wrote $(LOCAL_SHA256)"
+
+cert-foss: release-foss ## Print signing cert info for the signed FOSS release APK
+	$(MAKE) _cert FLAVOR=foss
+
+cert-play: release-play ## Print signing cert info for the signed Play release APK
+	$(MAKE) _cert FLAVOR=play
+
+_cert:
+	@test -x "$(APKSIGNER)" || { \
+		echo "apksigner not found under $(ANDROID_HOME)/build-tools"; \
+		exit 1; \
+	}
+	@"$(APKSIGNER)" verify --print-certs "$(LOCAL_RELEASE_APK)"
+
+verify-foss: release-foss ## Verify the signed FOSS release APK
+	$(MAKE) _verify FLAVOR=foss
+
+verify-play: release-play ## Verify the signed Play release APK
+	$(MAKE) _verify FLAVOR=play
+
+_verify:
+	@test -x "$(APKSIGNER)" || { \
+		echo "apksigner not found under $(ANDROID_HOME)/build-tools"; \
+		exit 1; \
+	}
+	@"$(APKSIGNER)" verify --verbose --print-certs "$(LOCAL_RELEASE_APK)"
 
 install: build ## Build and install debug APK (FLAVOR) on a connected device/emulator
 	$(ADB) install -r "$(APK_DEBUG)"
@@ -126,13 +199,16 @@ wait-device: ## Wait until a device/emulator is online
 	@$(ADB) shell 'while [ -z "$$(getprop sys.boot_completed 2>/dev/null)" ]; do sleep 1; done'
 	@echo "ready"
 
-run: install ## Install and launch FLAVOR (default: fdroid)
+run: install ## Install and launch FLAVOR (default: foss)
 	$(ADB) shell am start -n "$(MAIN_ACTIVITY)"
 
 launch: run ## Alias for run
 
-run-fdroid: ## Install and launch the F-Droid flavor
-	$(MAKE) run FLAVOR=fdroid
+run-foss: ## Install and launch the FOSS flavor
+	$(MAKE) run FLAVOR=foss
+
+run-fdroid: ## Legacy alias for the FOSS flavor
+	$(MAKE) run FLAVOR=foss
 
 run-play: ## Install and launch the Google Play flavor
 	$(MAKE) run FLAVOR=play

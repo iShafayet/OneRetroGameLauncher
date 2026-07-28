@@ -441,7 +441,7 @@ History entries open the same **run card** UI used after Play completion (histor
 
 ### Credits
 
-- Flavor label: `F-Droid / FOSS build` or `Google Play build`
+- Flavor label: `FOSS build` or `Google Play build`
 - Author line: Created by **Sayem Shafayet**; GPL-3.0 one-game-at-a-time frontend — ES-DE compatible, external emulators only
 - Project pointers: `oneretrogamelauncher.com` · `github.com/iShafayet/OneRetroGameLauncher`
 - Data sources: ES-DE defs, ScreenScraper, libretro-thumbnails, RetroAchievements, HowLongToBeat
@@ -710,7 +710,7 @@ Local / ORGL / ES-DE / ScreenScraper (when scraping is enabled) / libretro-thumb
 
 | Flavor | Credits string |
 |--------|----------------|
-| **fdroid** (default Make build) | `F-Droid / FOSS build` |
+| **foss** (default Make build) | `FOSS build` |
 | **play** | `Google Play build` |
 
 Same application id; flavor-specific label only. License: GPL-3.0.
