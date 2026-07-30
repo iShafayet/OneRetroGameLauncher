@@ -8,7 +8,8 @@
 .DEFAULT_GOAL := help
 
 APP_ID        := $(if $(filter play,$(FLAVOR)),com.sayemshafayet.onereogamelauncher,com.sayemshafayet.orglfoss)
-MAIN_ACTIVITY := $(APP_ID)/.MainActivity
+# applicationId may differ from the Kotlin namespace; use the fully-qualified activity.
+MAIN_ACTIVITY := $(APP_ID)/com.sayemshafayet.onereogamelauncher.MainActivity
 AVD           ?= Medium_Phone_API_36.1
 FLAVOR        ?= foss
 
