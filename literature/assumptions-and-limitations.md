@@ -30,8 +30,9 @@ Implications:
 ORGL is distributed as two separate install identities:
 
 - **Play** uses Google Play App Signing and the Play package above.
-- **FOSS** is intended for GitHub Releases, Obtainium, and F-Droid under the
-  `com.sayemshafayet.orglfoss` package.
+- **FOSS** is intended for GitHub Releases and Obtainium under the
+  `com.sayemshafayet.orglfoss` package (beta and stable).
+- **Play** receives stable builds only.
 
 Because these are different Android packages:
 
