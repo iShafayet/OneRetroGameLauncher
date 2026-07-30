@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "id": "com.sayemshafayet.orglfoss",
+      "url": "https://github.com/iShafayet/OneRetroGameLauncher",
+      "author": "iShafayet",
+      "name": "One Retro Game Launcher",
+      "preferredApkIndex": 0,
+      "overrideSource": "GitHub",
+      "additionalSettings": "{\"includePrereleases\":true,\"apkFilterRegEx\":\"orgl-foss-release\",\"invertAPKFilter\":false,\"about\":\"Stop scrolling your library. Start finishing it. FOSS package com.sayemshafayet.orglfoss.\"}"
+    }
+  ]
+}

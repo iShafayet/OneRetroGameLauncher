@@ -1,5 +1,8 @@
 # FOSS Release
 
+FOSS channel ships **beta and stable** builds via GitHub Releases for package
+`com.sayemshafayet.orglfoss`. Obtainium can track those releases.
+
 ## Release steps
 
 1. Update `version.properties` if needed.
@@ -18,8 +21,6 @@
 8. Create the GitHub Release from the matching tag.
 9. Upload the APK and checksum file to the GitHub Release.
 10. Publish release notes / changelog.
-11. Update the website with:
-    - release link
-    - SHA-256 checksum
-    - certificate fingerprint (when needed)
-12. Use that exact GitHub Release APK for Obtainium / IzzyOnDroid / reproducible F-Droid workflows.
+11. Keep the GitHub Release APK filename as `orgl-foss-release-<version>.apk`
+    so Obtainium’s filter in [`obtainium.json`](../obtainium.json) keeps matching.
+    User-facing Obtainium setup lives in the root README (import that JSON).
