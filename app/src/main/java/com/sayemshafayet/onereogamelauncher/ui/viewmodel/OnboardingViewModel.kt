@@ -6,19 +6,25 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sayemshafayet.onereogamelauncher.MainActivity
+import com.sayemshafayet.onereogamelauncher.data.homebrew.FreeHomebrewCatalog
+import com.sayemshafayet.onereogamelauncher.data.homebrew.FreeHomebrewDownloadResult
+import com.sayemshafayet.onereogamelauncher.data.homebrew.FreeHomebrewDownloader
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerLibraryPreview
 import com.sayemshafayet.onereogamelauncher.domain.DetectedEmulator
 import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.domain.OnboardingStep
 import com.sayemshafayet.onereogamelauncher.domain.OnboardingType
+import com.sayemshafayet.onereogamelauncher.domain.RomsStructureCheck
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.legal.LegalDocuments
 import com.sayemshafayet.onereogamelauncher.legal.isLegalAccepted
+import com.sayemshafayet.onereogamelauncher.library.RomsRootStructureChecker
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
 import com.sayemshafayet.onereogamelauncher.ui.util.OnboardingDirConflict
 import com.sayemshafayet.onereogamelauncher.ui.util.SafFolderAccess
@@ -56,7 +62,13 @@ enum class OnboardingUiPage {
     PRO_SCAN,
     PRO_EMULATORS,
     PRO_DONE,
-    BEGINNER_STUB,
+    BEGINNER_ORGL,
+    BEGINNER_HAVE_ROMS,
+    BEGINNER_ROMS_SETUP,
+    BEGINNER_ROMS_SUMMARY,
+    BEGINNER_NO_ROMS_HELP,
+    BEGINNER_FREE_GAMES,
+    BEGINNER_COMING_SOON,
 }
 
 data class OnboardingUiState(
@@ -93,6 +105,17 @@ data class OnboardingUiState(
     val buildingSummary: Boolean = false,
     val detectedEmulators: List<DetectedEmulator> = emptyList(),
     val detectingEmulators: Boolean = false,
+    // Beginner flow
+    val beginnerStructureChecking: Boolean = false,
+    val beginnerStructureCheck: RomsStructureCheck? = null,
+    val beginnerStructureError: String? = null,
+    val beginnerScanning: Boolean = false,
+    val beginnerPreview: BeginnerLibraryPreview? = null,
+    val beginnerScanError: String? = null,
+    val freeGamesDownloading: Boolean = false,
+    val freeGamesStatus: String? = null,
+    val freeGamesError: String? = null,
+    val freeGamesDownloaded: Boolean = false,
 )
 
 @HiltViewModel
@@ -104,13 +127,19 @@ class OnboardingViewModel @Inject constructor(
     private val raClient: RetroAchievementsClient,
     private val emulatorLauncher: EmulatorLauncher,
     private val retroArchLauncher: RetroArchLauncher,
+    private val romsRootStructureChecker: RomsRootStructureChecker,
+    private val freeHomebrewDownloader: FreeHomebrewDownloader,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
     val scanProgress: StateFlow<ScanProgress?> = libraryRepository.scanProgress
+    val freeHomebrewGames = FreeHomebrewCatalog.games
+    val legalRomsGuides = FreeHomebrewCatalog.LEGAL_ROMS_GUIDES
 
     private var scanJob: Job? = null
+    private var beginnerScanJob: Job? = null
+    private var freeGamesJob: Job? = null
 
     init {
         viewModelScope.launch { hydrate() }
@@ -205,8 +234,11 @@ class OnboardingViewModel @Inject constructor(
         return when (type) {
             OnboardingType.NONE -> OnboardingUiPage.FORK
             OnboardingType.BEGINNER -> when (savedStep) {
-                OnboardingStep.BEGINNER_STUB -> OnboardingUiPage.BEGINNER_STUB
-                else -> OnboardingUiPage.BEGINNER_STUB
+                OnboardingStep.TOS,
+                OnboardingStep.FORK,
+                OnboardingStep.BEGINNER_STUB,
+                -> OnboardingUiPage.BEGINNER_ORGL
+                else -> savedStep.toUiPage()
             }
             OnboardingType.PRO -> when (savedStep) {
                 OnboardingStep.TOS, OnboardingStep.FORK -> OnboardingUiPage.PRO_ROMS
@@ -222,7 +254,11 @@ class OnboardingViewModel @Inject constructor(
             // Legal is now accepted; pick the next non-TOS destination.
             val next = when (settings.onboardingType) {
                 OnboardingType.NONE -> OnboardingUiPage.FORK
-                OnboardingType.BEGINNER -> OnboardingUiPage.BEGINNER_STUB
+                OnboardingType.BEGINNER -> when (settings.onboardingStep) {
+                    OnboardingStep.TOS, OnboardingStep.FORK, OnboardingStep.BEGINNER_STUB ->
+                        OnboardingUiPage.BEGINNER_ORGL
+                    else -> settings.onboardingStep.toUiPage()
+                }
                 OnboardingType.PRO -> when (settings.onboardingStep) {
                     OnboardingStep.TOS, OnboardingStep.FORK -> OnboardingUiPage.PRO_ROMS
                     else -> settings.onboardingStep.toUiPage()
@@ -242,7 +278,7 @@ class OnboardingViewModel @Inject constructor(
     fun chooseBeginner() {
         viewModelScope.launch {
             settingsRepository.setOnboardingType(OnboardingType.BEGINNER)
-            goTo(OnboardingUiPage.BEGINNER_STUB, persist = true)
+            goTo(OnboardingUiPage.BEGINNER_ORGL, persist = true)
         }
     }
 
@@ -259,6 +295,11 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_ROMS -> if (_state.value.romsUri == null) return
             OnboardingUiPage.PRO_ORGL -> if (!canAdvanceFromOrgl()) return
             OnboardingUiPage.PRO_SCAN -> if (!_state.value.scanDone) return
+            OnboardingUiPage.BEGINNER_ORGL -> if (!canAdvanceFromOrgl()) return
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
+                val preview = _state.value.beginnerPreview
+                if (preview == null || preview.gamesFound <= 0) return
+            }
             else -> Unit
         }
         val next = when (current) {
@@ -268,6 +309,15 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_ESDE -> OnboardingUiPage.PRO_SCAN
             OnboardingUiPage.PRO_SCAN -> OnboardingUiPage.PRO_EMULATORS
             OnboardingUiPage.PRO_EMULATORS -> OnboardingUiPage.PRO_DONE
+            OnboardingUiPage.BEGINNER_ORGL -> OnboardingUiPage.BEGINNER_HAVE_ROMS
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_COMING_SOON
+            OnboardingUiPage.BEGINNER_FREE_GAMES -> {
+                if (_state.value.freeGamesDownloaded) {
+                    OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+                } else {
+                    current
+                }
+            }
             else -> current
         }
         if (next == current) return
@@ -276,7 +326,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun prevPage() {
         val current = _state.value.page
-        if (current == OnboardingUiPage.PRO_ROMS || current == OnboardingUiPage.BEGINNER_STUB) {
+        if (current == OnboardingUiPage.PRO_ROMS || current == OnboardingUiPage.BEGINNER_ORGL) {
             backToFork()
             return
         }
@@ -287,6 +337,19 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_SCAN -> OnboardingUiPage.PRO_ESDE
             OnboardingUiPage.PRO_EMULATORS -> OnboardingUiPage.PRO_SCAN
             OnboardingUiPage.PRO_DONE -> OnboardingUiPage.PRO_EMULATORS
+            OnboardingUiPage.BEGINNER_HAVE_ROMS -> OnboardingUiPage.BEGINNER_ORGL
+            OnboardingUiPage.BEGINNER_ROMS_SETUP -> OnboardingUiPage.BEGINNER_HAVE_ROMS
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_ROMS_SETUP
+            OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> OnboardingUiPage.BEGINNER_HAVE_ROMS
+            OnboardingUiPage.BEGINNER_FREE_GAMES -> {
+                // Prefer returning to whatever branch led here.
+                if (_state.value.beginnerPreview != null) {
+                    OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+                } else {
+                    OnboardingUiPage.BEGINNER_NO_ROMS_HELP
+                }
+            }
+            OnboardingUiPage.BEGINNER_COMING_SOON -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
             else -> return
         }
         goTo(prev, persist = true)
@@ -295,7 +358,9 @@ class OnboardingViewModel @Inject constructor(
     private fun canAdvanceFromOrgl(): Boolean {
         val s = _state.value
         if (s.orglUri == null) return false
-        if (OnboardingDirConflict.conflicts(s.romsPath, s.orglPath, s.romsUri, s.orglUri)) {
+        if (s.romsUri != null &&
+            OnboardingDirConflict.conflicts(s.romsPath, s.orglPath, s.romsUri, s.orglUri)
+        ) {
             _state.update {
                 it.copy(
                     orglConflictError =
@@ -319,7 +384,282 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_RA -> prepareRetroAchievements()
             OnboardingUiPage.PRO_SCAN -> ensureScanRunningOrSummary()
             OnboardingUiPage.PRO_EMULATORS -> detectEmulators()
+            OnboardingUiPage.BEGINNER_ROMS_SETUP -> {
+                if (_state.value.romsUri != null && _state.value.beginnerStructureCheck == null) {
+                    runBeginnerStructureCheck(thenScanIfValid = false)
+                }
+            }
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
+                val s = _state.value
+                if (s.beginnerPreview == null &&
+                    !s.beginnerScanning &&
+                    s.romsUri != null &&
+                    s.orglUri != null
+                ) {
+                    // Resume into summary: rescan current ROMs root (never reuse stale Room rows).
+                    viewModelScope.launch {
+                        performBeginnerLibraryScan(navigateToSummary = false)
+                    }
+                }
+            }
             else -> Unit
+        }
+    }
+
+    fun beginnerHaveRomsYes() {
+        goTo(OnboardingUiPage.BEGINNER_ROMS_SETUP, persist = true)
+    }
+
+    fun beginnerHaveRomsNo() {
+        goTo(OnboardingUiPage.BEGINNER_NO_ROMS_HELP, persist = true)
+    }
+
+    fun openBeginnerFreeGames() {
+        goTo(OnboardingUiPage.BEGINNER_FREE_GAMES, persist = true)
+    }
+
+    fun onBeginnerRomsFolderPicked(uri: Uri) {
+        val takeFlags =
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+        }
+        val pathHint = SafPathResolver.resolvePath(context, uri)
+        val uriString = uri.toString()
+        val current = _state.value
+        if (OnboardingDirConflict.conflicts(pathHint, current.orglPath, uriString, current.orglUri)) {
+            _state.update {
+                it.copy(
+                    beginnerStructureError =
+                        "Your ROMs folder can't be the same as the ORGL data folder, or inside/above it. " +
+                            "Pick a separate ROMs root.",
+                    beginnerStructureCheck = null,
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(
+                romsUri = uriString,
+                romsPath = pathHint,
+                romsAccessOk = true,
+                romsPreselected = false,
+                beginnerStructureCheck = null,
+                beginnerStructureError = null,
+                beginnerPreview = null,
+                beginnerScanError = null,
+            )
+        }
+        viewModelScope.launch {
+            settingsRepository.setRomsDir(uriString, pathHint)
+            if (_state.value.page == OnboardingUiPage.BEGINNER_ROMS_SETUP) {
+                val check = performBeginnerStructureCheck()
+                if (check?.isValid == true) {
+                    performBeginnerLibraryScan(navigateToSummary = true)
+                }
+            } else {
+                // Free-games path: just remember the folder; user triggers download.
+                _state.update {
+                    it.copy(
+                        beginnerStructureCheck = null,
+                        beginnerStructureError = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun rescanBeginnerRomsStructure() {
+        viewModelScope.launch {
+            val check = performBeginnerStructureCheck()
+            if (check?.isValid == true) {
+                performBeginnerLibraryScan(navigateToSummary = true)
+            }
+        }
+    }
+
+    fun rescanBeginnerLibrary() {
+        viewModelScope.launch {
+            performBeginnerLibraryScan(navigateToSummary = true)
+        }
+    }
+
+    private fun runBeginnerStructureCheck(thenScanIfValid: Boolean) {
+        viewModelScope.launch {
+            val check = performBeginnerStructureCheck()
+            if (check?.isValid == true && thenScanIfValid) {
+                performBeginnerLibraryScan(navigateToSummary = true)
+            }
+        }
+    }
+
+    private suspend fun performBeginnerStructureCheck(): RomsStructureCheck? {
+        val s = _state.value
+        if (s.romsUri == null) {
+            _state.update {
+                it.copy(beginnerStructureError = "Choose a ROMs folder first.")
+            }
+            return null
+        }
+        _state.update {
+            it.copy(
+                beginnerStructureChecking = true,
+                beginnerStructureError = null,
+            )
+        }
+        libraryRepository.ensureCatalogLoaded()
+        val known = libraryRepository.systemFolderNames()
+        val check = withContext(Dispatchers.IO) {
+            romsRootStructureChecker.check(context, s.romsUri, s.romsPath, known)
+        }
+        _state.update {
+            it.copy(
+                beginnerStructureChecking = false,
+                beginnerStructureCheck = check,
+                beginnerStructureError = if (!check.isValid) {
+                    "We didn’t find system folders like nes, gba, or snes in this directory."
+                } else {
+                    null
+                },
+            )
+        }
+        return check
+    }
+
+    private suspend fun performBeginnerLibraryScan(navigateToSummary: Boolean) {
+        // Always run a fresh scan — never reuse an in-flight job's older result.
+        beginnerScanJob?.cancel()
+        beginnerScanJob?.join()
+        val current = _state.value
+        val romsUri = current.romsUri ?: return
+        val orglUri = current.orglUri ?: return
+        val job = viewModelScope.launch {
+            settingsRepository.setRomsDir(romsUri, current.romsPath)
+            settingsRepository.setOrglDataDir(orglUri, current.orglPath)
+            _state.update {
+                it.copy(
+                    beginnerScanning = true,
+                    beginnerScanError = null,
+                    beginnerPreview = null,
+                )
+            }
+            libraryRepository.ensureCatalogLoaded()
+            runCatching { libraryRepository.scanLibrary() }
+                .onSuccess {
+                    runCatching { orglExternalSync.loadDuringSetup() }
+                    val preview = libraryRepository.buildBeginnerLibraryPreview()
+                    _state.update {
+                        it.copy(
+                            beginnerScanning = false,
+                            beginnerPreview = preview,
+                            beginnerScanError = null,
+                        )
+                    }
+                    if (navigateToSummary) {
+                        goTo(OnboardingUiPage.BEGINNER_ROMS_SUMMARY, persist = true)
+                    }
+                }
+                .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    runCatching { orglExternalSync.loadDuringSetup() }
+                    _state.update {
+                        it.copy(
+                            beginnerScanning = false,
+                            beginnerPreview = null,
+                            beginnerScanError = e.message
+                                ?: "Scan failed — check your ROMs folder and try again.",
+                        )
+                    }
+                }
+        }
+        beginnerScanJob = job
+        job.join()
+    }
+
+    fun downloadFreeHomebrewGames() {
+        if (freeGamesJob?.isActive == true) return
+        val romsUri = _state.value.romsUri
+        if (romsUri == null) {
+            _state.update {
+                it.copy(freeGamesError = "Choose a ROMs folder first so we know where to save the games.")
+            }
+            return
+        }
+        freeGamesJob = viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    freeGamesDownloading = true,
+                    freeGamesError = null,
+                    freeGamesStatus = "Downloading legal free starter games…",
+                    freeGamesDownloaded = false,
+                    // Drop any preview from an earlier ROMs pick in this session.
+                    beginnerPreview = null,
+                    beginnerScanError = null,
+                )
+            }
+            var anyFailure: String? = null
+            var successCount = 0
+            for (game in FreeHomebrewCatalog.games) {
+                _state.update {
+                    it.copy(freeGamesStatus = "Downloading ${game.title}…")
+                }
+                when (
+                    val result = freeHomebrewDownloader.downloadToRomsRoot(
+                        context = context,
+                        romsUri = romsUri,
+                        romsPath = _state.value.romsPath,
+                        game = game,
+                    )
+                ) {
+                    is FreeHomebrewDownloadResult.Success -> successCount++
+                    is FreeHomebrewDownloadResult.Failed -> {
+                        anyFailure = result.message
+                        break
+                    }
+                }
+            }
+            if (successCount == 0) {
+                _state.update {
+                    it.copy(
+                        freeGamesDownloading = false,
+                        freeGamesDownloaded = false,
+                        freeGamesError = anyFailure ?: "Download failed.",
+                        freeGamesStatus = null,
+                    )
+                }
+                return@launch
+            }
+            _state.update {
+                it.copy(
+                    freeGamesStatus = "Download complete. Scanning your library…",
+                    freeGamesError = anyFailure,
+                    beginnerPreview = null,
+                )
+            }
+            val check = performBeginnerStructureCheck()
+            if (check?.isValid == true) {
+                performBeginnerLibraryScan(navigateToSummary = true)
+            } else {
+                _state.update {
+                    it.copy(
+                        freeGamesError = it.beginnerStructureError
+                            ?: "Downloaded games, but the ROMs folder layout still looks wrong.",
+                    )
+                }
+            }
+            _state.update {
+                it.copy(
+                    freeGamesDownloading = false,
+                    freeGamesDownloaded = successCount > 0,
+                    freeGamesStatus = if (successCount > 0 && it.beginnerPreview != null) {
+                        "Starter games are ready."
+                    } else if (successCount > 0) {
+                        "Download finished."
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
 
@@ -746,7 +1086,13 @@ class OnboardingViewModel @Inject constructor(
         OnboardingStep.PRO_SCAN -> OnboardingUiPage.PRO_SCAN
         OnboardingStep.PRO_EMULATORS -> OnboardingUiPage.PRO_EMULATORS
         OnboardingStep.PRO_DONE -> OnboardingUiPage.PRO_DONE
-        OnboardingStep.BEGINNER_STUB -> OnboardingUiPage.BEGINNER_STUB
+        OnboardingStep.BEGINNER_ORGL, OnboardingStep.BEGINNER_STUB -> OnboardingUiPage.BEGINNER_ORGL
+        OnboardingStep.BEGINNER_HAVE_ROMS -> OnboardingUiPage.BEGINNER_HAVE_ROMS
+        OnboardingStep.BEGINNER_ROMS_SETUP -> OnboardingUiPage.BEGINNER_ROMS_SETUP
+        OnboardingStep.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+        OnboardingStep.BEGINNER_NO_ROMS_HELP -> OnboardingUiPage.BEGINNER_NO_ROMS_HELP
+        OnboardingStep.BEGINNER_FREE_GAMES -> OnboardingUiPage.BEGINNER_FREE_GAMES
+        OnboardingStep.BEGINNER_COMING_SOON -> OnboardingUiPage.BEGINNER_COMING_SOON
     }
 
     private fun OnboardingUiPage.toPersistedStep(): OnboardingStep? = when (this) {
@@ -759,7 +1105,13 @@ class OnboardingViewModel @Inject constructor(
         OnboardingUiPage.PRO_SCAN -> OnboardingStep.PRO_SCAN
         OnboardingUiPage.PRO_EMULATORS -> OnboardingStep.PRO_EMULATORS
         OnboardingUiPage.PRO_DONE -> OnboardingStep.PRO_DONE
-        OnboardingUiPage.BEGINNER_STUB -> OnboardingStep.BEGINNER_STUB
+        OnboardingUiPage.BEGINNER_ORGL -> OnboardingStep.BEGINNER_ORGL
+        OnboardingUiPage.BEGINNER_HAVE_ROMS -> OnboardingStep.BEGINNER_HAVE_ROMS
+        OnboardingUiPage.BEGINNER_ROMS_SETUP -> OnboardingStep.BEGINNER_ROMS_SETUP
+        OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingStep.BEGINNER_ROMS_SUMMARY
+        OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> OnboardingStep.BEGINNER_NO_ROMS_HELP
+        OnboardingUiPage.BEGINNER_FREE_GAMES -> OnboardingStep.BEGINNER_FREE_GAMES
+        OnboardingUiPage.BEGINNER_COMING_SOON -> OnboardingStep.BEGINNER_COMING_SOON
         OnboardingUiPage.WELCOME, OnboardingUiPage.WELCOME_RESUME -> null
     }
 }

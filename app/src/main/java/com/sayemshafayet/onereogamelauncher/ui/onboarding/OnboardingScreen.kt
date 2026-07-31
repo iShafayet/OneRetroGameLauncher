@@ -1,5 +1,6 @@
 package com.sayemshafayet.onereogamelauncher.ui.onboarding
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,6 +61,14 @@ import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.legal.LegalAcceptanceScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerComingSoonScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerFreeGamesScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerHaveRomsScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerNoRomsHelpScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerOrglScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsSetupScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsSummaryScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerSectionLabel
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
@@ -79,10 +89,16 @@ fun OnboardingScreen(
     val state by viewModel.state.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
 
+    val context = LocalContext.current
     val romsPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
         uri?.let { viewModel.onRomsFolderPicked(it) }
+    }
+    val beginnerRomsPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onBeginnerRomsFolderPicked(it) }
     }
     val orglPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -159,11 +175,22 @@ fun OnboardingScreen(
                     .imePadding(),
             ) {
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    "ORGL",
-                    style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
-                    color = AmberAccent,
-                )
+                val beginnerPages = page == OnboardingUiPage.BEGINNER_ORGL ||
+                    page == OnboardingUiPage.BEGINNER_HAVE_ROMS ||
+                    page == OnboardingUiPage.BEGINNER_ROMS_SETUP ||
+                    page == OnboardingUiPage.BEGINNER_ROMS_SUMMARY ||
+                    page == OnboardingUiPage.BEGINNER_NO_ROMS_HELP ||
+                    page == OnboardingUiPage.BEGINNER_FREE_GAMES ||
+                    page == OnboardingUiPage.BEGINNER_COMING_SOON
+                if (beginnerPages) {
+                    BeginnerSectionLabel()
+                } else {
+                    Text(
+                        "ORGL",
+                        style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
+                        color = AmberAccent,
+                    )
+                }
                 when (page) {
                     OnboardingUiPage.WELCOME -> WelcomeStep(resume = false)
                     OnboardingUiPage.WELCOME_RESUME -> WelcomeStep(resume = true)
@@ -212,7 +239,59 @@ fun OnboardingScreen(
                         emulators = state.detectedEmulators,
                     )
                     OnboardingUiPage.PRO_DONE -> CongratsStep()
-                    OnboardingUiPage.BEGINNER_STUB -> BeginnerStubStep()
+                    OnboardingUiPage.BEGINNER_ORGL -> BeginnerOrglScreen(
+                        uri = state.orglUri,
+                        pathHint = state.orglPath,
+                        preselected = state.orglPreselected,
+                        reused = state.orglReused,
+                        error = state.orglError,
+                        conflictError = state.orglConflictError,
+                        onPick = { orglPicker.launch(null) },
+                    )
+                    OnboardingUiPage.BEGINNER_HAVE_ROMS -> BeginnerHaveRomsScreen(
+                        onYes = viewModel::beginnerHaveRomsYes,
+                        onNo = viewModel::beginnerHaveRomsNo,
+                    )
+                    OnboardingUiPage.BEGINNER_ROMS_SETUP -> BeginnerRomsSetupScreen(
+                        uri = state.romsUri,
+                        pathHint = state.romsPath,
+                        preselected = state.romsPreselected,
+                        structureChecking = state.beginnerStructureChecking,
+                        structureCheck = state.beginnerStructureCheck,
+                        structureError = state.beginnerStructureError,
+                        scanning = state.beginnerScanning,
+                        scanError = state.beginnerScanError,
+                        onPick = { beginnerRomsPicker.launch(null) },
+                    )
+                    OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> BeginnerRomsSummaryScreen(
+                        scanning = state.beginnerScanning,
+                        preview = state.beginnerPreview,
+                        scanError = state.beginnerScanError,
+                        onGetFreeGames = viewModel::openBeginnerFreeGames,
+                    )
+                    OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> BeginnerNoRomsHelpScreen(
+                        guides = viewModel.legalRomsGuides,
+                        onOpenGuide = { url ->
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                                )
+                            }
+                        },
+                        onGetFreeGames = viewModel::openBeginnerFreeGames,
+                    )
+                    OnboardingUiPage.BEGINNER_FREE_GAMES -> BeginnerFreeGamesScreen(
+                        romsUri = state.romsUri,
+                        romsPath = state.romsPath,
+                        games = viewModel.freeHomebrewGames,
+                        downloading = state.freeGamesDownloading || state.beginnerScanning,
+                        status = state.freeGamesStatus,
+                        error = state.freeGamesError ?: state.beginnerScanError,
+                        downloaded = state.freeGamesDownloaded,
+                        onPickRoms = { beginnerRomsPicker.launch(null) },
+                        onDownload = viewModel::downloadFreeHomebrewGames,
+                    )
+                    OnboardingUiPage.BEGINNER_COMING_SOON -> BeginnerComingSoonScreen()
                     OnboardingUiPage.TOS -> Unit
                 }
 
@@ -230,6 +309,9 @@ fun OnboardingScreen(
                     onNext = viewModel::nextPage,
                     onRetryScan = viewModel::startInitialScan,
                     onRescanEmulators = viewModel::detectEmulators,
+                    onRescanBeginnerStructure = viewModel::rescanBeginnerRomsStructure,
+                    onRescanBeginnerLibrary = viewModel::rescanBeginnerLibrary,
+                    onDownloadFreeGames = viewModel::downloadFreeHomebrewGames,
                     onFinish = { viewModel.finalizeOnboarding(onFinished) },
                 )
 
@@ -252,6 +334,9 @@ private fun WizardFooter(
     onNext: () -> Unit,
     onRetryScan: () -> Unit,
     onRescanEmulators: () -> Unit,
+    onRescanBeginnerStructure: () -> Unit,
+    onRescanBeginnerLibrary: () -> Unit,
+    onDownloadFreeGames: () -> Unit,
     onFinish: () -> Unit,
 ) {
     Column(
@@ -433,6 +518,123 @@ private fun WizardFooter(
                 }
             }
 
+            OnboardingUiPage.BEGINNER_ORGL -> {
+                Button(
+                    onClick = onNext,
+                    enabled = state.orglUri != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text("Continue")
+                }
+                TextButton(onClick = onBackToFork) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_HAVE_ROMS,
+            OnboardingUiPage.BEGINNER_NO_ROMS_HELP,
+            OnboardingUiPage.FORK,
+            -> {
+                if (page != OnboardingUiPage.FORK) {
+                    TextButton(onClick = onBack) {
+                        Text("Back", color = Mist.copy(alpha = 0.7f))
+                    }
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_ROMS_SETUP -> {
+                val busy = state.beginnerStructureChecking || state.beginnerScanning
+                if (busy) {
+                    CircularProgressIndicator(color = AmberAccent)
+                    Spacer(Modifier.height(12.dp))
+                }
+                val showRescan = state.romsUri != null &&
+                    !busy &&
+                    (state.beginnerStructureCheck?.isValid == false || state.beginnerScanError != null)
+                if (showRescan) {
+                    OutlinedButton(
+                        onClick = onRescanBeginnerStructure,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Rescan", color = Mist)
+                    }
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
+                val gamesOk = (state.beginnerPreview?.gamesFound ?: 0) > 0
+                if (state.beginnerScanning) {
+                    CircularProgressIndicator(color = AmberAccent)
+                    Spacer(Modifier.height(12.dp))
+                }
+                if (!state.beginnerScanning && gamesOk) {
+                    Button(
+                        onClick = onNext,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AmberAccent,
+                            contentColor = InkDeep,
+                        ),
+                    ) {
+                        Text("Continue")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (!state.beginnerScanning) {
+                    OutlinedButton(
+                        onClick = onRescanBeginnerLibrary,
+                        enabled = state.romsUri != null && state.orglUri != null,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Rescan", color = Mist)
+                    }
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_FREE_GAMES -> {
+                val busy = state.freeGamesDownloading || state.beginnerScanning
+                if (busy) {
+                    CircularProgressIndicator(color = AmberAccent)
+                    Spacer(Modifier.height(12.dp))
+                }
+                Button(
+                    onClick = onDownloadFreeGames,
+                    enabled = !busy && state.romsUri != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text(
+                        if (state.freeGamesDownloaded) {
+                            "Download again"
+                        } else {
+                            "Download legal free games"
+                        },
+                    )
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_COMING_SOON -> {
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
             else -> Unit
         }
     }
@@ -528,23 +730,6 @@ private fun PathChoice(
             color = Mist.copy(alpha = 0.85f),
         )
     }
-}
-
-@Composable
-private fun BeginnerStubStep() {
-    Spacer(Modifier.height(24.dp))
-    Text(
-        "Beginner setup",
-        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
-        color = Mist,
-    )
-    Spacer(Modifier.height(12.dp))
-    Text(
-        "Guided setup for first-time emulation is coming soon. For now, go back and choose the " +
-            "path for devices that already have emulators and ROMs.",
-        style = MaterialTheme.typography.bodyLarge,
-        color = Mist.copy(alpha = 0.85f),
-    )
 }
 
 @Composable

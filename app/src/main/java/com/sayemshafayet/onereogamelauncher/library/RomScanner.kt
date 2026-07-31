@@ -455,6 +455,14 @@ class RomScanner @Inject constructor(
             )
         }
 
+        // ROMs root is source of truth: drop games for system folders that aren't present.
+        val presentFolders = systemsToScan.map { it.folder.lowercase() }.toSet()
+        for (system in systems) {
+            if (system.folderName.lowercase() !in presentFolders) {
+                gameDao.deleteForSystem(system.id)
+            }
+        }
+
         Log.i(
             TAG,
             "Scan done: systems=$systemsDone games=$totalGames media=$totalMedia " +

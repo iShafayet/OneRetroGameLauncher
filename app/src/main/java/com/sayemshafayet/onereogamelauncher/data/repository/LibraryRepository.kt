@@ -18,6 +18,8 @@ import com.sayemshafayet.onereogamelauncher.data.db.entity.GameConfigEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.GameEntity
 import com.sayemshafayet.onereogamelauncher.data.db.entity.SystemEntity
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerLibraryPreview
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerSystemPreview
 import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.domain.SystemScanSummary
 import com.sayemshafayet.onereogamelauncher.library.RomScanResult
@@ -333,6 +335,37 @@ class LibraryRepository @Inject constructor(
         } else {
             gameDao.countForSystem(systemId)
         }
+
+    suspend fun systemFolderNames(): List<String> =
+        systemDao.getAll().map { it.folderName }.filter { it.isNotBlank() }
+
+    /**
+     * Builds a beginner-friendly preview after a library scan:
+     * per system with games, up to two sample titles plus total count.
+     */
+    suspend fun buildBeginnerLibraryPreview(): BeginnerLibraryPreview {
+        val systemsById = systemDao.getAll().associateBy { it.id }
+        val rows = gameDao.gameCountsBySystem()
+            .filter { it.gameCount > 0 }
+            .mapNotNull { countRow ->
+                val system = systemsById[countRow.systemId] ?: return@mapNotNull null
+                val samples = gameDao.getBySystem(system.id)
+                    .take(2)
+                    .map { it.title }
+                    .filter { it.isNotBlank() }
+                BeginnerSystemPreview(
+                    displayName = system.displayName,
+                    folderName = system.folderName,
+                    gameCount = countRow.gameCount,
+                    sampleTitles = samples,
+                )
+            }
+            .sortedBy { it.displayName.lowercase() }
+        return BeginnerLibraryPreview(
+            systems = rows,
+            gamesFound = rows.sumOf { it.gameCount },
+        )
+    }
 
     /**
      * Builds a per-system library breakdown from Room after a scan (or for resume).
