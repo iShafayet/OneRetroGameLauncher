@@ -46,7 +46,7 @@ GRADLEW := ./gradlew
 .PHONY: help build assemble release release-foss release-play bundle bundle-foss bundle-play checksum checksum-foss checksum-play cert cert-foss cert-play verify verify-foss verify-play test build-play build-foss build-fdroid bump \
 	install uninstall reinstall \
 	emulator emulator-list devices wait-device run launch run-play run-foss run-fdroid logcat \
-	clean deep-clean doctor compile \
+	clean deep-clean doctor compile publish-foss \
 	_release _bundle _checksum _cert _verify
 
 help: ## Show this help
@@ -167,6 +167,11 @@ verify-foss: release-foss ## Verify the signed FOSS release APK
 
 verify-play: release-play ## Verify the signed Play release APK
 	$(MAKE) _verify FLAVOR=play
+
+publish-foss: ## Tag, build/verify FOSS APK, and create GitHub Release (needs .local/changelog.txt)
+	@test -f scripts/foss-release.sh || { echo "Missing scripts/foss-release.sh"; exit 1; }
+	@chmod +x scripts/foss-release.sh
+	./scripts/foss-release.sh
 
 _verify:
 	@test -x "$(APKSIGNER)" || { \

@@ -3,6 +3,13 @@
 FOSS channel ships **beta and stable** builds via GitHub Releases for package
 `com.sayemshafayet.orglfoss`. Obtainium can track those releases.
 
+## Release steps (Automated)
+
+1. Update `version.properties` if needed and commit a clean tree.
+2. Write release notes to `.local/changelog.txt` (required; publish fails if missing/empty).
+3. Publish (tags `v<versionName>`, builds/verifies, uploads APK + checksum):
+   - `make publish-foss`
+
 ## Release steps
 
 1. Update `version.properties` if needed.
@@ -24,3 +31,4 @@ FOSS channel ships **beta and stable** builds via GitHub Releases for package
 11. Keep the GitHub Release APK filename as `orgl-foss-release-<version>.apk`
     so Obtainium’s filter in [`obtainium.json`](../obtainium.json) keeps matching.
     User-facing Obtainium setup lives in the root README (import that JSON).
+
