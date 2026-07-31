@@ -208,6 +208,7 @@ fun OnboardingScreen(
                         uri = state.romsUri,
                         pathHint = state.romsPath,
                         preselected = state.romsPreselected,
+                        conflictError = state.orglConflictError,
                         onPick = { romsPicker.launch(null) },
                     )
                     OnboardingUiPage.PRO_ORGL -> OrglFolderStep(
@@ -580,16 +581,28 @@ private fun WizardFooter(
                     CircularProgressIndicator(color = AmberAccent)
                     Spacer(Modifier.height(12.dp))
                 }
-                val showRescan = state.romsUri != null &&
-                    !busy &&
-                    (state.beginnerStructureCheck?.isValid == false || state.beginnerScanError != null)
-                if (showRescan) {
+                val structureOk = state.beginnerStructureCheck?.isValid == true
+                if (!busy && structureOk) {
+                    Button(
+                        onClick = onNext,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AmberAccent,
+                            contentColor = InkDeep,
+                        ),
+                    ) {
+                        Text("Continue")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (state.romsUri != null && !busy) {
                     OutlinedButton(
                         onClick = onRescanBeginnerStructure,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Rescan", color = Mist)
                     }
+                    Spacer(Modifier.height(8.dp))
                 }
                 TextButton(onClick = onBack) {
                     Text("Back", color = Mist.copy(alpha = 0.7f))
@@ -634,6 +647,23 @@ private fun WizardFooter(
                 if (busy) {
                     CircularProgressIndicator(color = AmberAccent)
                     Spacer(Modifier.height(12.dp))
+                }
+                val needsRetryScan = state.freeGamesDownloaded &&
+                    !busy &&
+                    state.beginnerPreview == null
+                if (needsRetryScan) {
+                    Button(
+                        onClick = onNext,
+                        enabled = state.romsUri != null,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AmberAccent,
+                            contentColor = InkDeep,
+                        ),
+                    ) {
+                        Text("Retry scan")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
                 Button(
                     onClick = onDownloadFreeGames,
@@ -838,6 +868,7 @@ private fun RomsFolderStep(
     uri: String?,
     pathHint: String?,
     preselected: Boolean,
+    conflictError: String? = null,
     onPick: () -> Unit,
 ) {
     Spacer(Modifier.height(24.dp))
@@ -848,7 +879,7 @@ private fun RomsFolderStep(
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        "Pick the ROMs root — one subfolder per system (nes, snes, …). Read-only. ORGL never writes here.",
+        "Pick the ROMs root — one subfolder per system (nes, snes, …). ORGL never writes here during normal use.",
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.85f),
     )
@@ -865,6 +896,10 @@ private fun RomsFolderStep(
         Text(if (uri == null) "Choose ROMs folder" else "Change folder", color = Mist)
     }
     FolderStatus(pathHint = pathHint, uri = uri, accessOk = uri != null)
+    conflictError?.let {
+        Spacer(Modifier.height(12.dp))
+        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 @Composable
@@ -1320,14 +1355,22 @@ private fun EmulatorsStep(
 private fun CongratsStep() {
     Spacer(Modifier.height(24.dp))
     Text(
-        "You're ready",
+        "You're all set",
         style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
         color = Mist,
     )
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(12.dp))
     Text(
-        "Setup is complete. Commit to a game and start finishing.",
+        "Thanks for sticking with setup. Your library is ready — we hope ORGL helps you " +
+            "pick a game, stay with it, and actually finish. Good luck on your gaming journey.",
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.88f),
+    )
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "Commit to one title, play, and come back when you're ready for the next. " +
+            "You can always refine folders, scrapes, and emulators later in Setup.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.75f),
     )
 }

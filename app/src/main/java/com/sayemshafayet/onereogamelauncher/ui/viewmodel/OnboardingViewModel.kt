@@ -128,6 +128,8 @@ data class OnboardingUiState(
     val freeGamesStatus: String? = null,
     val freeGamesError: String? = null,
     val freeGamesDownloaded: Boolean = false,
+    /** Summary was reached via free-games path (affects Back). */
+    val beginnerCameFromFreeGames: Boolean = false,
 )
 
 @HiltViewModel
@@ -154,6 +156,10 @@ class OnboardingViewModel @Inject constructor(
     private var scanJob: Job? = null
     private var beginnerScanJob: Job? = null
     private var freeGamesJob: Job? = null
+    /** Folder key for the last successful Pro scan this session. */
+    private var lastCompletedProScanKey: String? = null
+    /** ROMs URI used for the last successful beginner library scan. */
+    private var lastBeginnerScanRomsUri: String? = null
 
     init {
         viewModelScope.launch { hydrate() }
@@ -208,7 +214,7 @@ class OnboardingViewModel @Inject constructor(
                 settings.onboardingType,
                 settings.onboardingStep,
             )
-            goTo(next, persist = true)
+            goTo(redirectIfFoldersMissing(next), persist = true)
         }
     }
 
@@ -220,7 +226,7 @@ class OnboardingViewModel @Inject constructor(
                 settings.onboardingType,
                 settings.onboardingStep,
             )
-            goTo(next, persist = true)
+            goTo(redirectIfFoldersMissing(next), persist = true)
         }
     }
 
@@ -306,15 +312,30 @@ class OnboardingViewModel @Inject constructor(
     fun nextPage() {
         val current = _state.value.page
         when (current) {
-            OnboardingUiPage.PRO_ROMS -> if (_state.value.romsUri == null) return
+            OnboardingUiPage.PRO_ROMS -> {
+                if (_state.value.romsUri == null) return
+                if (!canAdvanceFromRoms()) return
+            }
             OnboardingUiPage.PRO_ORGL -> if (!canAdvanceFromOrgl()) return
             OnboardingUiPage.PRO_SCAN -> if (!_state.value.scanDone) return
             OnboardingUiPage.BEGINNER_ORGL -> if (!canAdvanceFromOrgl()) return
+            OnboardingUiPage.BEGINNER_ROMS_SETUP -> {
+                val check = _state.value.beginnerStructureCheck
+                if (check?.isValid != true) return
+            }
             OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
                 val preview = _state.value.beginnerPreview
                 if (preview == null || preview.gamesFound <= 0) return
             }
             else -> Unit
+        }
+        if (current == OnboardingUiPage.BEGINNER_ROMS_SETUP) {
+            continueFromBeginnerRomsSetup()
+            return
+        }
+        if (current == OnboardingUiPage.BEGINNER_FREE_GAMES) {
+            retryFreeGamesLibraryScan()
+            return
         }
         val next = when (current) {
             OnboardingUiPage.PRO_ROMS -> OnboardingUiPage.PRO_ORGL
@@ -334,13 +355,6 @@ class OnboardingViewModel @Inject constructor(
             }
             OnboardingUiPage.BEGINNER_TRY_LAUNCH -> OnboardingUiPage.BEGINNER_ADVANCED
             OnboardingUiPage.BEGINNER_ADVANCED -> OnboardingUiPage.BEGINNER_DONE
-            OnboardingUiPage.BEGINNER_FREE_GAMES -> {
-                if (_state.value.freeGamesDownloaded) {
-                    OnboardingUiPage.BEGINNER_ROMS_SUMMARY
-                } else {
-                    current
-                }
-            }
             else -> current
         }
         if (next == current) return
@@ -353,6 +367,9 @@ class OnboardingViewModel @Inject constructor(
             backToFork()
             return
         }
+        if (current == OnboardingUiPage.PRO_SCAN) {
+            cancelProScan()
+        }
         val prev = when (current) {
             OnboardingUiPage.PRO_ORGL -> OnboardingUiPage.PRO_ROMS
             OnboardingUiPage.PRO_RA -> OnboardingUiPage.PRO_ORGL
@@ -362,16 +379,15 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_DONE -> OnboardingUiPage.PRO_EMULATORS
             OnboardingUiPage.BEGINNER_HAVE_ROMS -> OnboardingUiPage.BEGINNER_ORGL
             OnboardingUiPage.BEGINNER_ROMS_SETUP -> OnboardingUiPage.BEGINNER_HAVE_ROMS
-            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_ROMS_SETUP
-            OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> OnboardingUiPage.BEGINNER_HAVE_ROMS
-            OnboardingUiPage.BEGINNER_FREE_GAMES -> {
-                // Prefer returning to whatever branch led here.
-                if (_state.value.beginnerPreview != null) {
-                    OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
+                if (_state.value.beginnerCameFromFreeGames) {
+                    OnboardingUiPage.BEGINNER_FREE_GAMES
                 } else {
-                    OnboardingUiPage.BEGINNER_NO_ROMS_HELP
+                    OnboardingUiPage.BEGINNER_ROMS_SETUP
                 }
             }
+            OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> OnboardingUiPage.BEGINNER_HAVE_ROMS
+            OnboardingUiPage.BEGINNER_FREE_GAMES -> OnboardingUiPage.BEGINNER_NO_ROMS_HELP
             OnboardingUiPage.BEGINNER_EMULATORS -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
             OnboardingUiPage.BEGINNER_TRY_LAUNCH -> OnboardingUiPage.BEGINNER_EMULATORS
             OnboardingUiPage.BEGINNER_ADVANCED -> {
@@ -403,6 +419,134 @@ class OnboardingViewModel @Inject constructor(
             return false
         }
         return true
+    }
+
+    private fun canAdvanceFromRoms(): Boolean {
+        val s = _state.value
+        if (s.romsUri == null) return false
+        if (s.orglUri != null &&
+            OnboardingDirConflict.conflicts(s.romsPath, s.orglPath, s.romsUri, s.orglUri)
+        ) {
+            _state.update {
+                it.copy(
+                    orglConflictError =
+                        "Your ROMs folder can't be the same as the ORGL data folder, or inside/above it. " +
+                            "Pick a separate ROMs root.",
+                )
+            }
+            return false
+        }
+        return true
+    }
+
+    /**
+     * If resume lands on a step that needs folders but SAF access was lost,
+     * send the user back to the pick step instead of a dead end.
+     */
+    private fun redirectIfFoldersMissing(page: OnboardingUiPage): OnboardingUiPage {
+        val s = _state.value
+        val needsOrgl = when (page) {
+            OnboardingUiPage.BEGINNER_HAVE_ROMS,
+            OnboardingUiPage.BEGINNER_ROMS_SETUP,
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY,
+            OnboardingUiPage.BEGINNER_NO_ROMS_HELP,
+            OnboardingUiPage.BEGINNER_FREE_GAMES,
+            OnboardingUiPage.BEGINNER_EMULATORS,
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH,
+            OnboardingUiPage.BEGINNER_ADVANCED,
+            OnboardingUiPage.BEGINNER_DONE,
+            OnboardingUiPage.PRO_RA,
+            OnboardingUiPage.PRO_ESDE,
+            OnboardingUiPage.PRO_SCAN,
+            OnboardingUiPage.PRO_EMULATORS,
+            OnboardingUiPage.PRO_DONE,
+            -> true
+            else -> false
+        }
+        val needsRoms = when (page) {
+            OnboardingUiPage.BEGINNER_ROMS_SETUP,
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY,
+            OnboardingUiPage.BEGINNER_FREE_GAMES,
+            OnboardingUiPage.BEGINNER_EMULATORS,
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH,
+            OnboardingUiPage.PRO_ORGL,
+            OnboardingUiPage.PRO_RA,
+            OnboardingUiPage.PRO_ESDE,
+            OnboardingUiPage.PRO_SCAN,
+            OnboardingUiPage.PRO_EMULATORS,
+            OnboardingUiPage.PRO_DONE,
+            -> true
+            else -> false
+        }
+        if (needsOrgl && s.orglUri == null) {
+            return when (page) {
+                OnboardingUiPage.PRO_RA,
+                OnboardingUiPage.PRO_ESDE,
+                OnboardingUiPage.PRO_SCAN,
+                OnboardingUiPage.PRO_EMULATORS,
+                OnboardingUiPage.PRO_DONE,
+                -> if (s.romsUri == null) OnboardingUiPage.PRO_ROMS else OnboardingUiPage.PRO_ORGL
+                else -> OnboardingUiPage.BEGINNER_ORGL
+            }
+        }
+        if (needsRoms && s.romsUri == null) {
+            return when (page) {
+                OnboardingUiPage.BEGINNER_FREE_GAMES -> OnboardingUiPage.BEGINNER_FREE_GAMES
+                OnboardingUiPage.BEGINNER_ROMS_SETUP,
+                OnboardingUiPage.BEGINNER_ROMS_SUMMARY,
+                OnboardingUiPage.BEGINNER_EMULATORS,
+                OnboardingUiPage.BEGINNER_TRY_LAUNCH,
+                -> OnboardingUiPage.BEGINNER_ROMS_SETUP
+                else -> OnboardingUiPage.PRO_ROMS
+            }
+        }
+        return page
+    }
+
+    fun continueFromBeginnerRomsSetup() {
+        viewModelScope.launch {
+            var check = _state.value.beginnerStructureCheck
+            if (check == null) {
+                check = performBeginnerStructureCheck()
+            }
+            if (check?.isValid != true) return@launch
+            val preview = _state.value.beginnerPreview
+            if (preview != null &&
+                preview.gamesFound > 0 &&
+                lastBeginnerScanRomsUri == _state.value.romsUri
+            ) {
+                _state.update { it.copy(beginnerCameFromFreeGames = false) }
+                goTo(OnboardingUiPage.BEGINNER_ROMS_SUMMARY, persist = true)
+            } else {
+                _state.update { it.copy(beginnerCameFromFreeGames = false) }
+                performBeginnerLibraryScan(navigateToSummary = true)
+            }
+        }
+    }
+
+    fun retryFreeGamesLibraryScan() {
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    freeGamesError = null,
+                    freeGamesStatus = "Checking ROMs folder and scanning…",
+                    beginnerCameFromFreeGames = true,
+                )
+            }
+            val check = performBeginnerStructureCheck()
+            if (check?.isValid == true) {
+                performBeginnerLibraryScan(navigateToSummary = true)
+            } else {
+                _state.update {
+                    it.copy(
+                        freeGamesStatus = null,
+                        freeGamesError = it.beginnerStructureError
+                            ?: "ROMs folder layout still looks wrong. Create system folders " +
+                            "(for example gba/) or pick a different root, then try again.",
+                    )
+                }
+            }
+        }
     }
 
     private fun goTo(page: OnboardingUiPage, persist: Boolean) {
@@ -441,6 +585,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun beginnerHaveRomsYes() {
+        _state.update { it.copy(beginnerCameFromFreeGames = false) }
         goTo(OnboardingUiPage.BEGINNER_ROMS_SETUP, persist = true)
     }
 
@@ -449,6 +594,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun openBeginnerFreeGames() {
+        _state.update { it.copy(beginnerCameFromFreeGames = true) }
         goTo(OnboardingUiPage.BEGINNER_FREE_GAMES, persist = true)
     }
 
@@ -487,12 +633,15 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.setRomsDir(uriString, pathHint)
             if (_state.value.page == OnboardingUiPage.BEGINNER_ROMS_SETUP) {
+                lastBeginnerScanRomsUri = null
                 val check = performBeginnerStructureCheck()
                 if (check?.isValid == true) {
+                    _state.update { it.copy(beginnerCameFromFreeGames = false) }
                     performBeginnerLibraryScan(navigateToSummary = true)
                 }
             } else {
                 // Free-games path: just remember the folder; user triggers download.
+                lastBeginnerScanRomsUri = null
                 _state.update {
                     it.copy(
                         beginnerStructureCheck = null,
@@ -582,6 +731,7 @@ class OnboardingViewModel @Inject constructor(
                 .onSuccess {
                     runCatching { orglExternalSync.loadDuringSetup() }
                     val preview = libraryRepository.buildBeginnerLibraryPreview()
+                    lastBeginnerScanRomsUri = romsUri
                     _state.update {
                         it.copy(
                             beginnerScanning = false,
@@ -672,12 +822,16 @@ class OnboardingViewModel @Inject constructor(
             }
             val check = performBeginnerStructureCheck()
             if (check?.isValid == true) {
+                _state.update { it.copy(beginnerCameFromFreeGames = true) }
                 performBeginnerLibraryScan(navigateToSummary = true)
             } else {
                 _state.update {
                     it.copy(
                         freeGamesError = it.beginnerStructureError
-                            ?: "Downloaded games, but the ROMs folder layout still looks wrong.",
+                            ?: "Downloaded games, but the ROMs folder layout still looks wrong. " +
+                            "Create system folders (for example gba/) or pick a different root, " +
+                            "then tap Retry scan.",
+                        freeGamesStatus = "Download finished — scan couldn’t continue yet.",
                     )
                 }
             }
@@ -702,12 +856,26 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun onRomsFolderPicked(uri: Uri) {
-        val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val takeFlags =
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         runCatching {
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
         }
         val pathHint = SafPathResolver.resolvePath(context, uri)
         val uriString = uri.toString()
+        val current = _state.value
+        if (OnboardingDirConflict.conflicts(pathHint, current.orglPath, uriString, current.orglUri)) {
+            _state.update {
+                it.copy(
+                    orglConflictError =
+                        "Your ROMs folder can't be the same as the ORGL data folder, or inside/above it. " +
+                            "Pick a separate ROMs root.",
+                )
+            }
+            return
+        }
+        invalidateProScan()
+        lastBeginnerScanRomsUri = null
         _state.update {
             it.copy(
                 romsUri = uriString,
@@ -715,6 +883,9 @@ class OnboardingViewModel @Inject constructor(
                 romsAccessOk = true,
                 romsPreselected = false,
                 orglConflictError = null,
+                beginnerPreview = null,
+                beginnerScanError = null,
+                beginnerStructureCheck = null,
             )
         }
         viewModelScope.launch {
@@ -749,6 +920,7 @@ class OnboardingViewModel @Inject constructor(
                 }
                 return@launch
             }
+            invalidateProScan()
             val result = withContext(Dispatchers.IO) {
                 OrglDataDirectory.prepare(context, uri)
             }
@@ -811,6 +983,7 @@ class OnboardingViewModel @Inject constructor(
         }
         val pathHint = SafPathResolver.resolvePath(context, uri)
         val uriString = uri.toString()
+        invalidateProScan()
         _state.update {
             it.copy(
                 esdeUri = uriString,
@@ -825,6 +998,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun clearEsdeFolder() {
+        invalidateProScan()
         _state.update {
             it.copy(
                 esdeUri = null,
@@ -985,33 +1159,52 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    private fun ensureScanRunningOrSummary() {
-        if (_state.value.scanDone && _state.value.scanSummary != null) return
-        if (scanJob?.isActive == true) return
-        viewModelScope.launch {
-            val existingGames = libraryRepository.countGames()
-            if (existingGames > 0) {
-                _state.update { it.copy(buildingSummary = true, scanError = null) }
-                val summary = libraryRepository.buildLibraryScanSummary()
-                _state.update {
-                    it.copy(
-                        buildingSummary = false,
-                        scanning = false,
-                        scanDone = true,
-                        scanSummary = summary,
-                    )
-                }
-                return@launch
-            }
-            startInitialScan()
+    private fun proScanKey(state: OnboardingUiState = _state.value): String =
+        listOf(state.romsUri.orEmpty(), state.orglUri.orEmpty(), state.esdeUri.orEmpty())
+            .joinToString("|")
+
+    private fun cancelProScan() {
+        scanJob?.cancel()
+        scanJob = null
+        _state.update {
+            it.copy(
+                scanning = false,
+                buildingSummary = false,
+            )
         }
     }
 
-    fun startInitialScan() {
+    private fun invalidateProScan() {
+        cancelProScan()
+        lastCompletedProScanKey = null
+        _state.update {
+            it.copy(
+                scanDone = false,
+                scanSummary = null,
+                scanError = null,
+            )
+        }
+    }
+
+    private fun ensureScanRunningOrSummary() {
+        val key = proScanKey()
+        if (_state.value.scanDone &&
+            _state.value.scanSummary != null &&
+            lastCompletedProScanKey == key
+        ) {
+            return
+        }
         if (scanJob?.isActive == true) return
+        // Always scan current folders — never reuse Room rows from a different root.
+        startInitialScan()
+    }
+
+    fun startInitialScan() {
+        cancelProScan()
         val current = _state.value
         val romsUri = current.romsUri ?: return
         val orglUri = current.orglUri ?: return
+        val key = proScanKey(current)
         scanJob = viewModelScope.launch {
             settingsRepository.setRomsDir(romsUri, current.romsPath)
             settingsRepository.setOrglDataDir(orglUri, current.orglPath)
@@ -1039,6 +1232,7 @@ class OnboardingViewModel @Inject constructor(
                     val summary = libraryRepository.buildLibraryScanSummary(
                         unknownFiles = result.unknownFiles.size,
                     )
+                    lastCompletedProScanKey = key
                     _state.update {
                         it.copy(
                             buildingSummary = false,
@@ -1049,7 +1243,9 @@ class OnboardingViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     runCatching { orglExternalSync.loadDuringSetup() }
+                    lastCompletedProScanKey = null
                     _state.update {
                         it.copy(
                             scanning = false,
@@ -1110,16 +1306,22 @@ class OnboardingViewModel @Inject constructor(
             val systemNeeds = if (pkgForCores == null) {
                 emptyList()
             } else {
+                val romsUri = _state.value.romsUri
+                val orglUri = _state.value.orglUri
                 var preview = _state.value.beginnerPreview
-                if (preview == null || preview.systems.isEmpty()) {
-                    preview = withContext(Dispatchers.IO) {
-                        libraryRepository.buildBeginnerLibraryPreview()
-                    }
-                    if (preview.systems.isNotEmpty()) {
-                        _state.update { it.copy(beginnerPreview = preview) }
+                val previewMatchesCurrentRoot =
+                    preview != null &&
+                        preview.systems.isNotEmpty() &&
+                        romsUri != null &&
+                        romsUri == lastBeginnerScanRomsUri
+                if (!previewMatchesCurrentRoot) {
+                    preview = null
+                    if (romsUri != null && orglUri != null) {
+                        performBeginnerLibraryScan(navigateToSummary = false)
+                        preview = _state.value.beginnerPreview
                     }
                 }
-                preview.systems.map { system ->
+                preview?.systems.orEmpty().map { system ->
                     val defaultCore = libraryRepository.defaultCoreForFolder(system.folderName)
                     val systemDef = systemConfigLoader.systemByFolder(system.folderName)
                     val coreOptions = systemDef?.let { systemConfigLoader.retroArchCoresForSystem(it) }

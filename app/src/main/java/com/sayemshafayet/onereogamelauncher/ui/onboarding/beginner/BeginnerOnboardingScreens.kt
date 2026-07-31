@@ -470,9 +470,9 @@ fun BeginnerFreeGamesScreen(
         Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
     }
-    if (downloaded && !downloading) {
+    if (downloaded && !downloading && error == null) {
         Text(
-            "Downloads finished. We’ll take you to your library summary next.",
+            "Downloads finished. If you’re still here, tap Retry scan after fixing the folder layout.",
             style = MaterialTheme.typography.bodyMedium,
             color = Mist.copy(alpha = 0.85f),
         )
