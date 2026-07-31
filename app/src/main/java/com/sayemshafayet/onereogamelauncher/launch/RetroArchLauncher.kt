@@ -1,12 +1,16 @@
 package com.sayemshafayet.onereogamelauncher.launch
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import android.os.Process
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.sayemshafayet.onereogamelauncher.domain.LaunchCheck
 import com.sayemshafayet.onereogamelauncher.domain.LaunchSeverity
 import com.sayemshafayet.onereogamelauncher.systems.LibretroCorePaths
@@ -14,10 +18,21 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Launches games through RetroArch's RetroActivityFuture intent extras.
  * Mirrors ES-DE / Pegasus / DroidArcade contract.
+ *
+ * Core presence can be queried via RetroArch's InstalledCoresReceiver
+ * (`com.retroarch.QUERY_INSTALLED_CORES` / `INSTALLED_CORES_RESULT`, added upstream 2026).
+ * When that broadcast is unavailable, we fall back to a best-effort filesystem probe.
  */
 @Singleton
 class RetroArchLauncher @Inject constructor(
@@ -25,6 +40,13 @@ class RetroArchLauncher @Inject constructor(
 ) {
     companion object {
         private const val TAG = "RetroArchLauncher"
+
+        const val ACTION_QUERY_INSTALLED_CORES = "com.retroarch.QUERY_INSTALLED_CORES"
+        const val ACTION_INSTALLED_CORES_RESULT = "com.retroarch.INSTALLED_CORES_RESULT"
+        const val EXTRA_CORES = "CORES"
+
+        private const val CORE_QUERY_TIMEOUT_MS = 2_000L
+        private const val CORE_QUERY_CACHE_TTL_MS = 30_000L
 
         val KNOWN_PACKAGES = listOf(
             "com.retroarch.aarch64",
@@ -53,6 +75,21 @@ class RetroArchLauncher @Inject constructor(
             }
         }
 
+        /** Compare core filenames allowing `_android` suffix differences. */
+        fun coresMatch(installed: String, wanted: String): Boolean {
+            val a = normalizeCoreFileName(installed)
+            val b = normalizeCoreFileName(wanted)
+            if (a.equals(b, ignoreCase = true)) return true
+            return coreIdentity(a).equals(coreIdentity(b), ignoreCase = true) &&
+                coreIdentity(a).isNotBlank()
+        }
+
+        private fun coreIdentity(fileName: String): String =
+            fileName.lowercase()
+                .removeSuffix("_libretro_android.so")
+                .removeSuffix("_libretro.so")
+                .removeSuffix(".so")
+
         fun isLikelyFilesystemPath(path: String): Boolean {
             if (path.isBlank()) return false
             if (path.startsWith("content:", ignoreCase = true)) return false
@@ -60,6 +97,14 @@ class RetroArchLauncher @Inject constructor(
             return path.startsWith('/') || path.matches(Regex("^[A-Za-z]:\\\\.*"))
         }
     }
+
+    private data class CachedCoreQuery(
+        val cores: List<String>?,
+        val atElapsedMs: Long,
+    )
+
+    private val coreQueryMutex = Mutex()
+    private val coreQueryCache = mutableMapOf<String, CachedCoreQuery>()
 
     fun installedPackages(): List<String> {
         val pm = context.packageManager
@@ -74,13 +119,114 @@ class RetroArchLauncher @Inject constructor(
         return installed.firstOrNull()
     }
 
+    /**
+     * Best-effort sync probe of RetroArch's private cores dir.
+     * Returns true when readable, otherwise null (unknown) — never a firm false.
+     */
     fun coreLikelyPresent(pkg: String, coreFileName: String): Boolean? {
         val core = normalizeCoreFileName(coreFileName)
         val anyReadable = corePathCandidates(pkg, core).any { File(it).canRead() }
         return if (anyReadable) true else null
     }
 
-    fun buildLaunchability(
+    /**
+     * Prefer RetroArch's installed-cores broadcast; fall back to [coreLikelyPresent].
+     * @return true/false when the query (or a readable file) answers; null if unknown.
+     */
+    suspend fun corePresent(pkg: String, coreFileName: String): Boolean? {
+        val wanted = normalizeCoreFileName(coreFileName)
+        if (wanted.isBlank()) return null
+        val queried = queryInstalledCores(pkg)
+        if (queried != null) {
+            return queried.any { coresMatch(it, wanted) }
+        }
+        return coreLikelyPresent(pkg, wanted)
+    }
+
+    /**
+     * Ask RetroArch which cores are installed.
+     * @return list of core filenames when RetroArch replied; null if unsupported / timed out.
+     */
+    suspend fun queryInstalledCores(pkg: String): List<String>? {
+        coreQueryMutex.withLock {
+            val cached = coreQueryCache[pkg]
+            val now = SystemClock.elapsedRealtime()
+            if (cached != null && now - cached.atElapsedMs < CORE_QUERY_CACHE_TTL_MS) {
+                return cached.cores
+            }
+        }
+        val result = withContext(Dispatchers.Main.immediate) {
+            queryInstalledCoresUncached(pkg)
+        }
+        coreQueryMutex.withLock {
+            coreQueryCache[pkg] = CachedCoreQuery(result, SystemClock.elapsedRealtime())
+        }
+        return result
+    }
+
+    fun invalidateCoreQueryCache(pkg: String? = null) {
+        // Best-effort; concurrent readers may briefly see a stale entry.
+        if (pkg == null) coreQueryCache.clear() else coreQueryCache.remove(pkg)
+    }
+
+    private suspend fun queryInstalledCoresUncached(pkg: String): List<String>? {
+        return withTimeoutOrNull(CORE_QUERY_TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                var finished = false
+                lateinit var receiver: BroadcastReceiver
+
+                fun finish(value: List<String>?) {
+                    if (finished) return
+                    finished = true
+                    runCatching { context.unregisterReceiver(receiver) }
+                    if (cont.isActive) cont.resume(value)
+                }
+
+                receiver = object : BroadcastReceiver() {
+                    override fun onReceive(ctx: Context?, intent: Intent?) {
+                        if (intent?.action != ACTION_INSTALLED_CORES_RESULT) return
+                        val cores = intent.getStringArrayExtra(EXTRA_CORES)
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotEmpty() }
+                            ?.distinct()
+                            ?.sorted()
+                            .orEmpty()
+                        Log.i(TAG, "Installed cores from $pkg: ${cores.size}")
+                        finish(cores)
+                    }
+                }
+
+                runCatching {
+                    ContextCompat.registerReceiver(
+                        context,
+                        receiver,
+                        IntentFilter(ACTION_INSTALLED_CORES_RESULT),
+                        ContextCompat.RECEIVER_EXPORTED,
+                    )
+                }.onFailure {
+                    Log.w(TAG, "Failed to register cores result receiver", it)
+                    if (cont.isActive) cont.resume(null)
+                    return@suspendCancellableCoroutine
+                }
+
+                cont.invokeOnCancellation {
+                    finished = true
+                    runCatching { context.unregisterReceiver(receiver) }
+                }
+
+                runCatching {
+                    context.sendBroadcast(
+                        Intent(ACTION_QUERY_INSTALLED_CORES).setPackage(pkg),
+                    )
+                }.onFailure {
+                    Log.w(TAG, "Failed to send core query to $pkg", it)
+                    finish(null)
+                }
+            }
+        }
+    }
+
+    suspend fun buildLaunchability(
         romPath: String,
         coreFileName: String?,
         preferredPackage: String?,
@@ -100,7 +246,7 @@ class RetroArchLauncher @Inject constructor(
             checks += LaunchCheck("retroarch", "RetroArch installed", LaunchSeverity.OK, pkg)
             val core = normalizeCoreFileName(coreFileName.orEmpty())
             if (core.isNotBlank()) {
-                when (coreLikelyPresent(pkg, core)) {
+                when (corePresent(pkg, core)) {
                     true -> checks += LaunchCheck("core", "Core installed", LaunchSeverity.OK, core)
                     false -> checks += LaunchCheck(
                         id = "core",
@@ -113,7 +259,7 @@ class RetroArchLauncher @Inject constructor(
                         id = "core",
                         label = "Core installed",
                         severity = LaunchSeverity.WARN,
-                        detail = "Could not verify $core (normal — RetroArch private storage)",
+                        detail = "Could not verify $core automatically",
                         fixGuidance = "Launch may still work if the core is installed in RetroArch.",
                     )
                 }

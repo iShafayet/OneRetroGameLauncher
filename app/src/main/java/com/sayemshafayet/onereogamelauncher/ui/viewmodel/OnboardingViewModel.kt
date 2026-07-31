@@ -14,6 +14,8 @@ import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
 import com.sayemshafayet.onereogamelauncher.domain.BeginnerLibraryPreview
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerSystemCoreNeed
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerTryLaunchOffer
 import com.sayemshafayet.onereogamelauncher.domain.DetectedEmulator
 import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
 import com.sayemshafayet.onereogamelauncher.domain.OnboardingStep
@@ -21,11 +23,13 @@ import com.sayemshafayet.onereogamelauncher.domain.OnboardingType
 import com.sayemshafayet.onereogamelauncher.domain.RomsStructureCheck
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
+import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
 import com.sayemshafayet.onereogamelauncher.legal.LegalDocuments
 import com.sayemshafayet.onereogamelauncher.legal.isLegalAccepted
 import com.sayemshafayet.onereogamelauncher.library.RomsRootStructureChecker
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
+import com.sayemshafayet.onereogamelauncher.systems.SystemConfigLoader
 import com.sayemshafayet.onereogamelauncher.ui.util.OnboardingDirConflict
 import com.sayemshafayet.onereogamelauncher.ui.util.SafFolderAccess
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
@@ -68,7 +72,10 @@ enum class OnboardingUiPage {
     BEGINNER_ROMS_SUMMARY,
     BEGINNER_NO_ROMS_HELP,
     BEGINNER_FREE_GAMES,
-    BEGINNER_COMING_SOON,
+    BEGINNER_EMULATORS,
+    BEGINNER_TRY_LAUNCH,
+    BEGINNER_ADVANCED,
+    BEGINNER_DONE,
 }
 
 data class OnboardingUiState(
@@ -105,6 +112,11 @@ data class OnboardingUiState(
     val buildingSummary: Boolean = false,
     val detectedEmulators: List<DetectedEmulator> = emptyList(),
     val detectingEmulators: Boolean = false,
+    val beginnerSystemCoreNeeds: List<BeginnerSystemCoreNeed> = emptyList(),
+    val beginnerTryLaunchOffer: BeginnerTryLaunchOffer? = null,
+    val tryLaunchBusy: Boolean = false,
+    val tryLaunchError: String? = null,
+    val tryLaunchStarted: Boolean = false,
     // Beginner flow
     val beginnerStructureChecking: Boolean = false,
     val beginnerStructureCheck: RomsStructureCheck? = null,
@@ -127,6 +139,8 @@ class OnboardingViewModel @Inject constructor(
     private val raClient: RetroAchievementsClient,
     private val emulatorLauncher: EmulatorLauncher,
     private val retroArchLauncher: RetroArchLauncher,
+    private val launchResolver: LaunchResolver,
+    private val systemConfigLoader: SystemConfigLoader,
     private val romsRootStructureChecker: RomsRootStructureChecker,
     private val freeHomebrewDownloader: FreeHomebrewDownloader,
 ) : ViewModel() {
@@ -310,7 +324,16 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_SCAN -> OnboardingUiPage.PRO_EMULATORS
             OnboardingUiPage.PRO_EMULATORS -> OnboardingUiPage.PRO_DONE
             OnboardingUiPage.BEGINNER_ORGL -> OnboardingUiPage.BEGINNER_HAVE_ROMS
-            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_COMING_SOON
+            OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_EMULATORS
+            OnboardingUiPage.BEGINNER_EMULATORS -> {
+                if (_state.value.beginnerTryLaunchOffer != null) {
+                    OnboardingUiPage.BEGINNER_TRY_LAUNCH
+                } else {
+                    OnboardingUiPage.BEGINNER_ADVANCED
+                }
+            }
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH -> OnboardingUiPage.BEGINNER_ADVANCED
+            OnboardingUiPage.BEGINNER_ADVANCED -> OnboardingUiPage.BEGINNER_DONE
             OnboardingUiPage.BEGINNER_FREE_GAMES -> {
                 if (_state.value.freeGamesDownloaded) {
                     OnboardingUiPage.BEGINNER_ROMS_SUMMARY
@@ -349,7 +372,16 @@ class OnboardingViewModel @Inject constructor(
                     OnboardingUiPage.BEGINNER_NO_ROMS_HELP
                 }
             }
-            OnboardingUiPage.BEGINNER_COMING_SOON -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+            OnboardingUiPage.BEGINNER_EMULATORS -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH -> OnboardingUiPage.BEGINNER_EMULATORS
+            OnboardingUiPage.BEGINNER_ADVANCED -> {
+                if (_state.value.beginnerTryLaunchOffer != null) {
+                    OnboardingUiPage.BEGINNER_TRY_LAUNCH
+                } else {
+                    OnboardingUiPage.BEGINNER_EMULATORS
+                }
+            }
+            OnboardingUiPage.BEGINNER_DONE -> OnboardingUiPage.BEGINNER_ADVANCED
             else -> return
         }
         goTo(prev, persist = true)
@@ -384,6 +416,8 @@ class OnboardingViewModel @Inject constructor(
             OnboardingUiPage.PRO_RA -> prepareRetroAchievements()
             OnboardingUiPage.PRO_SCAN -> ensureScanRunningOrSummary()
             OnboardingUiPage.PRO_EMULATORS -> detectEmulators()
+            OnboardingUiPage.BEGINNER_EMULATORS -> detectEmulators()
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH -> prepareTryLaunchOffer(navigateIfMissing = true)
             OnboardingUiPage.BEGINNER_ROMS_SETUP -> {
                 if (_state.value.romsUri != null && _state.value.beginnerStructureCheck == null) {
                     runBeginnerStructureCheck(thenScanIfValid = false)
@@ -1032,12 +1066,21 @@ class OnboardingViewModel @Inject constructor(
 
     fun detectEmulators() {
         viewModelScope.launch {
-            _state.update { it.copy(detectingEmulators = true) }
-            val found = withContext(Dispatchers.IO) {
-                libraryRepository.ensureCatalogLoaded()
+            _state.update {
+                it.copy(
+                    detectingEmulators = true,
+                    beginnerSystemCoreNeeds = emptyList(),
+                )
+            }
+            retroArchLauncher.invalidateCoreQueryCache()
+            val preferred = settingsRepository.current().preferredRetroArchPackage
+            libraryRepository.ensureCatalogLoaded()
+            withContext(Dispatchers.IO) {
                 libraryRepository.refreshEmulatorInstallState()
-                val preferred = settingsRepository.current().preferredRetroArchPackage
-                val standalone = EmulatorLauncher.SUPPORTED_PROFILES
+            }
+
+            val standalone = withContext(Dispatchers.IO) {
+                EmulatorLauncher.SUPPORTED_PROFILES
                     .mapNotNull { profile ->
                         val resolved = emulatorLauncher.installedForKey(profile.key, preferred)
                             ?: return@mapNotNull null
@@ -1048,24 +1091,179 @@ class OnboardingViewModel @Inject constructor(
                         )
                     }
                     .distinctBy { it.packageName }
-                val raPkgs = retroArchLauncher.installedPackages().map { pkg ->
-                    DetectedEmulator(
-                        key = "RETROARCH",
-                        label = "RetroArch",
-                        packageName = pkg,
+            }
+
+            val raPkgs = retroArchLauncher.installedPackages()
+            val raDetected = raPkgs.map { pkg ->
+                val cores = retroArchLauncher.queryInstalledCores(pkg)
+                DetectedEmulator(
+                    key = "RETROARCH",
+                    label = "RetroArch",
+                    packageName = pkg,
+                    installedCores = cores,
+                    coreQuerySupported = cores != null,
+                )
+            }
+
+            val pkgForCores = retroArchLauncher.resolvePackage(preferred) ?: raPkgs.firstOrNull()
+            val installedCoreList = pkgForCores?.let { retroArchLauncher.queryInstalledCores(it) }
+            val systemNeeds = if (pkgForCores == null) {
+                emptyList()
+            } else {
+                var preview = _state.value.beginnerPreview
+                if (preview == null || preview.systems.isEmpty()) {
+                    preview = withContext(Dispatchers.IO) {
+                        libraryRepository.buildBeginnerLibraryPreview()
+                    }
+                    if (preview.systems.isNotEmpty()) {
+                        _state.update { it.copy(beginnerPreview = preview) }
+                    }
+                }
+                preview.systems.map { system ->
+                    val defaultCore = libraryRepository.defaultCoreForFolder(system.folderName)
+                    val systemDef = systemConfigLoader.systemByFolder(system.folderName)
+                    val coreOptions = systemDef?.let { systemConfigLoader.retroArchCoresForSystem(it) }
+                        .orEmpty()
+                    val recommendedLabel = when {
+                        defaultCore.isNullOrBlank() -> null
+                        else -> coreOptions.firstOrNull { (label, file) ->
+                            RetroArchLauncher.coresMatch(file, defaultCore)
+                        }?.first ?: humanizeCoreFileName(defaultCore)
+                    }
+                    val recommendedInstalled = defaultCore?.let { core ->
+                        retroArchLauncher.corePresent(pkgForCores, core)
+                    }
+                    val foundLabel = when {
+                        installedCoreList == null -> null
+                        recommendedInstalled == true -> null
+                        else -> {
+                            coreOptions.firstOrNull { (_, file) ->
+                                installedCoreList.any { installed ->
+                                    RetroArchLauncher.coresMatch(installed, file)
+                                }
+                            }?.first
+                        }
+                    }
+                    BeginnerSystemCoreNeed(
+                        displayName = system.displayName,
+                        folderName = system.folderName,
+                        recommendedCoreLabel = recommendedLabel,
+                        foundCoreLabel = foundLabel,
+                        recommendedInstalled = recommendedInstalled,
                     )
                 }
-                (raPkgs + standalone)
-                    .distinctBy { it.packageName }
-                    .sortedBy { it.label.lowercase() }
             }
+
+            val found = (raDetected + standalone)
+                .distinctBy { it.packageName }
+                .sortedBy { it.label.lowercase() }
+
+            val tryOffer = if (found.isEmpty()) {
+                null
+            } else {
+                buildTryLaunchOffer()
+            }
+
             _state.update {
                 it.copy(
                     detectingEmulators = false,
                     detectedEmulators = found,
+                    beginnerSystemCoreNeeds = systemNeeds,
+                    beginnerTryLaunchOffer = tryOffer,
+                    tryLaunchError = null,
+                    tryLaunchStarted = false,
                 )
             }
         }
+    }
+
+    private fun prepareTryLaunchOffer(navigateIfMissing: Boolean) {
+        viewModelScope.launch {
+            val offer = buildTryLaunchOffer()
+            _state.update {
+                it.copy(
+                    beginnerTryLaunchOffer = offer,
+                    tryLaunchError = null,
+                    tryLaunchStarted = false,
+                )
+            }
+            if (navigateIfMissing && offer == null &&
+                _state.value.page == OnboardingUiPage.BEGINNER_TRY_LAUNCH
+            ) {
+                goTo(OnboardingUiPage.BEGINNER_ADVANCED, persist = true)
+            }
+        }
+    }
+
+    private suspend fun buildTryLaunchOffer(): BeginnerTryLaunchOffer? {
+        val settings = settingsRepository.current()
+        val homebrew = FreeHomebrewCatalog.games
+        val candidates = withContext(Dispatchers.IO) {
+            libraryRepository.candidateGamesForTryLaunch(
+                preferredFileNames = homebrew.map { it.fileName }.toSet(),
+                preferredTitles = homebrew.map { it.title }.toSet(),
+            )
+        }
+        for ((game, system, _) in candidates) {
+            val plan = launchResolver.resolve(game.id, settings) ?: continue
+            val label = when {
+                plan.isRetroArch -> "RetroArch"
+                else -> emulatorLauncher.profileForKey(plan.emulatorKey)?.displayName
+                    ?: plan.emulatorKey
+            }
+            return BeginnerTryLaunchOffer(
+                gameId = game.id,
+                gameTitle = game.title.ifBlank { game.fileName },
+                systemDisplayName = system.displayName,
+                emulatorKey = plan.emulatorKey,
+                emulatorLabel = label,
+                isRetroArch = plan.isRetroArch,
+                coreFileName = plan.core,
+            )
+        }
+        return null
+    }
+
+    fun launchTryGame() {
+        val offer = _state.value.beginnerTryLaunchOffer ?: return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(tryLaunchBusy = true, tryLaunchError = null, tryLaunchStarted = false)
+            }
+            val err = withContext(Dispatchers.IO) {
+                launchResolver.launch(offer.gameId)
+            }
+            _state.update {
+                it.copy(
+                    tryLaunchBusy = false,
+                    tryLaunchError = err,
+                    tryLaunchStarted = err == null,
+                )
+            }
+        }
+    }
+
+    fun openRetroArchForCoreDownload() {
+        viewModelScope.launch {
+            val preferred = settingsRepository.current().preferredRetroArchPackage
+            val pkg = retroArchLauncher.resolvePackage(preferred)
+                ?: retroArchLauncher.installedPackages().firstOrNull()
+                ?: return@launch
+            runCatching {
+                val launch = context.packageManager.getLaunchIntentForPackage(pkg)
+                    ?: Intent().setClassName(pkg, RetroArchLauncher.ACTIVITY)
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launch)
+            }
+        }
+    }
+
+    private fun humanizeCoreFileName(fileName: String): String {
+        val base = RetroArchLauncher.normalizeCoreFileName(fileName)
+            .removeSuffix("_libretro_android.so")
+            .removeSuffix("_libretro.so")
+            .removeSuffix(".so")
+        return base.replace('_', ' ').trim().ifBlank { fileName }
     }
 
     fun finalizeOnboarding(onComplete: () -> Unit) {
@@ -1092,7 +1290,12 @@ class OnboardingViewModel @Inject constructor(
         OnboardingStep.BEGINNER_ROMS_SUMMARY -> OnboardingUiPage.BEGINNER_ROMS_SUMMARY
         OnboardingStep.BEGINNER_NO_ROMS_HELP -> OnboardingUiPage.BEGINNER_NO_ROMS_HELP
         OnboardingStep.BEGINNER_FREE_GAMES -> OnboardingUiPage.BEGINNER_FREE_GAMES
-        OnboardingStep.BEGINNER_COMING_SOON -> OnboardingUiPage.BEGINNER_COMING_SOON
+        OnboardingStep.BEGINNER_EMULATORS -> OnboardingUiPage.BEGINNER_EMULATORS
+        OnboardingStep.BEGINNER_TRY_LAUNCH -> OnboardingUiPage.BEGINNER_TRY_LAUNCH
+        OnboardingStep.BEGINNER_ADVANCED,
+        OnboardingStep.BEGINNER_COMING_SOON,
+        -> OnboardingUiPage.BEGINNER_ADVANCED
+        OnboardingStep.BEGINNER_DONE -> OnboardingUiPage.BEGINNER_DONE
     }
 
     private fun OnboardingUiPage.toPersistedStep(): OnboardingStep? = when (this) {
@@ -1111,7 +1314,10 @@ class OnboardingViewModel @Inject constructor(
         OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> OnboardingStep.BEGINNER_ROMS_SUMMARY
         OnboardingUiPage.BEGINNER_NO_ROMS_HELP -> OnboardingStep.BEGINNER_NO_ROMS_HELP
         OnboardingUiPage.BEGINNER_FREE_GAMES -> OnboardingStep.BEGINNER_FREE_GAMES
-        OnboardingUiPage.BEGINNER_COMING_SOON -> OnboardingStep.BEGINNER_COMING_SOON
+        OnboardingUiPage.BEGINNER_EMULATORS -> OnboardingStep.BEGINNER_EMULATORS
+        OnboardingUiPage.BEGINNER_TRY_LAUNCH -> OnboardingStep.BEGINNER_TRY_LAUNCH
+        OnboardingUiPage.BEGINNER_ADVANCED -> OnboardingStep.BEGINNER_ADVANCED
+        OnboardingUiPage.BEGINNER_DONE -> OnboardingStep.BEGINNER_DONE
         OnboardingUiPage.WELCOME, OnboardingUiPage.WELCOME_RESUME -> null
     }
 }

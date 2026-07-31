@@ -336,6 +336,9 @@ class LibraryRepository @Inject constructor(
             gameDao.countForSystem(systemId)
         }
 
+    suspend fun defaultCoreForFolder(folderName: String): String? =
+        systemDao.findByFolder(folderName)?.defaultCore?.takeIf { it.isNotBlank() }
+
     suspend fun systemFolderNames(): List<String> =
         systemDao.getAll().map { it.folderName }.filter { it.isNotBlank() }
 
@@ -365,6 +368,34 @@ class LibraryRepository @Inject constructor(
             systems = rows,
             gamesFound = rows.sumOf { it.gameCount },
         )
+    }
+
+    /**
+     * Games available for a beginner “try launch” prompt, preferred order:
+     * curated free homebrew filenames first, then remaining library titles.
+     */
+    suspend fun candidateGamesForTryLaunch(
+        preferredFileNames: Set<String> = emptySet(),
+        preferredTitles: Set<String> = emptySet(),
+        maxPerSystem: Int = 8,
+    ): List<Triple<GameEntity, SystemEntity, Int>> {
+        val systemsById = systemDao.getAll().associateBy { it.id }
+        val preferredFiles = preferredFileNames.map { it.lowercase() }.toSet()
+        val preferredTitleSet = preferredTitles.map { it.lowercase() }.toSet()
+        return gameDao.gameCountsBySystem()
+            .filter { it.gameCount > 0 }
+            .flatMap { countRow ->
+                val system = systemsById[countRow.systemId] ?: return@flatMap emptyList()
+                gameDao.getBySystem(system.id).take(maxPerSystem).map { game ->
+                    val rank = when {
+                        preferredFiles.contains(game.fileName.lowercase()) -> 2
+                        preferredTitleSet.any { t -> game.title.contains(t, ignoreCase = true) } -> 1
+                        else -> 0
+                    }
+                    Triple(game, system, rank)
+                }
+            }
+            .sortedByDescending { it.third }
     }
 
     /**

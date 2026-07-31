@@ -31,6 +31,11 @@ enum class OnboardingStep {
     BEGINNER_ROMS_SUMMARY,
     BEGINNER_NO_ROMS_HELP,
     BEGINNER_FREE_GAMES,
+    BEGINNER_EMULATORS,
+    BEGINNER_TRY_LAUNCH,
+    BEGINNER_ADVANCED,
+    BEGINNER_DONE,
+    /** @deprecated Migrated to [BEGINNER_ADVANCED] on resume. */
     BEGINNER_COMING_SOON,
     /** @deprecated Migrated to [BEGINNER_ORGL] on resume. */
     BEGINNER_STUB,
@@ -40,6 +45,33 @@ data class DetectedEmulator(
     val key: String,
     val label: String,
     val packageName: String,
+    /** RetroArch only: core filenames when the query broadcast succeeded. */
+    val installedCores: List<String>? = null,
+    /** RetroArch only: false when the cores broadcast timed out / unsupported. */
+    val coreQuerySupported: Boolean? = null,
+)
+
+/** Recommended RetroArch core for a library system during beginner onboarding. */
+data class BeginnerSystemCoreNeed(
+    val displayName: String,
+    val folderName: String,
+    /** Friendly recommended core name (falls back to filename). */
+    val recommendedCoreLabel: String?,
+    /** Friendly name of a different installed core for this system, if any. */
+    val foundCoreLabel: String?,
+    /** true when the recommended core is installed; null when we could not query. */
+    val recommendedInstalled: Boolean?,
+)
+
+/** A game + installed emulator we can offer to try during beginner onboarding. */
+data class BeginnerTryLaunchOffer(
+    val gameId: Long,
+    val gameTitle: String,
+    val systemDisplayName: String,
+    val emulatorKey: String,
+    val emulatorLabel: String,
+    val isRetroArch: Boolean,
+    val coreFileName: String?,
 )
 
 /** Result of a shallow ROMs-root layout check (immediate child folders only). */

@@ -31,6 +31,12 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
         </intent>
+        <intent>
+            <action android:name="com.retroarch.QUERY_INSTALLED_CORES" />
+        </intent>
+        <intent>
+            <action android:name="com.retroarch.INSTALLED_CORES_RESULT" />
+        </intent>
     </queries>
 
     <application

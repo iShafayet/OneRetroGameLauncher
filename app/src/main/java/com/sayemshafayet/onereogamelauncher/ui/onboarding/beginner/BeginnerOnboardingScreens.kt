@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -18,11 +20,15 @@ import androidx.compose.ui.unit.dp
 import com.sayemshafayet.onereogamelauncher.data.homebrew.LegalRomsGuideLink
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.domain.BeginnerLibraryPreview
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerSystemCoreNeed
+import com.sayemshafayet.onereogamelauncher.domain.BeginnerTryLaunchOffer
+import com.sayemshafayet.onereogamelauncher.domain.DetectedEmulator
 import com.sayemshafayet.onereogamelauncher.domain.FreeHomebrewGame
 import com.sayemshafayet.onereogamelauncher.domain.RomsStructureCheck
 import com.sayemshafayet.onereogamelauncher.library.RomsRootStructureChecker
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
+import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
 import com.sayemshafayet.onereogamelauncher.ui.theme.Mist
 
 @Composable
@@ -474,20 +480,367 @@ fun BeginnerFreeGamesScreen(
 }
 
 @Composable
-fun BeginnerComingSoonScreen() {
+fun BeginnerEmulatorsScreen(
+    detecting: Boolean,
+    emulators: List<DetectedEmulator>,
+    librarySystems: List<String>,
+    systemCoreNeeds: List<BeginnerSystemCoreNeed>,
+    onOpenUrl: (String) -> Unit,
+) {
     Spacer(Modifier.height(24.dp))
     Text(
-        "Great progress",
+        "Looking for emulators",
         style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
         color = Mist,
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        "You’ve got a place for ORGL’s data and at least one game in your library. " +
-            "Next we’ll help you install an emulator and finish setup — that part is coming soon.",
+        "ORGL launches games through emulator apps installed on this device. " +
+            "We’ll list the ones we recognize.",
         style = MaterialTheme.typography.bodyLarge,
         color = Mist.copy(alpha = 0.88f),
     )
+    if (librarySystems.isNotEmpty()) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Your library currently has: ${librarySystems.joinToString()}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Mist.copy(alpha = 0.75f),
+        )
+    }
+    Spacer(Modifier.height(20.dp))
+    when {
+        detecting -> {
+            Text(
+                "Scanning installed apps and RetroArch cores…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Mist.copy(alpha = 0.85f),
+            )
+        }
+        emulators.isNotEmpty() -> {
+            Text(
+                "Found ${emulators.size} emulator" +
+                    if (emulators.size == 1) "" else "s",
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+                color = AmberAccent,
+            )
+            Spacer(Modifier.height(12.dp))
+            emulators.forEach { emu ->
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(
+                        emu.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Mist,
+                    )
+                    Text(
+                        emu.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Mist.copy(alpha = 0.65f),
+                    )
+                    if (emu.key == "RETROARCH") {
+                        Spacer(Modifier.height(4.dp))
+                        when {
+                            emu.coreQuerySupported == true && emu.installedCores != null -> {
+                                val cores = emu.installedCores
+                                Text(
+                                    if (cores.isEmpty()) {
+                                        "No cores installed yet in this RetroArch."
+                                    } else {
+                                        "${cores.size} core" +
+                                            (if (cores.size == 1) "" else "s") +
+                                            " installed"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AmberAccent,
+                                )
+                                if (cores.isNotEmpty()) {
+                                    Text(
+                                        cores.take(8).joinToString() +
+                                            if (cores.size > 8) "…" else "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Mist.copy(alpha = 0.65f),
+                                    )
+                                }
+                            }
+                            emu.coreQuerySupported == false -> {
+                                Text(
+                                    "Couldn’t list installed cores automatically. " +
+                                        "Install cores via Online Updater → Core Downloader.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Mist.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (systemCoreNeeds.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Cores for your library",
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+                    color = Mist,
+                )
+                Spacer(Modifier.height(8.dp))
+                systemCoreNeeds.forEach { need ->
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        Text(
+                            need.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Mist,
+                        )
+                        need.recommendedCoreLabel?.let { label ->
+                            val recommendedLine = buildString {
+                                append("Recommended: ")
+                                append(label)
+                                if (need.recommendedInstalled == true) {
+                                    append(" (Installed)")
+                                }
+                            }
+                            Text(
+                                recommendedLine,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (need.recommendedInstalled == true) {
+                                    AmberAccent
+                                } else {
+                                    Mist.copy(alpha = 0.75f)
+                                },
+                            )
+                        }
+                        need.foundCoreLabel?.let { found ->
+                            Text(
+                                "Found: $found",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AmberAccent,
+                            )
+                        }
+                    }
+                }
+                if (systemCoreNeeds.any { it.recommendedInstalled == false }) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "In RetroArch: Online Updater → Core Downloader, then Rescan here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Mist.copy(alpha = 0.8f),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "You can change per-system launchers later in Setup. " +
+                    "If you just installed something, tap Rescan.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Mist.copy(alpha = 0.75f),
+            )
+        }
+        else -> {
+            Text(
+                "No recognized emulators yet",
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+                color = AmberAccent,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "That’s normal on a fresh device. The easiest starter is RetroArch — " +
+                    "one app that can play many systems (including Game Boy Advance). " +
+                    "Install it, open it once, download cores via Online Updater, " +
+                    "come back here, and Rescan.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Mist.copy(alpha = 0.88f),
+            )
+            Spacer(Modifier.height(20.dp))
+            OutlinedButton(
+                onClick = { onOpenUrl(RETROARCH_PLAY_STORE) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Get RetroArch on Google Play", color = Mist)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { onOpenUrl(RETROARCH_FDROID) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Get RetroArch on F-Droid", color = Mist)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { onOpenUrl(RETROARCH_SITE) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("RetroArch download page", color = Mist)
+            }
+        }
+    }
+}
+
+private const val RETROARCH_PLAY_STORE =
+    "https://play.google.com/store/apps/details?id=com.retroarch"
+private const val RETROARCH_FDROID =
+    "https://f-droid.org/packages/com.retroarch/"
+private const val RETROARCH_SITE =
+    "https://www.retroarch.com/?page=platforms"
+
+@Composable
+fun BeginnerAdvancedFeaturesScreen() {
+    Spacer(Modifier.height(24.dp))
+    Text(
+        "More when you're ready",
+        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
+        color = Mist,
+    )
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "You've got the essentials. ORGL also has deeper tools when you want them — " +
+            "you can set these up anytime later in Setup.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = Mist.copy(alpha = 0.88f),
+    )
+    Spacer(Modifier.height(20.dp))
+    Text(
+        "ES-DE integration",
+        style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+        color = AmberAccent,
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "Already use EmulationStation Desktop Edition? Link its data folder to reuse " +
+            "gamelists and artwork — read-only; we never write into ES-DE.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.85f),
+    )
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "Scraping & media",
+        style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+        color = AmberAccent,
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "Pull box art and metadata into your ORGL data folder so your library looks complete. " +
+            "Your ROMs stay untouched.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.85f),
+    )
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "No rush — open Setup whenever you want to connect ES-DE, scrape artwork, " +
+            "or tune per-system emulators.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.75f),
+    )
+}
+
+@Composable
+fun BeginnerDoneScreen() {
+    Spacer(Modifier.height(24.dp))
+    Text(
+        "You're all set",
+        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
+        color = Mist,
+    )
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Thanks for sticking with setup. We hope ORGL helps you pick a game, " +
+            "stay with it, and actually finish — good luck on your gaming journey.",
+        style = MaterialTheme.typography.bodyLarge,
+        color = Mist.copy(alpha = 0.88f),
+    )
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "Commit to one title, play, and come back when you're ready for the next.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Mist.copy(alpha = 0.75f),
+    )
+}
+
+@Composable
+fun BeginnerTryLaunchScreen(
+    offer: BeginnerTryLaunchOffer?,
+    busy: Boolean,
+    error: String?,
+    launched: Boolean,
+    onLaunch: () -> Unit,
+    onOpenRetroArch: () -> Unit,
+) {
+    Spacer(Modifier.height(24.dp))
+    Text(
+        "Try a game?",
+        style = MaterialTheme.typography.headlineLarge.copy(fontFamily = BrandFont),
+        color = Mist,
+    )
+    Spacer(Modifier.height(12.dp))
+    if (offer == null) {
+        Text(
+            "Looking for a game we can launch…",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Mist.copy(alpha = 0.88f),
+        )
+        return
+    }
+    Text(
+        "We found ${offer.gameTitle} (${offer.systemDisplayName}) and can launch it with " +
+            "${offer.emulatorLabel}. Want to try it now?",
+        style = MaterialTheme.typography.bodyLarge,
+        color = Mist.copy(alpha = 0.88f),
+    )
+    if (offer.isRetroArch) {
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "RetroArch needs a core first",
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
+            color = AmberAccent,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "1. Open RetroArch\n" +
+                "2. Go to Online Updater → Core Downloader\n" +
+                "3. Install " +
+                (offer.coreFileName?.let { "“$it” (or the matching core for this system)" }
+                    ?: "the core for this system") +
+                "\n" +
+                "4. Come back here and tap Launch",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Mist.copy(alpha = 0.88f),
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = onOpenRetroArch,
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Open RetroArch", color = Mist)
+        }
+    }
+    if (launched) {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Launch sent — if nothing appeared, check the core is installed and try again.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AmberAccent,
+        )
+    }
+    error?.let {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            it,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFFF8A80),
+        )
+    }
+    Spacer(Modifier.height(16.dp))
+    Button(
+        onClick = onLaunch,
+        enabled = !busy,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = AmberAccent,
+            contentColor = InkDeep,
+        ),
+    ) {
+        Text(if (busy) "Launching…" else "Launch ${offer.gameTitle}")
+    }
 }
 
 @Composable

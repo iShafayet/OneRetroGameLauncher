@@ -61,7 +61,9 @@ import com.sayemshafayet.onereogamelauncher.ui.input.OrglKeyboardOptions
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgDpadFocusExit
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrglImeDismissActions
 import com.sayemshafayet.onereogamelauncher.ui.legal.LegalAcceptanceScreen
-import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerComingSoonScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerAdvancedFeaturesScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerDoneScreen
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerEmulatorsScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerFreeGamesScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerHaveRomsScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerNoRomsHelpScreen
@@ -69,6 +71,7 @@ import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerOrglS
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsSetupScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsSummaryScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerSectionLabel
+import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerTryLaunchScreen
 import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
 import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
@@ -181,7 +184,10 @@ fun OnboardingScreen(
                     page == OnboardingUiPage.BEGINNER_ROMS_SUMMARY ||
                     page == OnboardingUiPage.BEGINNER_NO_ROMS_HELP ||
                     page == OnboardingUiPage.BEGINNER_FREE_GAMES ||
-                    page == OnboardingUiPage.BEGINNER_COMING_SOON
+                    page == OnboardingUiPage.BEGINNER_EMULATORS ||
+                    page == OnboardingUiPage.BEGINNER_TRY_LAUNCH ||
+                    page == OnboardingUiPage.BEGINNER_ADVANCED ||
+                    page == OnboardingUiPage.BEGINNER_DONE
                 if (beginnerPages) {
                     BeginnerSectionLabel()
                 } else {
@@ -291,7 +297,29 @@ fun OnboardingScreen(
                         onPickRoms = { beginnerRomsPicker.launch(null) },
                         onDownload = viewModel::downloadFreeHomebrewGames,
                     )
-                    OnboardingUiPage.BEGINNER_COMING_SOON -> BeginnerComingSoonScreen()
+                    OnboardingUiPage.BEGINNER_EMULATORS -> BeginnerEmulatorsScreen(
+                        detecting = state.detectingEmulators,
+                        emulators = state.detectedEmulators,
+                        librarySystems = state.beginnerPreview?.systems
+                            ?.map { "${it.displayName} (${it.folderName})" }
+                            .orEmpty(),
+                        systemCoreNeeds = state.beginnerSystemCoreNeeds,
+                        onOpenUrl = { url ->
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }
+                        },
+                    )
+                    OnboardingUiPage.BEGINNER_TRY_LAUNCH -> BeginnerTryLaunchScreen(
+                        offer = state.beginnerTryLaunchOffer,
+                        busy = state.tryLaunchBusy,
+                        error = state.tryLaunchError,
+                        launched = state.tryLaunchStarted,
+                        onLaunch = viewModel::launchTryGame,
+                        onOpenRetroArch = viewModel::openRetroArchForCoreDownload,
+                    )
+                    OnboardingUiPage.BEGINNER_ADVANCED -> BeginnerAdvancedFeaturesScreen()
+                    OnboardingUiPage.BEGINNER_DONE -> BeginnerDoneScreen()
                     OnboardingUiPage.TOS -> Unit
                 }
 
@@ -629,7 +657,80 @@ private fun WizardFooter(
                 }
             }
 
-            OnboardingUiPage.BEGINNER_COMING_SOON -> {
+            OnboardingUiPage.BEGINNER_EMULATORS -> {
+                if (state.detectingEmulators) {
+                    CircularProgressIndicator(color = AmberAccent)
+                    Spacer(Modifier.height(12.dp))
+                }
+                Button(
+                    onClick = onNext,
+                    enabled = !state.detectingEmulators,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text("Continue")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onRescanEmulators,
+                    enabled = !state.detectingEmulators,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Rescan", color = Mist)
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_TRY_LAUNCH -> {
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text("Continue")
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_ADVANCED -> {
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text("Continue")
+                }
+                TextButton(onClick = onBack) {
+                    Text("Back", color = Mist.copy(alpha = 0.7f))
+                }
+            }
+
+            OnboardingUiPage.BEGINNER_DONE -> {
+                Button(
+                    onClick = onFinish,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(PulseModifier(true)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AmberAccent,
+                        contentColor = InkDeep,
+                    ),
+                ) {
+                    Text("Enter ORGL")
+                }
                 TextButton(onClick = onBack) {
                     Text("Back", color = Mist.copy(alpha = 0.7f))
                 }
@@ -1186,6 +1287,29 @@ private fun EmulatorsStep(
                         style = MaterialTheme.typography.bodySmall,
                         color = Mist.copy(alpha = 0.65f),
                     )
+                    if (emu.key == "RETROARCH") {
+                        when {
+                            emu.coreQuerySupported == true && emu.installedCores != null -> {
+                                val cores = emu.installedCores
+                                Text(
+                                    if (cores.isEmpty()) {
+                                        "No cores installed yet"
+                                    } else {
+                                        "${cores.size} cores installed"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AmberAccent,
+                                )
+                            }
+                            emu.coreQuerySupported == false -> {
+                                Text(
+                                    "Couldn’t list installed cores automatically",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Mist.copy(alpha = 0.65f),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
