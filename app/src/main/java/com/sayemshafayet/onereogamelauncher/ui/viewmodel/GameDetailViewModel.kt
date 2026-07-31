@@ -21,6 +21,7 @@ import com.sayemshafayet.onereogamelauncher.hltb.HltbLookupResult
 import com.sayemshafayet.onereogamelauncher.hltb.HowLongToBeatClient
 import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.LaunchResolver
+import com.sayemshafayet.onereogamelauncher.launch.RetroArchRomPaths
 import com.sayemshafayet.onereogamelauncher.play.CommitmentRepository
 import com.sayemshafayet.onereogamelauncher.play.PlayStatsTracker
 import com.sayemshafayet.onereogamelauncher.ra.RaSupportEvaluator
@@ -105,6 +106,10 @@ class GameDetailViewModel @Inject constructor(
     private val _launchConfig = MutableStateFlow(GameLaunchConfigUi())
     val launchConfig: StateFlow<GameLaunchConfigUi> = _launchConfig.asStateFlow()
 
+    private val _relativeRomPath = MutableStateFlow<String?>(null)
+    /** Path under the ROMs root, e.g. `snes/RPGs/chrono-trigger.zip`. */
+    val relativeRomPath: StateFlow<String?> = _relativeRomPath.asStateFlow()
+
     private val _commitmentPlaytimeMs = MutableStateFlow(0L)
     val commitmentPlaytimeMs: StateFlow<Long> = _commitmentPlaytimeMs.asStateFlow()
 
@@ -130,9 +135,12 @@ class GameDetailViewModel @Inject constructor(
             game.collect { g ->
                 if (g != null) {
                     reloadChoices(g.systemId)
+                    refreshRelativeRomPath(g)
                     refreshCommitmentPlaytime()
                     refreshRaStatus(g)
                     refreshHltb(g)
+                } else {
+                    _relativeRomPath.value = null
                 }
             }
         }
@@ -383,6 +391,23 @@ class GameDetailViewModel @Inject constructor(
                 customConfigPath = cfg?.customConfigPath.orEmpty(),
             )
         }
+    }
+
+    private suspend fun refreshRelativeRomPath(game: GameEntity) {
+        val settings = settingsRepository.current()
+        val folder = systemCache?.folderName.orEmpty()
+        val relative = RetroArchRomPaths.relativeFromRomsRoot(
+            romPath = game.romPath,
+            romPathsJson = game.romPathsJson,
+            systemFolder = folder,
+            romsDirPath = settings.romsDirPath,
+            romsTreeUri = settings.romsDirUri,
+        )
+        _relativeRomPath.value = relative
+            ?: listOfNotNull(
+                folder.takeIf { it.isNotBlank() },
+                game.fileName.takeIf { it.isNotBlank() },
+            ).joinToString("/").ifBlank { null }
     }
 
     private suspend fun reloadChoices(systemId: Long) {

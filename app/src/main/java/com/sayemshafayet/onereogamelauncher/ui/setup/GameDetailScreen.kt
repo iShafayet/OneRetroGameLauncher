@@ -67,6 +67,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -123,6 +124,7 @@ fun GameDetailScreen(
     val game by viewModel.game.collectAsState()
     val media by viewModel.media.collectAsState()
     val launchConfig by viewModel.launchConfig.collectAsState()
+    val relativeRomPath by viewModel.relativeRomPath.collectAsState()
     val needsDebugLaunchGuard by viewModel.needsDebugLaunchGuard.collectAsState()
     val activePlayRunCount by viewModel.activePlayRunCount.collectAsState()
     val commitmentPlaytimeMs by viewModel.commitmentPlaytimeMs.collectAsState()
@@ -175,6 +177,7 @@ fun GameDetailScreen(
                             commitmentPlaytimeMs = commitmentPlaytimeMs,
                             notes = notes,
                             onNotesChange = { notes = it },
+                            relativeRomPath = relativeRomPath,
                             onLaunch = {
                                 if (needsDebugLaunchGuard) {
                                     showDebugLaunchGuard = true
@@ -233,6 +236,7 @@ private fun GameTabContent(
     commitmentPlaytimeMs: Long,
     notes: String,
     onNotesChange: (String) -> Unit,
+    relativeRomPath: String?,
     raUi: GameRaUiState,
     hltbUi: GameHltbUiState,
     onOpenRetroAchievements: () -> Unit,
@@ -299,23 +303,38 @@ private fun GameTabContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = onLaunch,
-                        interactionSource = launchInteraction,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(launchFocus),
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Text("Launch")
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = onLaunch,
+                            interactionSource = launchInteraction,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(launchFocus),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Text("Launch")
+                        }
+                        if (showHints && launchFocused) {
+                            GamepadHintOverlay(
+                                label = "A",
+                                modifier = Modifier.align(Alignment.TopEnd),
+                                offsetX = (-6).dp,
+                                offsetY = (-6).dp,
+                            )
+                        }
                     }
-                    if (showHints && launchFocused) {
-                        GamepadHintOverlay(
-                            label = "A",
-                            modifier = Modifier.align(Alignment.TopEnd),
-                            offsetX = (-6).dp,
-                            offsetY = (-6).dp,
+                    if (!relativeRomPath.isNullOrBlank()) {
+                        Text(
+                            relativeRomPath,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
