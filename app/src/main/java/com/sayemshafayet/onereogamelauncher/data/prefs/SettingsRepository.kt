@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
+import com.sayemshafayet.onereogamelauncher.domain.OnboardingStep
+import com.sayemshafayet.onereogamelauncher.domain.OnboardingType
 import com.sayemshafayet.onereogamelauncher.domain.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -57,6 +59,12 @@ data class AppSettings(
     val preferredRetroArchPackage: String = "",
     val hltbEnabled: Boolean = true,
     val onboardingDone: Boolean = false,
+    /** User has entered the onboarding flow at least once (Start pressed). */
+    val onboardingStarted: Boolean = false,
+    /** Path chosen at the fork; [OnboardingType.NONE] until chosen. */
+    val onboardingType: OnboardingType = OnboardingType.NONE,
+    /** Resume checkpoint inside the wizard (after welcome). */
+    val onboardingStep: OnboardingStep = OnboardingStep.TOS,
     val appMode: AppMode = AppMode.SETUP,
     /** Grid vs list for system game browsing. */
     val gameListLayout: GameListLayout = GameListLayout.GRID,
@@ -159,6 +167,9 @@ class SettingsRepository @Inject constructor(
         val esdeDataDirPath = stringPreferencesKey("esde_data_dir_path")
         val appDataDirUri = stringPreferencesKey("app_data_dir_uri")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
+        val onboardingStarted = booleanPreferencesKey("onboarding_started")
+        val onboardingType = stringPreferencesKey("onboarding_type")
+        val onboardingStep = stringPreferencesKey("onboarding_step")
         val legalAcceptedVersion = intPreferencesKey("legal_accepted_version")
         val appMode = stringPreferencesKey("app_mode")
     }
@@ -190,6 +201,13 @@ class SettingsRepository @Inject constructor(
             preferredRetroArchPackage = backup[BackupKeys.raPackage].orEmpty(),
             hltbEnabled = backup[BackupKeys.hltbEnabled] ?: true,
             onboardingDone = device[DeviceKeys.onboardingDone] ?: false,
+            onboardingStarted = device[DeviceKeys.onboardingStarted] ?: false,
+            onboardingType = runCatching {
+                OnboardingType.valueOf(device[DeviceKeys.onboardingType] ?: OnboardingType.NONE.name)
+            }.getOrDefault(OnboardingType.NONE),
+            onboardingStep = runCatching {
+                OnboardingStep.valueOf(device[DeviceKeys.onboardingStep] ?: OnboardingStep.TOS.name)
+            }.getOrDefault(OnboardingStep.TOS),
             legalAcceptedVersion = device[DeviceKeys.legalAcceptedVersion] ?: 0,
             appMode = runCatching {
                 AppMode.valueOf(device[DeviceKeys.appMode] ?: AppMode.SETUP.name)
@@ -247,6 +265,9 @@ class SettingsRepository @Inject constructor(
             it.remove(DeviceKeys.esdeDataDirPath)
             it.remove(DeviceKeys.appDataDirUri)
             it[DeviceKeys.onboardingDone] = false
+            it[DeviceKeys.onboardingStarted] = false
+            it.remove(DeviceKeys.onboardingType)
+            it.remove(DeviceKeys.onboardingStep)
             it[DeviceKeys.appMode] = AppMode.SETUP.name
         }
     }
@@ -296,6 +317,29 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setOnboardingDone(done: Boolean) {
         context.deviceDataStore.edit { it[DeviceKeys.onboardingDone] = done }
+    }
+
+    suspend fun setOnboardingStarted(started: Boolean) {
+        context.deviceDataStore.edit { it[DeviceKeys.onboardingStarted] = started }
+    }
+
+    suspend fun setOnboardingType(type: OnboardingType) {
+        context.deviceDataStore.edit { it[DeviceKeys.onboardingType] = type.name }
+    }
+
+    suspend fun setOnboardingStep(step: OnboardingStep) {
+        context.deviceDataStore.edit { it[DeviceKeys.onboardingStep] = step.name }
+    }
+
+    /** Clears onboarding progress flags so the welcome / fork flow starts fresh. */
+    suspend fun resetOnboardingJourney() {
+        context.deviceDataStore.edit {
+            it[DeviceKeys.onboardingDone] = false
+            it[DeviceKeys.onboardingStarted] = false
+            it.remove(DeviceKeys.onboardingType)
+            it.remove(DeviceKeys.onboardingStep)
+            it[DeviceKeys.appMode] = AppMode.SETUP.name
+        }
     }
 
     suspend fun setLegalAcceptedVersion(version: Int) {

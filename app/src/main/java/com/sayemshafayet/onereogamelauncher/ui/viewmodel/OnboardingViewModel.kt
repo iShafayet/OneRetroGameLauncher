@@ -5,14 +5,23 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sayemshafayet.onereogamelauncher.MainActivity
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglDataDirectory
 import com.sayemshafayet.onereogamelauncher.data.orgl.OrglExternalSync
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.data.repository.LibraryRepository
+import com.sayemshafayet.onereogamelauncher.domain.DetectedEmulator
 import com.sayemshafayet.onereogamelauncher.domain.LibraryScanSummary
+import com.sayemshafayet.onereogamelauncher.domain.OnboardingStep
+import com.sayemshafayet.onereogamelauncher.domain.OnboardingType
 import com.sayemshafayet.onereogamelauncher.domain.ScanProgress
+import com.sayemshafayet.onereogamelauncher.launch.EmulatorLauncher
 import com.sayemshafayet.onereogamelauncher.launch.RetroArchLauncher
+import com.sayemshafayet.onereogamelauncher.legal.LegalDocuments
+import com.sayemshafayet.onereogamelauncher.legal.isLegalAccepted
 import com.sayemshafayet.onereogamelauncher.ra.RetroAchievementsClient
+import com.sayemshafayet.onereogamelauncher.ui.util.OnboardingDirConflict
+import com.sayemshafayet.onereogamelauncher.ui.util.SafFolderAccess
 import com.sayemshafayet.onereogamelauncher.ui.util.SafPathResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,17 +43,41 @@ sealed interface OnboardingRaPhase {
     data object Form : OnboardingRaPhase
 }
 
+/** UI destination inside the wizard (includes welcome variants not persisted as steps). */
+enum class OnboardingUiPage {
+    WELCOME,
+    WELCOME_RESUME,
+    TOS,
+    FORK,
+    PRO_ROMS,
+    PRO_ORGL,
+    PRO_RA,
+    PRO_ESDE,
+    PRO_SCAN,
+    PRO_EMULATORS,
+    PRO_DONE,
+    BEGINNER_STUB,
+}
+
 data class OnboardingUiState(
-    val page: Int = 0,
+    val page: OnboardingUiPage = OnboardingUiPage.WELCOME,
+    val hydrated: Boolean = false,
     val romsUri: String? = null,
     val romsPath: String? = null,
+    val romsAccessOk: Boolean = false,
+    val romsPreselected: Boolean = false,
     val orglUri: String? = null,
     val orglPath: String? = null,
+    val orglAccessOk: Boolean = false,
+    val orglPreselected: Boolean = false,
     val orglReused: Boolean = false,
     val orglError: String? = null,
     val orglIncompatibleAlert: String? = null,
+    val orglConflictError: String? = null,
     val esdeUri: String? = null,
     val esdePath: String? = null,
+    val esdeAccessOk: Boolean = false,
+    val esdePreselected: Boolean = false,
     val raUser: String = "",
     val raPassword: String = "",
     val raStoreOnDisk: Boolean = true,
@@ -55,10 +88,11 @@ data class OnboardingUiState(
     val raSaving: Boolean = false,
     val scanning: Boolean = false,
     val scanError: String? = null,
-    /** True after a successful initial scan + summary build. */
     val scanDone: Boolean = false,
     val scanSummary: LibraryScanSummary? = null,
     val buildingSummary: Boolean = false,
+    val detectedEmulators: List<DetectedEmulator> = emptyList(),
+    val detectingEmulators: Boolean = false,
 )
 
 @HiltViewModel
@@ -68,6 +102,8 @@ class OnboardingViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val orglExternalSync: OrglExternalSync,
     private val raClient: RetroAchievementsClient,
+    private val emulatorLauncher: EmulatorLauncher,
+    private val retroArchLauncher: RetroArchLauncher,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
@@ -75,76 +111,217 @@ class OnboardingViewModel @Inject constructor(
     val scanProgress: StateFlow<ScanProgress?> = libraryRepository.scanProgress
 
     private var scanJob: Job? = null
-    private var hydrated = false
 
     init {
-        viewModelScope.launch { hydrateFromSettingsIfNeeded() }
+        viewModelScope.launch { hydrate() }
     }
 
-    /**
-     * If SAF folders were already chosen but onboarding never finalized, jump to the
-     * scan/summary page and resume (show existing summary or start scan).
-     */
-    private suspend fun hydrateFromSettingsIfNeeded() {
-        if (hydrated) return
-        hydrated = true
+    private suspend fun hydrate() {
         val settings = settingsRepository.settings.first()
-        if (settings.onboardingDone) return
+        if (settings.onboardingDone) {
+            _state.update { it.copy(hydrated = true) }
+            return
+        }
 
         val romsUri = settings.romsDirUri
         val orglUri = settings.orglDataDirUri
         val esdeUri = settings.esdeDataDirUri
-        val hasRoms = !romsUri.isNullOrBlank()
-        val hasOrgl = !orglUri.isNullOrBlank()
-        if (!hasRoms && !hasOrgl && esdeUri.isNullOrBlank()) return
+        val romsOk = SafFolderAccess.isTreeAccessible(context, romsUri, requireWrite = false)
+        val orglOk = SafFolderAccess.isTreeAccessible(context, orglUri, requireWrite = true)
+        val esdeOk = SafFolderAccess.isTreeAccessible(context, esdeUri, requireWrite = false)
+
+        val page = if (!settings.onboardingStarted) {
+            OnboardingUiPage.WELCOME
+        } else {
+            OnboardingUiPage.WELCOME_RESUME
+        }
 
         _state.update {
             it.copy(
-                romsUri = romsUri ?: it.romsUri,
-                romsPath = settings.romsDirPath ?: it.romsPath,
-                orglUri = orglUri ?: it.orglUri,
-                orglPath = settings.orglDataDirPath ?: it.orglPath,
-                esdeUri = esdeUri ?: it.esdeUri,
-                esdePath = settings.esdeDataDirPath ?: it.esdePath,
-                page = if (hasRoms && hasOrgl) PAGE_DONE else it.page,
+                hydrated = true,
+                page = page,
+                romsUri = romsUri?.takeIf { romsOk },
+                romsPath = settings.romsDirPath?.takeIf { romsOk },
+                romsAccessOk = romsOk,
+                romsPreselected = romsOk,
+                orglUri = orglUri?.takeIf { orglOk },
+                orglPath = settings.orglDataDirPath?.takeIf { orglOk },
+                orglAccessOk = orglOk,
+                orglPreselected = orglOk,
+                esdeUri = esdeUri?.takeIf { esdeOk },
+                esdePath = settings.esdeDataDirPath?.takeIf { esdeOk },
+                esdeAccessOk = esdeOk,
+                esdePreselected = esdeOk,
             )
-        }
-        if (hasRoms && hasOrgl) {
-            resumeScanOrSummary()
         }
     }
 
-    private suspend fun resumeScanOrSummary() {
-        val existingGames = libraryRepository.countGames()
-        if (existingGames > 0) {
-            _state.update { it.copy(buildingSummary = true, scanError = null) }
-            val summary = libraryRepository.buildLibraryScanSummary()
-            _state.update {
-                it.copy(
-                    buildingSummary = false,
-                    scanning = false,
-                    scanDone = true,
-                    scanSummary = summary,
-                )
+    fun startJourney() {
+        viewModelScope.launch {
+            settingsRepository.setOnboardingStarted(true)
+            val settings = settingsRepository.current()
+            val next = firstStepAfterWelcome(
+                settings.legalAcceptedVersion,
+                settings.onboardingType,
+                settings.onboardingStep,
+            )
+            goTo(next, persist = true)
+        }
+    }
+
+    fun resumeJourney() {
+        viewModelScope.launch {
+            val settings = settingsRepository.current()
+            val next = firstStepAfterWelcome(
+                settings.legalAcceptedVersion,
+                settings.onboardingType,
+                settings.onboardingStep,
+            )
+            goTo(next, persist = true)
+        }
+    }
+
+    fun restartJourney() {
+        viewModelScope.launch {
+            settingsRepository.resetOnboardingJourney()
+            restartAppProcess()
+        }
+    }
+
+    private fun restartAppProcess() {
+        val launch = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        context.startActivity(launch)
+        Runtime.getRuntime().exit(0)
+    }
+
+    private fun firstStepAfterWelcome(
+        legalVersion: Int,
+        type: OnboardingType,
+        savedStep: OnboardingStep,
+    ): OnboardingUiPage {
+        if (!isLegalAccepted(legalVersion)) return OnboardingUiPage.TOS
+        return when (type) {
+            OnboardingType.NONE -> OnboardingUiPage.FORK
+            OnboardingType.BEGINNER -> when (savedStep) {
+                OnboardingStep.BEGINNER_STUB -> OnboardingUiPage.BEGINNER_STUB
+                else -> OnboardingUiPage.BEGINNER_STUB
             }
-        } else {
-            startInitialScan()
+            OnboardingType.PRO -> when (savedStep) {
+                OnboardingStep.TOS, OnboardingStep.FORK -> OnboardingUiPage.PRO_ROMS
+                else -> savedStep.toUiPage()
+            }
+        }
+    }
+
+    fun acceptTos() {
+        viewModelScope.launch {
+            settingsRepository.setLegalAcceptedVersion(LegalDocuments.VERSION)
+            val settings = settingsRepository.current()
+            // Legal is now accepted; pick the next non-TOS destination.
+            val next = when (settings.onboardingType) {
+                OnboardingType.NONE -> OnboardingUiPage.FORK
+                OnboardingType.BEGINNER -> OnboardingUiPage.BEGINNER_STUB
+                OnboardingType.PRO -> when (settings.onboardingStep) {
+                    OnboardingStep.TOS, OnboardingStep.FORK -> OnboardingUiPage.PRO_ROMS
+                    else -> settings.onboardingStep.toUiPage()
+                }
+            }
+            goTo(next, persist = true)
+        }
+    }
+
+    fun choosePro() {
+        viewModelScope.launch {
+            settingsRepository.setOnboardingType(OnboardingType.PRO)
+            goTo(OnboardingUiPage.PRO_ROMS, persist = true)
+        }
+    }
+
+    fun chooseBeginner() {
+        viewModelScope.launch {
+            settingsRepository.setOnboardingType(OnboardingType.BEGINNER)
+            goTo(OnboardingUiPage.BEGINNER_STUB, persist = true)
+        }
+    }
+
+    fun backToFork() {
+        viewModelScope.launch {
+            settingsRepository.setOnboardingType(OnboardingType.NONE)
+            goTo(OnboardingUiPage.FORK, persist = true)
         }
     }
 
     fun nextPage() {
         val current = _state.value.page
-        val next = (current + 1).coerceAtMost(LAST_PAGE)
-        _state.update { it.copy(page = next) }
-        if (next == PAGE_RA) {
-            prepareRetroAchievements()
+        when (current) {
+            OnboardingUiPage.PRO_ROMS -> if (_state.value.romsUri == null) return
+            OnboardingUiPage.PRO_ORGL -> if (!canAdvanceFromOrgl()) return
+            OnboardingUiPage.PRO_SCAN -> if (!_state.value.scanDone) return
+            else -> Unit
         }
-        if (next == PAGE_DONE) {
-            startInitialScan()
+        val next = when (current) {
+            OnboardingUiPage.PRO_ROMS -> OnboardingUiPage.PRO_ORGL
+            OnboardingUiPage.PRO_ORGL -> OnboardingUiPage.PRO_RA
+            OnboardingUiPage.PRO_RA -> OnboardingUiPage.PRO_ESDE
+            OnboardingUiPage.PRO_ESDE -> OnboardingUiPage.PRO_SCAN
+            OnboardingUiPage.PRO_SCAN -> OnboardingUiPage.PRO_EMULATORS
+            OnboardingUiPage.PRO_EMULATORS -> OnboardingUiPage.PRO_DONE
+            else -> current
         }
+        if (next == current) return
+        goTo(next, persist = true)
     }
 
-    fun prevPage() = _state.update { it.copy(page = (it.page - 1).coerceAtLeast(0)) }
+    fun prevPage() {
+        val current = _state.value.page
+        if (current == OnboardingUiPage.PRO_ROMS || current == OnboardingUiPage.BEGINNER_STUB) {
+            backToFork()
+            return
+        }
+        val prev = when (current) {
+            OnboardingUiPage.PRO_ORGL -> OnboardingUiPage.PRO_ROMS
+            OnboardingUiPage.PRO_RA -> OnboardingUiPage.PRO_ORGL
+            OnboardingUiPage.PRO_ESDE -> OnboardingUiPage.PRO_RA
+            OnboardingUiPage.PRO_SCAN -> OnboardingUiPage.PRO_ESDE
+            OnboardingUiPage.PRO_EMULATORS -> OnboardingUiPage.PRO_SCAN
+            OnboardingUiPage.PRO_DONE -> OnboardingUiPage.PRO_EMULATORS
+            else -> return
+        }
+        goTo(prev, persist = true)
+    }
+
+    private fun canAdvanceFromOrgl(): Boolean {
+        val s = _state.value
+        if (s.orglUri == null) return false
+        if (OnboardingDirConflict.conflicts(s.romsPath, s.orglPath, s.romsUri, s.orglUri)) {
+            _state.update {
+                it.copy(
+                    orglConflictError =
+                        "ORGL data folder can't be the same as your ROMs folder, or inside/above it. " +
+                            "Pick a separate folder (for example ORGL-Data next to your ROMs root).",
+                )
+            }
+            return false
+        }
+        return true
+    }
+
+    private fun goTo(page: OnboardingUiPage, persist: Boolean) {
+        _state.update { it.copy(page = page, orglConflictError = null) }
+        if (persist) {
+            page.toPersistedStep()?.let { step ->
+                viewModelScope.launch { settingsRepository.setOnboardingStep(step) }
+            }
+        }
+        when (page) {
+            OnboardingUiPage.PRO_RA -> prepareRetroAchievements()
+            OnboardingUiPage.PRO_SCAN -> ensureScanRunningOrSummary()
+            OnboardingUiPage.PRO_EMULATORS -> detectEmulators()
+            else -> Unit
+        }
+    }
 
     fun dismissOrglIncompatibleAlert() {
         _state.update { it.copy(orglIncompatibleAlert = null) }
@@ -161,6 +338,9 @@ class OnboardingViewModel @Inject constructor(
             it.copy(
                 romsUri = uriString,
                 romsPath = pathHint,
+                romsAccessOk = true,
+                romsPreselected = false,
+                orglConflictError = null,
             )
         }
         viewModelScope.launch {
@@ -171,28 +351,46 @@ class OnboardingViewModel @Inject constructor(
     fun onOrglFolderPicked(uri: Uri) {
         viewModelScope.launch {
             _state.update {
-                it.copy(orglError = null, orglIncompatibleAlert = null)
+                it.copy(orglError = null, orglIncompatibleAlert = null, orglConflictError = null)
             }
             val takeFlags =
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             runCatching {
                 context.contentResolver.takePersistableUriPermission(uri, takeFlags)
             }
+            val pathHint = SafPathResolver.resolvePath(context, uri)
+            val uriString = uri.toString()
+            val current = _state.value
+            if (OnboardingDirConflict.conflicts(current.romsPath, pathHint, current.romsUri, uriString)) {
+                _state.update {
+                    it.copy(
+                        orglUri = null,
+                        orglPath = null,
+                        orglAccessOk = false,
+                        orglPreselected = false,
+                        orglConflictError =
+                            "ORGL data folder can't be the same as your ROMs folder, or inside/above it. " +
+                                "Pick a separate folder (for example ORGL-Data next to your ROMs root).",
+                    )
+                }
+                return@launch
+            }
             val result = withContext(Dispatchers.IO) {
                 OrglDataDirectory.prepare(context, uri)
             }
             when (result) {
                 is OrglDataDirectory.PrepareResult.Ready -> {
-                    val pathHint = SafPathResolver.resolvePath(context, uri)
-                    // Persist early so RA disk load/save works during the wizard.
-                    settingsRepository.setOrglDataDir(uri.toString(), pathHint)
+                    settingsRepository.setOrglDataDir(uriString, pathHint)
                     _state.update {
                         it.copy(
-                            orglUri = uri.toString(),
+                            orglUri = uriString,
                             orglPath = pathHint,
+                            orglAccessOk = true,
+                            orglPreselected = false,
                             orglReused = result.reusedExisting,
                             orglError = null,
                             orglIncompatibleAlert = null,
+                            orglConflictError = null,
                             raPhase = OnboardingRaPhase.Idle,
                             raFoundOnDisk = false,
                             raStatusMessage = null,
@@ -205,6 +403,8 @@ class OnboardingViewModel @Inject constructor(
                         it.copy(
                             orglUri = null,
                             orglPath = null,
+                            orglAccessOk = false,
+                            orglPreselected = false,
                             orglReused = false,
                             orglError = null,
                             orglIncompatibleAlert = OrglDataDirectory.incompatibleMessage(
@@ -218,6 +418,8 @@ class OnboardingViewModel @Inject constructor(
                         it.copy(
                             orglUri = null,
                             orglPath = null,
+                            orglAccessOk = false,
+                            orglPreselected = false,
                             orglReused = false,
                             orglError = result.message,
                             orglIncompatibleAlert = null,
@@ -239,6 +441,8 @@ class OnboardingViewModel @Inject constructor(
             it.copy(
                 esdeUri = uriString,
                 esdePath = pathHint,
+                esdeAccessOk = true,
+                esdePreselected = false,
             )
         }
         viewModelScope.launch {
@@ -247,7 +451,14 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun clearEsdeFolder() {
-        _state.update { it.copy(esdeUri = null, esdePath = null) }
+        _state.update {
+            it.copy(
+                esdeUri = null,
+                esdePath = null,
+                esdeAccessOk = false,
+                esdePreselected = false,
+            )
+        }
         viewModelScope.launch {
             settingsRepository.clearEsdeDataDir()
         }
@@ -313,7 +524,6 @@ class OnboardingViewModel @Inject constructor(
                     it.copy(
                         raPhase = OnboardingRaPhase.Form,
                         raFoundOnDisk = false,
-                        raUser = it.raUser,
                         raPassword = "",
                         raStoreOnDisk = true,
                         raStatusMessage = null,
@@ -333,8 +543,7 @@ class OnboardingViewModel @Inject constructor(
                 )
             }
             settingsRepository.setRetroAchievementsStoreOnDisk(true)
-            val verified = raClient.verifyCredentials(creds.user, creds.password)
-            verified.fold(
+            raClient.verifyCredentials(creds.user, creds.password).fold(
                 onSuccess = {
                     settingsRepository.setRetroAchievements(creds.user, creds.password)
                     if (creds.token.isNotBlank()) {
@@ -402,7 +611,28 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Start or retry the initial library scan. Does not finalize onboarding. */
+    private fun ensureScanRunningOrSummary() {
+        if (_state.value.scanDone && _state.value.scanSummary != null) return
+        if (scanJob?.isActive == true) return
+        viewModelScope.launch {
+            val existingGames = libraryRepository.countGames()
+            if (existingGames > 0) {
+                _state.update { it.copy(buildingSummary = true, scanError = null) }
+                val summary = libraryRepository.buildLibraryScanSummary()
+                _state.update {
+                    it.copy(
+                        buildingSummary = false,
+                        scanning = false,
+                        scanDone = true,
+                        scanSummary = summary,
+                    )
+                }
+                return@launch
+            }
+            startInitialScan()
+        }
+    }
+
     fun startInitialScan() {
         if (scanJob?.isActive == true) return
         val current = _state.value
@@ -460,10 +690,45 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Mark onboarding complete and enter the app. Requires a successful scan summary. */
+    fun detectEmulators() {
+        viewModelScope.launch {
+            _state.update { it.copy(detectingEmulators = true) }
+            val found = withContext(Dispatchers.IO) {
+                libraryRepository.ensureCatalogLoaded()
+                libraryRepository.refreshEmulatorInstallState()
+                val preferred = settingsRepository.current().preferredRetroArchPackage
+                val standalone = EmulatorLauncher.SUPPORTED_PROFILES
+                    .mapNotNull { profile ->
+                        val resolved = emulatorLauncher.installedForKey(profile.key, preferred)
+                            ?: return@mapNotNull null
+                        DetectedEmulator(
+                            key = profile.key,
+                            label = profile.displayName,
+                            packageName = resolved.packageName,
+                        )
+                    }
+                    .distinctBy { it.packageName }
+                val raPkgs = retroArchLauncher.installedPackages().map { pkg ->
+                    DetectedEmulator(
+                        key = "RETROARCH",
+                        label = "RetroArch",
+                        packageName = pkg,
+                    )
+                }
+                (raPkgs + standalone)
+                    .distinctBy { it.packageName }
+                    .sortedBy { it.label.lowercase() }
+            }
+            _state.update {
+                it.copy(
+                    detectingEmulators = false,
+                    detectedEmulators = found,
+                )
+            }
+        }
+    }
+
     fun finalizeOnboarding(onComplete: () -> Unit) {
-        val current = _state.value
-        if (!current.scanDone || current.scanSummary == null) return
         viewModelScope.launch {
             settingsRepository.setOnboardingDone(true)
             settingsRepository.setPreferredRetroArchPackage(RetroArchLauncher.DEFAULT_PACKAGE)
@@ -471,10 +736,30 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    companion object {
-        const val LAST_PAGE = 5
-        const val PAGE_RA = 3
-        const val PAGE_ESDE = 4
-        const val PAGE_DONE = 5
+    private fun OnboardingStep.toUiPage(): OnboardingUiPage = when (this) {
+        OnboardingStep.TOS -> OnboardingUiPage.TOS
+        OnboardingStep.FORK -> OnboardingUiPage.FORK
+        OnboardingStep.PRO_ROMS -> OnboardingUiPage.PRO_ROMS
+        OnboardingStep.PRO_ORGL -> OnboardingUiPage.PRO_ORGL
+        OnboardingStep.PRO_RA -> OnboardingUiPage.PRO_RA
+        OnboardingStep.PRO_ESDE -> OnboardingUiPage.PRO_ESDE
+        OnboardingStep.PRO_SCAN -> OnboardingUiPage.PRO_SCAN
+        OnboardingStep.PRO_EMULATORS -> OnboardingUiPage.PRO_EMULATORS
+        OnboardingStep.PRO_DONE -> OnboardingUiPage.PRO_DONE
+        OnboardingStep.BEGINNER_STUB -> OnboardingUiPage.BEGINNER_STUB
+    }
+
+    private fun OnboardingUiPage.toPersistedStep(): OnboardingStep? = when (this) {
+        OnboardingUiPage.TOS -> OnboardingStep.TOS
+        OnboardingUiPage.FORK -> OnboardingStep.FORK
+        OnboardingUiPage.PRO_ROMS -> OnboardingStep.PRO_ROMS
+        OnboardingUiPage.PRO_ORGL -> OnboardingStep.PRO_ORGL
+        OnboardingUiPage.PRO_RA -> OnboardingStep.PRO_RA
+        OnboardingUiPage.PRO_ESDE -> OnboardingStep.PRO_ESDE
+        OnboardingUiPage.PRO_SCAN -> OnboardingStep.PRO_SCAN
+        OnboardingUiPage.PRO_EMULATORS -> OnboardingStep.PRO_EMULATORS
+        OnboardingUiPage.PRO_DONE -> OnboardingStep.PRO_DONE
+        OnboardingUiPage.BEGINNER_STUB -> OnboardingStep.BEGINNER_STUB
+        OnboardingUiPage.WELCOME, OnboardingUiPage.WELCOME_RESUME -> null
     }
 }
