@@ -6,6 +6,8 @@ enum class ThemeMode {
     DARK,
     /** Always-dark arcade neon; ignores system light/dark. */
     NEON,
+    /** Soft peaceful sage/mist stage; ignores system light/dark. */
+    CALM,
     ;
 
     val label: String
@@ -14,6 +16,7 @@ enum class ThemeMode {
             LIGHT -> "Light"
             DARK -> "Dark"
             NEON -> "Neon"
+            CALM -> "Calm"
         }
 }
 

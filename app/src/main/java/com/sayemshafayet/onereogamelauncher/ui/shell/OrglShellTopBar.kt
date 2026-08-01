@@ -46,8 +46,8 @@ import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
-import com.sayemshafayet.onereogamelauncher.ui.theme.NeonCyan
-import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
+import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeAccentColor
+import com.sayemshafayet.onereogamelauncher.ui.theme.usesOrglAtmosphereTheme
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 import androidx.compose.material3.TopAppBarDefaults
@@ -219,16 +219,17 @@ private fun HubTopAppBar(
         base.copy(fontSize = (base.fontSize.value - 2f).sp)
     }
     val displayVersion = orglDisplayVersionName()
-    val neon = isOrglNeonTheme()
+    val atmosphere = usesOrglAtmosphereTheme()
+    val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = if (neon) {
+        containerColor = if (atmosphere) {
             MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
         } else {
             Color.Unspecified
         },
-        titleContentColor = if (neon) NeonCyan else Color.Unspecified,
-        actionIconContentColor = if (neon) NeonCyan else Color.Unspecified,
-        navigationIconContentColor = if (neon) NeonCyan else Color.Unspecified,
+        titleContentColor = chromeAccent,
+        actionIconContentColor = chromeAccent,
+        navigationIconContentColor = chromeAccent,
     )
 
     TopAppBar(
@@ -342,16 +343,17 @@ private fun SimpleTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val showHints = rememberShowGamepadHints()
-    val neon = isOrglNeonTheme()
+    val atmosphere = usesOrglAtmosphereTheme()
+    val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = if (neon) {
+        containerColor = if (atmosphere) {
             MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
         } else {
             Color.Unspecified
         },
-        titleContentColor = if (neon) NeonCyan else Color.Unspecified,
-        actionIconContentColor = if (neon) NeonCyan else Color.Unspecified,
-        navigationIconContentColor = if (neon) NeonCyan else Color.Unspecified,
+        titleContentColor = chromeAccent,
+        actionIconContentColor = chromeAccent,
+        navigationIconContentColor = chromeAccent,
     )
     TopAppBar(
         colors = barColors,

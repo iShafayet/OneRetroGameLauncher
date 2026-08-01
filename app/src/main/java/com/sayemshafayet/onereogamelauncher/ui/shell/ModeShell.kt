@@ -57,7 +57,7 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
-import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
+import com.sayemshafayet.onereogamelauncher.ui.theme.usesOrglAtmosphereTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
@@ -341,7 +341,7 @@ fun ModeShell(
     }
 
     Scaffold(
-        containerColor = if (isOrglNeonTheme()) {
+        containerColor = if (usesOrglAtmosphereTheme()) {
             Color.Transparent
         } else {
             MaterialTheme.colorScheme.background

@@ -9,17 +9,20 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.sayemshafayet.onereogamelauncher.ui.theme.CalmColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.NeonColors
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglCalmTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
 
 /**
- * Legal reading surface — follows app theme. Neon uses the full neon scheme;
+ * Legal reading surface — follows app theme. Stylized modes use their full schemes;
  * otherwise a neutral static light/dark (no wallpaper colors).
  */
 @Composable
 fun LegalDocumentTheme(content: @Composable () -> Unit) {
     val colorScheme = when {
         isOrglNeonTheme() -> NeonColors
+        isOrglCalmTheme() -> CalmColors
         isSystemInDarkTheme() -> darkColorScheme()
         else -> lightColorScheme()
     }

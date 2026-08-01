@@ -97,6 +97,46 @@ val NeonColors = darkColorScheme(
     surfaceContainerHighest = Color(0xEE6A2A98),
 )
 
+/** Fully specified calm scheme — soft sage/sand/mist, not stock Material. */
+val CalmColors = lightColorScheme(
+    primary = CalmSage,
+    onPrimary = Color(0xFFF7FBF8),
+    primaryContainer = CalmSageContainer,
+    onPrimaryContainer = CalmOnSageContainer,
+    secondary = CalmSandDeep,
+    onSecondary = Color(0xFFFFF8F0),
+    secondaryContainer = CalmSandContainer,
+    onSecondaryContainer = CalmOnSandContainer,
+    tertiary = CalmLavender,
+    onTertiary = Color(0xFFF8F8FC),
+    tertiaryContainer = CalmLavenderContainer,
+    onTertiaryContainer = CalmOnLavenderContainer,
+    error = CalmError,
+    onError = CalmOnError,
+    errorContainer = CalmErrorContainer,
+    onErrorContainer = Color(0xFF3A1818),
+    background = Color(0x99E8F0EA),
+    onBackground = CalmInk,
+    surface = Color(0xCCF4F7F4),
+    onSurface = CalmInk,
+    surfaceVariant = Color(0xCCE4EBE6),
+    onSurfaceVariant = CalmInkMuted,
+    outline = CalmOutline,
+    outlineVariant = CalmOutlineVariant,
+    scrim = CalmScrim,
+    inverseSurface = CalmInverse,
+    inverseOnSurface = CalmFog,
+    inversePrimary = CalmInversePrimary,
+    surfaceTint = CalmSage,
+    surfaceDim = Color(0xBBD8E4DC),
+    surfaceBright = Color(0xEEFAFCF9),
+    surfaceContainerLowest = Color(0xAAF7FAF7),
+    surfaceContainerLow = Color(0xBBE8F0EA),
+    surfaceContainer = Color(0xCCDCE8E0),
+    surfaceContainerHigh = Color(0xDDD4E0EC),
+    surfaceContainerHighest = Color(0xEEE8DFD4),
+)
+
 private val NeonShapes = Shapes(
     extraSmall = RoundedCornerShape(2.dp),
     small = RoundedCornerShape(4.dp),
@@ -141,6 +181,50 @@ private val NeonTypography = OrglTypography.copy(
     ),
 )
 
+private val CalmShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
+private val CalmTypography = OrglTypography.copy(
+    displayLarge = OrglTypography.displayLarge.copy(
+        letterSpacing = 0.sp,
+        fontWeight = FontWeight.Medium,
+    ),
+    displayMedium = OrglTypography.displayMedium.copy(letterSpacing = 0.sp),
+    headlineLarge = OrglTypography.headlineLarge.copy(
+        letterSpacing = 0.sp,
+        fontWeight = FontWeight.Medium,
+    ),
+    headlineMedium = OrglTypography.headlineMedium.copy(letterSpacing = 0.sp),
+    titleLarge = OrglTypography.titleLarge.copy(fontWeight = FontWeight.Medium),
+    titleMedium = OrglTypography.titleMedium.copy(letterSpacing = 0.1.sp),
+    labelLarge = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.2.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.2.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.15.sp,
+    ),
+)
+
 @Composable
 fun OrglTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -149,21 +233,36 @@ fun OrglTheme(
 ) {
     val useDark = when (themeMode) {
         ThemeMode.NEON -> true
+        ThemeMode.CALM -> false
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
     val neon = themeMode.isNeon()
+    val calm = themeMode.isCalm()
     val colorScheme = when {
         neon -> NeonColors
+        calm -> CalmColors
         isPlayMode && useDark -> PlayDarkColors
         useDark -> DarkColors
         else -> LightColors
     }
-    val palette = if (neon) OrglPalette.Neon else OrglPalette.Brand
-    val typography = if (neon) NeonTypography else OrglTypography
-    val shapes = if (neon) NeonShapes else Shapes()
+    val palette = when {
+        neon -> OrglPalette.Neon
+        calm -> OrglPalette.Calm
+        else -> OrglPalette.Brand
+    }
+    val typography = when {
+        neon -> NeonTypography
+        calm -> CalmTypography
+        else -> OrglTypography
+    }
+    val shapes = when {
+        neon -> NeonShapes
+        calm -> CalmShapes
+        else -> Shapes()
+    }
 
     CompositionLocalProvider(
         LocalThemeMode provides themeMode,
@@ -174,10 +273,10 @@ fun OrglTheme(
             typography = typography,
             shapes = shapes,
         ) {
-            if (neon) {
-                NeonAtmosphere(content = content)
-            } else {
-                content()
+            when {
+                neon -> NeonAtmosphere(content = content)
+                calm -> CalmAtmosphere(content = content)
+                else -> content()
             }
         }
     }

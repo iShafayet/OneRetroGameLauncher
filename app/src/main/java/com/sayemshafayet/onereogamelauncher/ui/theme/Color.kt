@@ -54,6 +54,33 @@ val NeonPlasmaA = Color(0xFF2B0B5C)
 val NeonPlasmaB = Color(0xFF0C2F55)
 val NeonPlasmaC = Color(0xFF4A0B58)
 
+// --- Calm (peaceful sage / mist / sand — dense but soft) ---
+val CalmFog = Color(0xFFE8F0EA)
+val CalmMist = Color(0xFFDCE6E0)
+val CalmCloud = Color(0xFFF2EDE6)
+val CalmSage = Color(0xFF5B8F7A)
+val CalmSageDeep = Color(0xFF3F6B5A)
+val CalmSageContainer = Color(0xFFC5DCCF)
+val CalmOnSageContainer = Color(0xFF143028)
+val CalmSand = Color(0xFFC4A574)
+val CalmSandDeep = Color(0xFF8F7348)
+val CalmSandContainer = Color(0xFFE8D9C0)
+val CalmOnSandContainer = Color(0xFF2A2010)
+val CalmLavender = Color(0xFF8B8FB8)
+val CalmLavenderContainer = Color(0xFFD8DAEC)
+val CalmOnLavenderContainer = Color(0xFF222438)
+val CalmInk = Color(0xFF2A3530)
+val CalmInkMuted = Color(0xFF5A6860)
+val CalmOutline = Color(0xFF8AA898)
+val CalmOutlineVariant = Color(0xFFC5D0C8)
+val CalmError = Color(0xFFB85A5A)
+val CalmErrorContainer = Color(0xFFF0D0D0)
+val CalmOnError = Color(0xFFFFF8F8)
+val CalmScrim = Color(0x66808078)
+val CalmInverse = Color(0xFF2A3530)
+val CalmInversePrimary = Color(0xFFA8D4C0)
+val CalmSky = Color(0xFF7A9BB0)
+
 /**
  * Quiet interaction chrome — logo cyan, desaturated and low-opacity so focus/selection
  * reads without competing with content (and without amber).
@@ -104,6 +131,20 @@ data class OrglPalette(
             focusFill = NeonCyan.copy(alpha = 0.22f),
             focusFillStrong = NeonMagenta.copy(alpha = 0.28f),
             selectionIndicator = NeonCyan,
+        )
+
+        val Calm = OrglPalette(
+            inkDeep = Color(0xFFE8F2EC),
+            inkMid = Color(0xFFDCE8F0),
+            inkLight = Color(0xFFF0EAE2),
+            accent = CalmSage,
+            onAccent = Color(0xFFF7FBF8),
+            accentSoft = CalmSand,
+            errorSoft = CalmError,
+            focusRing = CalmSage,
+            focusFill = CalmSage.copy(alpha = 0.10f),
+            focusFillStrong = CalmSage.copy(alpha = 0.18f),
+            selectionIndicator = CalmSageDeep,
         )
     }
 }
