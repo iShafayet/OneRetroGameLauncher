@@ -21,7 +21,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sayemshafayet.onereogamelauncher.ui.theme.NeonCyan
 import com.sayemshafayet.onereogamelauncher.ui.theme.SelectionIndicator
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
 
 /** Tab strip — touch selects a tab; cycle with L1 / R1 via [onPreviewKeyEvent] on a parent. */
 @Composable
@@ -102,7 +104,8 @@ fun OrglBottomNavStrip(
     icons: @Composable (index: Int, selected: Boolean) -> Unit,
     onTabClick: (Int) -> Unit,
 ) {
-    val selectedColor = SelectionIndicator
+    val neon = isOrglNeonTheme()
+    val selectedColor = if (neon) NeonCyan else SelectionIndicator
     val unselected = MaterialTheme.colorScheme.onSurfaceVariant
     val showHints = rememberShowGamepadHints()
     val barHeight = if (iconsOnly) 48.dp else 72.dp
@@ -110,7 +113,12 @@ fun OrglBottomNavStrip(
         modifier
             .fillMaxWidth()
             .focusProperties { canFocus = false },
-        tonalElevation = 3.dp,
+        color = if (neon) {
+            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        tonalElevation = if (neon) 0.dp else 3.dp,
     ) {
         Column(Modifier.focusProperties { canFocus = false }) {
             Row(

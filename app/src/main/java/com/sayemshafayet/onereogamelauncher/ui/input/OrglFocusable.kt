@@ -112,6 +112,7 @@ fun Modifier.orlgFocusChrome(
     val strokePx = with(density) { strokeWidth.toPx() }
     val cornerPx = with(density) { cornerRadius.toPx() }
     val fill = if (drawRing) FocusFill else FocusFillStrong
+    val ring = FocusRing
     drawWithContent {
         drawContent()
         drawRoundRect(
@@ -120,7 +121,7 @@ fun Modifier.orlgFocusChrome(
         )
         if (drawRing) {
             drawRoundRect(
-                color = FocusRing,
+                color = ring,
                 cornerRadius = CornerRadius(cornerPx, cornerPx),
                 style = Stroke(width = strokePx),
             )

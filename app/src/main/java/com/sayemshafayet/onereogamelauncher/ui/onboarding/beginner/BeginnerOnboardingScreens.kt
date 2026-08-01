@@ -26,9 +26,8 @@ import com.sayemshafayet.onereogamelauncher.domain.DetectedEmulator
 import com.sayemshafayet.onereogamelauncher.domain.FreeHomebrewGame
 import com.sayemshafayet.onereogamelauncher.domain.RomsStructureCheck
 import com.sayemshafayet.onereogamelauncher.library.RomsRootStructureChecker
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.theme.LocalOrglPalette
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
 import com.sayemshafayet.onereogamelauncher.ui.theme.Mist
 
 @Composable
@@ -36,7 +35,7 @@ fun BeginnerSectionLabel() {
     Text(
         "Beginner setup",
         style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
 }
 
@@ -82,7 +81,7 @@ fun BeginnerOrglScreen(
         Text(
             "We still have access to a folder you linked before — confirm it or pick another.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     Spacer(Modifier.height(24.dp))
@@ -95,16 +94,16 @@ fun BeginnerOrglScreen(
         Text(
             "Existing ORGL data detected — we’ll reuse what’s already here.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     conflictError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
     error?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -170,7 +169,7 @@ fun BeginnerRomsSetupScreen(
         Text(
             "We still have access to a folder you linked before — confirm it or pick another.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     Spacer(Modifier.height(24.dp))
@@ -193,7 +192,7 @@ fun BeginnerRomsSetupScreen(
             Text(
                 "That folder doesn’t look like a ROMs root yet",
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -206,7 +205,7 @@ fun BeginnerRomsSetupScreen(
             Text(
                 "Example layout:",
                 style = MaterialTheme.typography.labelLarge,
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(Modifier.height(6.dp))
             Text(
@@ -239,7 +238,7 @@ fun BeginnerRomsSetupScreen(
                     append(structureCheck.matchedFolders.joinToString())
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             if (scanning) {
                 Spacer(Modifier.height(12.dp))
@@ -253,7 +252,7 @@ fun BeginnerRomsSetupScreen(
     }
     scanError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -298,7 +297,7 @@ fun BeginnerRomsSummaryScreen(
                     Text(
                         "${system.displayName} (${system.folderName})",
                         style = MaterialTheme.typography.titleMedium.copy(fontFamily = BrandFont),
-                        color = AmberAccent,
+                        color = LocalOrglPalette.current.accent,
                     )
                     Spacer(Modifier.height(4.dp))
                     system.sampleTitles.forEach { title ->
@@ -336,7 +335,7 @@ fun BeginnerRomsSummaryScreen(
     }
     scanError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -370,7 +369,7 @@ fun BeginnerNoRomsHelpScreen(
     Text(
         "Helpful guides",
         style = MaterialTheme.typography.labelLarge,
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
     Spacer(Modifier.height(8.dp))
     guides.forEach { guide ->
@@ -439,7 +438,7 @@ fun BeginnerFreeGamesScreen(
             Text(
                 game.title,
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -454,7 +453,7 @@ fun BeginnerFreeGamesScreen(
     Text(
         "ROMs folder",
         style = MaterialTheme.typography.labelLarge,
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
     Spacer(Modifier.height(8.dp))
     OutlinedButton(onClick = onPickRoms, modifier = Modifier.fillMaxWidth()) {
@@ -463,11 +462,11 @@ fun BeginnerFreeGamesScreen(
     BeginnerFolderStatus(pathHint = romsPath, uri = romsUri)
     Spacer(Modifier.height(16.dp))
     status?.let {
-        Text(it, style = MaterialTheme.typography.bodyMedium, color = AmberAccent)
+        Text(it, style = MaterialTheme.typography.bodyMedium, color = LocalOrglPalette.current.accent)
         Spacer(Modifier.height(8.dp))
     }
     error?.let {
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
     }
     if (downloaded && !downloading && error == null) {
@@ -522,7 +521,7 @@ fun BeginnerEmulatorsScreen(
                 "Found ${emulators.size} emulator" +
                     if (emulators.size == 1) "" else "s",
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(Modifier.height(12.dp))
             emulators.forEach { emu ->
@@ -551,7 +550,7 @@ fun BeginnerEmulatorsScreen(
                                             " installed"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AmberAccent,
+                                    color = LocalOrglPalette.current.accent,
                                 )
                                 if (cores.isNotEmpty()) {
                                     Text(
@@ -602,7 +601,7 @@ fun BeginnerEmulatorsScreen(
                                 recommendedLine,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (need.recommendedInstalled == true) {
-                                    AmberAccent
+                                    LocalOrglPalette.current.accent
                                 } else {
                                     Mist.copy(alpha = 0.75f)
                                 },
@@ -612,7 +611,7 @@ fun BeginnerEmulatorsScreen(
                             Text(
                                 "Found: $found",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = AmberAccent,
+                                color = LocalOrglPalette.current.accent,
                             )
                         }
                     }
@@ -639,7 +638,7 @@ fun BeginnerEmulatorsScreen(
             Text(
                 "No recognized emulators yet",
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -701,7 +700,7 @@ fun BeginnerAdvancedFeaturesScreen() {
     Text(
         "ES-DE integration",
         style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
     Spacer(Modifier.height(6.dp))
     Text(
@@ -714,7 +713,7 @@ fun BeginnerAdvancedFeaturesScreen() {
     Text(
         "Scraping & media",
         style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
     Spacer(Modifier.height(6.dp))
     Text(
@@ -790,7 +789,7 @@ fun BeginnerTryLaunchScreen(
         Text(
             "RetroArch needs a core first",
             style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -818,7 +817,7 @@ fun BeginnerTryLaunchScreen(
         Text(
             "Launch sent — if nothing appeared, check the core is installed and try again.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     error?.let {
@@ -826,7 +825,7 @@ fun BeginnerTryLaunchScreen(
         Text(
             it,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFFFF8A80),
+            color = LocalOrglPalette.current.errorSoft,
         )
     }
     Spacer(Modifier.height(16.dp))
@@ -835,8 +834,8 @@ fun BeginnerTryLaunchScreen(
         enabled = !busy,
         modifier = Modifier.fillMaxWidth(),
         colors = ButtonDefaults.buttonColors(
-            containerColor = AmberAccent,
-            contentColor = InkDeep,
+            containerColor = LocalOrglPalette.current.accent,
+            contentColor = LocalOrglPalette.current.onAccent,
         ),
     ) {
         Text(if (busy) "Launching…" else "Launch ${offer.gameTitle}")
@@ -859,7 +858,7 @@ private fun BeginnerChoiceCard(
         Text(
             title,
             style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -877,7 +876,7 @@ private fun BeginnerFolderStatus(
 ) {
     if (pathHint != null) {
         Spacer(Modifier.height(12.dp))
-        Text("Resolved path", color = AmberAccent, style = MaterialTheme.typography.labelLarge)
+        Text("Resolved path", color = LocalOrglPalette.current.accent, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(4.dp))
         Text(pathHint, style = MaterialTheme.typography.bodyMedium, color = Mist.copy(alpha = 0.85f))
     } else if (uri != null) {

@@ -32,7 +32,7 @@ import com.sayemshafayet.onereogamelauncher.domain.MediaType
 import com.sayemshafayet.onereogamelauncher.ui.components.GameCoverImage
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.theme.LocalOrglPalette
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayGamePick
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlayPickerViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.PlaySuggestionBadge
@@ -123,7 +123,7 @@ internal fun PlayPickCard(
         ?: media.firstOrNull { it.type == MediaType.SCREENSHOT }?.path
     val shape = RoundedCornerShape(if (compact) 10.dp else 12.dp)
     val borderColor = if (highlighted) {
-        AmberAccent
+        LocalOrglPalette.current.accent
     } else {
         MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     }
@@ -139,7 +139,7 @@ internal fun PlayPickCard(
             .border(1.dp, borderColor, shape)
             .then(
                 if (highlighted) {
-                    Modifier.background(AmberAccent.copy(alpha = 0.08f), shape)
+                    Modifier.background(LocalOrglPalette.current.accent.copy(alpha = 0.08f), shape)
                 } else {
                     Modifier
                 },
@@ -183,7 +183,7 @@ internal fun PlayPickCard(
                         label,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (pick.badge == PlaySuggestionBadge.WISHLIST) {
-                            AmberAccent
+                            LocalOrglPalette.current.accent
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },

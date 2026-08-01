@@ -2,7 +2,8 @@ package com.sayemshafayet.onereogamelauncher.ui.setup
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.SettingsViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onOpenLibraryFolders: () -> Unit,
@@ -132,14 +134,15 @@ fun SettingsScreen(
         Spacer(Modifier.height(20.dp))
         Text("Appearance", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ThemeMode.entries.forEach { mode ->
                 OrglFilterChip(
                     selected = ui.themeMode == mode,
                     onClick = { viewModel.setThemeMode(mode) },
-                    label = { Text(mode.name) },
+                    label = { Text(mode.label) },
                 )
             }
         }

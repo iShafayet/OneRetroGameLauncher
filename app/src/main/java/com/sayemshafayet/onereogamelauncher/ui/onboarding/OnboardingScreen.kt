@@ -72,11 +72,8 @@ import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsS
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerRomsSummaryScreen
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerSectionLabel
 import com.sayemshafayet.onereogamelauncher.ui.onboarding.beginner.BeginnerTryLaunchScreen
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.theme.LocalOrglPalette
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkLight
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkMid
 import com.sayemshafayet.onereogamelauncher.ui.theme.Mist
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.OnboardingRaPhase
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.OnboardingUiPage
@@ -131,10 +128,10 @@ fun OnboardingScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(InkDeep, InkMid, InkLight))),
+                .background(Brush.verticalGradient(listOf(LocalOrglPalette.current.inkDeep, LocalOrglPalette.current.inkMid, LocalOrglPalette.current.inkLight))),
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator(color = AmberAccent)
+            CircularProgressIndicator(color = LocalOrglPalette.current.accent)
         }
         return
     }
@@ -152,7 +149,7 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(InkDeep, InkMid, InkLight),
+                    listOf(LocalOrglPalette.current.inkDeep, LocalOrglPalette.current.inkMid, LocalOrglPalette.current.inkLight),
                 ),
             )
             .statusBarsPadding()
@@ -194,7 +191,7 @@ fun OnboardingScreen(
                     Text(
                         "ORGL",
                         style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
-                        color = AmberAccent,
+                        color = LocalOrglPalette.current.accent,
                     )
                 }
                 when (page) {
@@ -380,8 +377,8 @@ private fun WizardFooter(
                         .fillMaxWidth()
                         .then(PulseModifier(true)),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Let's finish some games")
@@ -395,8 +392,8 @@ private fun WizardFooter(
                         .fillMaxWidth()
                         .then(PulseModifier(true)),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Resume onboarding")
@@ -413,7 +410,7 @@ private fun WizardFooter(
             OnboardingUiPage.PRO_SCAN -> {
                 val pageBusy = state.scanning || state.buildingSummary
                 if (pageBusy) {
-                    CircularProgressIndicator(color = AmberAccent)
+                    CircularProgressIndicator(color = LocalOrglPalette.current.accent)
                     Spacer(Modifier.height(12.dp))
                     Text(
                         when {
@@ -443,8 +440,8 @@ private fun WizardFooter(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AmberAccent,
-                            contentColor = InkDeep,
+                            containerColor = LocalOrglPalette.current.accent,
+                            contentColor = LocalOrglPalette.current.onAccent,
                         ),
                     ) {
                         Text(if (state.scanDone) "Continue" else "Retry scan")
@@ -472,8 +469,8 @@ private fun WizardFooter(
                         .fillMaxWidth()
                         .then(PulseModifier(true)),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Enter ORGL")
@@ -500,8 +497,8 @@ private fun WizardFooter(
                     enabled = ctaEnabled,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text(
@@ -528,8 +525,8 @@ private fun WizardFooter(
                     enabled = !state.detectingEmulators,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Continue")
@@ -553,8 +550,8 @@ private fun WizardFooter(
                     enabled = state.orglUri != null,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Continue")
@@ -578,7 +575,7 @@ private fun WizardFooter(
             OnboardingUiPage.BEGINNER_ROMS_SETUP -> {
                 val busy = state.beginnerStructureChecking || state.beginnerScanning
                 if (busy) {
-                    CircularProgressIndicator(color = AmberAccent)
+                    CircularProgressIndicator(color = LocalOrglPalette.current.accent)
                     Spacer(Modifier.height(12.dp))
                 }
                 val structureOk = state.beginnerStructureCheck?.isValid == true
@@ -587,8 +584,8 @@ private fun WizardFooter(
                         onClick = onNext,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AmberAccent,
-                            contentColor = InkDeep,
+                            containerColor = LocalOrglPalette.current.accent,
+                            contentColor = LocalOrglPalette.current.onAccent,
                         ),
                     ) {
                         Text("Continue")
@@ -612,7 +609,7 @@ private fun WizardFooter(
             OnboardingUiPage.BEGINNER_ROMS_SUMMARY -> {
                 val gamesOk = (state.beginnerPreview?.gamesFound ?: 0) > 0
                 if (state.beginnerScanning) {
-                    CircularProgressIndicator(color = AmberAccent)
+                    CircularProgressIndicator(color = LocalOrglPalette.current.accent)
                     Spacer(Modifier.height(12.dp))
                 }
                 if (!state.beginnerScanning && gamesOk) {
@@ -620,8 +617,8 @@ private fun WizardFooter(
                         onClick = onNext,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AmberAccent,
-                            contentColor = InkDeep,
+                            containerColor = LocalOrglPalette.current.accent,
+                            contentColor = LocalOrglPalette.current.onAccent,
                         ),
                     ) {
                         Text("Continue")
@@ -645,7 +642,7 @@ private fun WizardFooter(
             OnboardingUiPage.BEGINNER_FREE_GAMES -> {
                 val busy = state.freeGamesDownloading || state.beginnerScanning
                 if (busy) {
-                    CircularProgressIndicator(color = AmberAccent)
+                    CircularProgressIndicator(color = LocalOrglPalette.current.accent)
                     Spacer(Modifier.height(12.dp))
                 }
                 val needsRetryScan = state.freeGamesDownloaded &&
@@ -657,8 +654,8 @@ private fun WizardFooter(
                         enabled = state.romsUri != null,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AmberAccent,
-                            contentColor = InkDeep,
+                            containerColor = LocalOrglPalette.current.accent,
+                            contentColor = LocalOrglPalette.current.onAccent,
                         ),
                     ) {
                         Text("Retry scan")
@@ -670,8 +667,8 @@ private fun WizardFooter(
                     enabled = !busy && state.romsUri != null,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text(
@@ -689,7 +686,7 @@ private fun WizardFooter(
 
             OnboardingUiPage.BEGINNER_EMULATORS -> {
                 if (state.detectingEmulators) {
-                    CircularProgressIndicator(color = AmberAccent)
+                    CircularProgressIndicator(color = LocalOrglPalette.current.accent)
                     Spacer(Modifier.height(12.dp))
                 }
                 Button(
@@ -697,8 +694,8 @@ private fun WizardFooter(
                     enabled = !state.detectingEmulators,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Continue")
@@ -721,8 +718,8 @@ private fun WizardFooter(
                     onClick = onNext,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Continue")
@@ -737,8 +734,8 @@ private fun WizardFooter(
                     onClick = onNext,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Continue")
@@ -755,8 +752,8 @@ private fun WizardFooter(
                         .fillMaxWidth()
                         .then(PulseModifier(true)),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AmberAccent,
-                        contentColor = InkDeep,
+                        containerColor = LocalOrglPalette.current.accent,
+                        contentColor = LocalOrglPalette.current.onAccent,
                     ),
                 ) {
                     Text("Enter ORGL")
@@ -783,7 +780,7 @@ private fun WelcomeStep(resume: Boolean) {
     Text(
         if (resume) "Welcome back" else "Stop scrolling. Start finishing.",
         style = MaterialTheme.typography.headlineMedium.copy(fontFamily = BrandFont),
-        color = AmberAccent,
+        color = LocalOrglPalette.current.accent,
     )
     Spacer(Modifier.height(20.dp))
     Text(
@@ -852,7 +849,7 @@ private fun PathChoice(
         Text(
             title,
             style = MaterialTheme.typography.titleLarge.copy(fontFamily = BrandFont),
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -888,7 +885,7 @@ private fun RomsFolderStep(
         Text(
             "We still have access to a folder you linked before — confirm it or pick another.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     Spacer(Modifier.height(24.dp))
@@ -898,7 +895,7 @@ private fun RomsFolderStep(
     FolderStatus(pathHint = pathHint, uri = uri, accessOk = uri != null)
     conflictError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -939,7 +936,7 @@ private fun OrglFolderStep(
         Text(
             "We still have access to a folder you linked before — confirm it or pick another.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     Spacer(Modifier.height(24.dp))
@@ -955,16 +952,16 @@ private fun OrglFolderStep(
         Text(
             "Existing ORGL data detected — reusing scraped media and files from this folder.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     conflictError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
     error?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -1000,7 +997,7 @@ private fun EsdeFolderStep(
         Text(
             "We still have access to a folder you linked before — confirm it or pick another.",
             style = MaterialTheme.typography.bodyMedium,
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
     }
     Spacer(Modifier.height(24.dp))
@@ -1028,7 +1025,7 @@ private fun FolderStatus(
 ) {
     if (pathHint != null) {
         Spacer(Modifier.height(12.dp))
-        Text("Resolved path", color = AmberAccent, style = MaterialTheme.typography.labelLarge)
+        Text("Resolved path", color = LocalOrglPalette.current.accent, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(4.dp))
         Text(pathHint, style = MaterialTheme.typography.bodyMedium, color = Mist.copy(alpha = 0.85f))
         if (accessOk) {
@@ -1036,7 +1033,7 @@ private fun FolderStatus(
             Text(
                 "Access looks good.",
                 style = MaterialTheme.typography.bodySmall,
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
         }
     } else if (uri != null) {
@@ -1061,12 +1058,12 @@ private fun RetroAchievementsStep(
         focusedTextColor = Mist,
         unfocusedTextColor = Mist,
         disabledTextColor = Mist.copy(alpha = 0.7f),
-        focusedBorderColor = AmberAccent,
+        focusedBorderColor = LocalOrglPalette.current.accent,
         unfocusedBorderColor = Mist.copy(alpha = 0.35f),
         disabledBorderColor = Mist.copy(alpha = 0.2f),
-        focusedLabelColor = AmberAccent,
+        focusedLabelColor = LocalOrglPalette.current.accent,
         unfocusedLabelColor = Mist.copy(alpha = 0.7f),
-        cursorColor = AmberAccent,
+        cursorColor = LocalOrglPalette.current.accent,
     )
     val busy = state.raPhase == OnboardingRaPhase.Checking || state.raSaving
 
@@ -1086,7 +1083,7 @@ private fun RetroAchievementsStep(
     when (state.raPhase) {
         OnboardingRaPhase.Checking, OnboardingRaPhase.Idle -> {
             Spacer(modifier = Modifier.height(24.dp))
-            CircularProgressIndicator(color = AmberAccent)
+            CircularProgressIndicator(color = LocalOrglPalette.current.accent)
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 state.raStatusMessage ?: "Checking the ORGL data folder for saved credentials…",
@@ -1099,7 +1096,7 @@ private fun RetroAchievementsStep(
             Text(
                 state.raStatusMessage ?: "Signed in.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = AmberAccent,
+                color = LocalOrglPalette.current.accent,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
@@ -1118,8 +1115,8 @@ private fun RetroAchievementsStep(
                     checked = state.raStoreOnDisk,
                     onCheckedChange = onStoreOnDiskChange,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = InkDeep,
-                        checkedTrackColor = AmberAccent,
+                        checkedThumbColor = LocalOrglPalette.current.onAccent,
+                        checkedTrackColor = LocalOrglPalette.current.accent,
                     ),
                 )
             }
@@ -1130,7 +1127,7 @@ private fun RetroAchievementsStep(
                 Text(
                     it,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = AmberAccent,
+                    color = LocalOrglPalette.current.accent,
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -1180,8 +1177,8 @@ private fun RetroAchievementsStep(
                     onCheckedChange = onStoreOnDiskChange,
                     enabled = !busy,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = InkDeep,
-                        checkedTrackColor = AmberAccent,
+                        checkedThumbColor = LocalOrglPalette.current.onAccent,
+                        checkedTrackColor = LocalOrglPalette.current.accent,
                     ),
                 )
             }
@@ -1195,7 +1192,7 @@ private fun RetroAchievementsStep(
                     CircularProgressIndicator(
                         modifier = Modifier.height(18.dp),
                         strokeWidth = 2.dp,
-                        color = AmberAccent,
+                        color = LocalOrglPalette.current.accent,
                     )
                 } else {
                     Text("Save & verify", color = Mist)
@@ -1203,7 +1200,7 @@ private fun RetroAchievementsStep(
             }
             state.raError?.let {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+                Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -1247,7 +1244,7 @@ private fun ScanStep(
     )
     scanError?.let {
         Spacer(Modifier.height(12.dp))
-        Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodyMedium)
+        Text(it, color = LocalOrglPalette.current.errorSoft, style = MaterialTheme.typography.bodyMedium)
     }
     if (scanning && scanProgress != null) {
         Spacer(Modifier.height(16.dp))
@@ -1294,7 +1291,7 @@ private fun EmulatorsStep(
     Spacer(Modifier.height(20.dp))
     when {
         detecting -> {
-            CircularProgressIndicator(color = AmberAccent)
+            CircularProgressIndicator(color = LocalOrglPalette.current.accent)
             Spacer(Modifier.height(12.dp))
             Text(
                 "Looking for installed emulators…",
@@ -1333,7 +1330,7 @@ private fun EmulatorsStep(
                                         "${cores.size} cores installed"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = AmberAccent,
+                                    color = LocalOrglPalette.current.accent,
                                 )
                             }
                             emu.coreQuerySupported == false -> {

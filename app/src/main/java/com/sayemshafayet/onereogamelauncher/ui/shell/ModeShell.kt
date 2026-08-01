@@ -57,6 +57,9 @@ import com.sayemshafayet.onereogamelauncher.data.prefs.AppSettings
 import com.sayemshafayet.onereogamelauncher.data.prefs.SettingsRepository
 import com.sayemshafayet.onereogamelauncher.domain.AppMode
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import com.sayemshafayet.onereogamelauncher.ui.play.CommitConfirmScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.FocusScreen
 import com.sayemshafayet.onereogamelauncher.ui.play.PlayCompletionScreen
@@ -338,6 +341,12 @@ fun ModeShell(
     }
 
     Scaffold(
+        containerColor = if (isOrglNeonTheme()) {
+            Color.Transparent
+        } else {
+            MaterialTheme.colorScheme.background
+        },
+        contentColor = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.onPreviewKeyEvent { event ->
             when {
                 GamepadKeys.isModeToggle(event) -> {

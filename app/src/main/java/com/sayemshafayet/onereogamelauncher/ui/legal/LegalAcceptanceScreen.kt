@@ -30,11 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.sayemshafayet.onereogamelauncher.legal.LegalDocumentKind
-import com.sayemshafayet.onereogamelauncher.ui.theme.AmberAccent
+import com.sayemshafayet.onereogamelauncher.ui.theme.LocalOrglPalette
 import com.sayemshafayet.onereogamelauncher.ui.theme.BrandFont
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkDeep
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkLight
-import com.sayemshafayet.onereogamelauncher.ui.theme.InkMid
 import com.sayemshafayet.onereogamelauncher.ui.theme.Mist
 
 @Composable
@@ -48,7 +45,7 @@ fun LegalAcceptanceScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(InkDeep, InkMid, InkLight)))
+            .background(Brush.verticalGradient(listOf(LocalOrglPalette.current.inkDeep, LocalOrglPalette.current.inkMid, LocalOrglPalette.current.inkLight)))
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
@@ -57,7 +54,7 @@ fun LegalAcceptanceScreen(
         Text(
             "ORGL",
             style = MaterialTheme.typography.labelLarge.copy(fontFamily = BrandFont),
-            color = AmberAccent,
+            color = LocalOrglPalette.current.accent,
         )
         Spacer(Modifier.height(16.dp))
         Text(
@@ -101,9 +98,9 @@ fun LegalAcceptanceScreen(
                 checked = agreed,
                 onCheckedChange = { agreed = it },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = AmberAccent,
+                    checkedColor = LocalOrglPalette.current.accent,
                     uncheckedColor = Mist.copy(alpha = 0.6f),
-                    checkmarkColor = InkDeep,
+                    checkmarkColor = LocalOrglPalette.current.onAccent,
                 ),
             )
             Text(
@@ -119,10 +116,10 @@ fun LegalAcceptanceScreen(
             enabled = agreed,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = AmberAccent,
-                contentColor = InkDeep,
-                disabledContainerColor = AmberAccent.copy(alpha = 0.35f),
-                disabledContentColor = InkDeep.copy(alpha = 0.5f),
+                containerColor = LocalOrglPalette.current.accent,
+                contentColor = LocalOrglPalette.current.onAccent,
+                disabledContainerColor = LocalOrglPalette.current.accent.copy(alpha = 0.35f),
+                disabledContentColor = LocalOrglPalette.current.onAccent.copy(alpha = 0.5f),
             ),
         ) {
             Text("Agree and continue")

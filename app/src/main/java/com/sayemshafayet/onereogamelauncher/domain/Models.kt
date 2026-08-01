@@ -1,6 +1,21 @@
 package com.sayemshafayet.onereogamelauncher.domain
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+    /** Always-dark arcade neon; ignores system light/dark. */
+    NEON,
+    ;
+
+    val label: String
+        get() = when (this) {
+            SYSTEM -> "System"
+            LIGHT -> "Light"
+            DARK -> "Dark"
+            NEON -> "Neon"
+        }
+}
 
 enum class AppMode { SETUP, PLAY }
 
