@@ -46,6 +46,8 @@ import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
+import com.sayemshafayet.onereogamelauncher.ui.theme.GcBody
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglGcTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeAccentColor
 import com.sayemshafayet.onereogamelauncher.ui.theme.usesOrglAtmosphereTheme
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
@@ -220,12 +222,13 @@ private fun HubTopAppBar(
     }
     val displayVersion = orglDisplayVersionName()
     val atmosphere = usesOrglAtmosphereTheme()
+    val gc = isOrglGcTheme()
     val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = if (atmosphere) {
-            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
-        } else {
-            Color.Unspecified
+        containerColor = when {
+            gc -> GcBody
+            atmosphere -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
+            else -> Color.Unspecified
         },
         titleContentColor = chromeAccent,
         actionIconContentColor = chromeAccent,
@@ -344,12 +347,13 @@ private fun SimpleTopAppBar(
 ) {
     val showHints = rememberShowGamepadHints()
     val atmosphere = usesOrglAtmosphereTheme()
+    val gc = isOrglGcTheme()
     val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = if (atmosphere) {
-            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
-        } else {
-            Color.Unspecified
+        containerColor = when {
+            gc -> GcBody
+            atmosphere -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
+            else -> Color.Unspecified
         },
         titleContentColor = chromeAccent,
         actionIconContentColor = chromeAccent,

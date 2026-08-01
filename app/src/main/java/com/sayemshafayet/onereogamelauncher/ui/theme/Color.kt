@@ -81,6 +81,22 @@ val CalmInverse = Color(0xFF2A3530)
 val CalmInversePrimary = Color(0xFFA8D4C0)
 val CalmSky = Color(0xFF7A9BB0)
 
+// --- GC (GameCube controller swatches) ---
+/** Main body purple. */
+val GcBody = Color(0xFF6253CF)
+/** Darker purple — shadows / edges / screen background. */
+val GcBodyDark = Color(0xFF5345B5)
+/** Lighter purple — grid tiles / cover plates (must contrast with background). */
+val GcBodyLight = Color(0xFF7B6DDB)
+/** Analog sticks / D-pad / white face. */
+val GcSilver = Color(0xFFE7E6EC)
+/** Y button / right-stick yellow. */
+val GcYellow = Color(0xFFF3CE64)
+/** B button red. */
+val GcRed = Color(0xFFBB2020)
+/** A button green. */
+val GcGreen = Color(0xFF4BA466)
+
 /**
  * Quiet interaction chrome — logo cyan, desaturated and low-opacity so focus/selection
  * reads without competing with content (and without amber).
@@ -145,6 +161,21 @@ data class OrglPalette(
             focusFill = CalmSage.copy(alpha = 0.10f),
             focusFillStrong = CalmSage.copy(alpha = 0.18f),
             selectionIndicator = CalmSageDeep,
+        )
+
+        val Gc = OrglPalette(
+            // Flat controller plastics — same solids for any leftover gradient call sites.
+            inkDeep = GcBodyDark,
+            inkMid = GcBody,
+            inkLight = GcBody,
+            accent = GcGreen,
+            onAccent = GcSilver,
+            accentSoft = GcYellow,
+            errorSoft = GcRed,
+            focusRing = GcSilver,
+            focusFill = GcSilver.copy(alpha = 0.14f),
+            focusFillStrong = GcYellow.copy(alpha = 0.22f),
+            selectionIndicator = GcYellow,
         )
     }
 }

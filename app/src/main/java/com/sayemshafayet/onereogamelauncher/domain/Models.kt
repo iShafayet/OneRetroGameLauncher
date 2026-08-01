@@ -8,6 +8,8 @@ enum class ThemeMode {
     NEON,
     /** Soft peaceful sage/mist stage; ignores system light/dark. */
     CALM,
+    /** GameCube indigo stage; ignores system light/dark. */
+    GC,
     ;
 
     val label: String
@@ -17,6 +19,7 @@ enum class ThemeMode {
             DARK -> "Dark"
             NEON -> "Neon"
             CALM -> "Calm"
+            GC -> "GC"
         }
 }
 

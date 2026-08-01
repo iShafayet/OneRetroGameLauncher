@@ -137,6 +137,46 @@ val CalmColors = lightColorScheme(
     surfaceContainerHighest = Color(0xEEE8DFD4),
 )
 
+/** Fully specified GC scheme — solid GameCube controller plastics (no washes). */
+val GcColors = darkColorScheme(
+    primary = GcBody,
+    onPrimary = GcSilver,
+    primaryContainer = GcBodyDark,
+    onPrimaryContainer = GcSilver,
+    secondary = GcGreen,
+    onSecondary = GcSilver,
+    secondaryContainer = GcGreen,
+    onSecondaryContainer = GcSilver,
+    tertiary = GcYellow,
+    onTertiary = GcBodyDark,
+    tertiaryContainer = GcYellow,
+    onTertiaryContainer = GcBodyDark,
+    error = GcRed,
+    onError = GcSilver,
+    errorContainer = GcRed,
+    onErrorContainer = GcSilver,
+    background = GcBodyDark,
+    onBackground = GcSilver,
+    surface = GcBody,
+    onSurface = GcSilver,
+    surfaceVariant = GcBodyLight,
+    onSurfaceVariant = GcSilver,
+    outline = GcSilver,
+    outlineVariant = GcBodyDark,
+    scrim = GcBodyDark,
+    inverseSurface = GcSilver,
+    inverseOnSurface = GcBodyDark,
+    inversePrimary = GcBody,
+    surfaceTint = GcBody,
+    surfaceDim = GcBodyDark,
+    surfaceBright = GcBodyLight,
+    surfaceContainerLowest = GcBodyDark,
+    surfaceContainerLow = GcBody,
+    surfaceContainer = GcBody,
+    surfaceContainerHigh = GcBodyLight,
+    surfaceContainerHighest = GcBodyLight,
+)
+
 private val NeonShapes = Shapes(
     extraSmall = RoundedCornerShape(2.dp),
     small = RoundedCornerShape(4.dp),
@@ -225,6 +265,46 @@ private val CalmTypography = OrglTypography.copy(
     ),
 )
 
+private val GcShapes = Shapes(
+    // Soft cube — GameCube’s friendly rounded chassis.
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
+private val GcTypography = OrglTypography.copy(
+    displayLarge = OrglTypography.displayLarge.copy(
+        letterSpacing = 0.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    displayMedium = OrglTypography.displayMedium.copy(letterSpacing = 0.sp),
+    headlineLarge = OrglTypography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+    titleMedium = OrglTypography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+    labelLarge = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.4.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.3.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.2.sp,
+    ),
+)
+
 @Composable
 fun OrglTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -232,18 +312,18 @@ fun OrglTheme(
     content: @Composable () -> Unit,
 ) {
     val useDark = when (themeMode) {
-        ThemeMode.NEON -> true
-        ThemeMode.CALM -> false
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
+        ThemeMode.NEON, ThemeMode.GC, ThemeMode.DARK -> true
+        ThemeMode.CALM, ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
     val neon = themeMode.isNeon()
     val calm = themeMode.isCalm()
+    val gc = themeMode.isGc()
     val colorScheme = when {
         neon -> NeonColors
         calm -> CalmColors
+        gc -> GcColors
         isPlayMode && useDark -> PlayDarkColors
         useDark -> DarkColors
         else -> LightColors
@@ -251,16 +331,19 @@ fun OrglTheme(
     val palette = when {
         neon -> OrglPalette.Neon
         calm -> OrglPalette.Calm
+        gc -> OrglPalette.Gc
         else -> OrglPalette.Brand
     }
     val typography = when {
         neon -> NeonTypography
         calm -> CalmTypography
+        gc -> GcTypography
         else -> OrglTypography
     }
     val shapes = when {
         neon -> NeonShapes
         calm -> CalmShapes
+        gc -> GcShapes
         else -> Shapes()
     }
 

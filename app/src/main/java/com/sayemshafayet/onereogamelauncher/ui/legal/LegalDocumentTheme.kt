@@ -10,8 +10,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.sayemshafayet.onereogamelauncher.ui.theme.CalmColors
+import com.sayemshafayet.onereogamelauncher.ui.theme.GcColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.NeonColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglCalmTheme
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglGcTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
 
 /**
@@ -23,6 +25,7 @@ fun LegalDocumentTheme(content: @Composable () -> Unit) {
     val colorScheme = when {
         isOrglNeonTheme() -> NeonColors
         isOrglCalmTheme() -> CalmColors
+        isOrglGcTheme() -> GcColors
         isSystemInDarkTheme() -> darkColorScheme()
         else -> lightColorScheme()
     }
