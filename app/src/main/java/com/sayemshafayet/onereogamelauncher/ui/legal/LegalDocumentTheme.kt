@@ -12,9 +12,11 @@ import androidx.compose.ui.Modifier
 import com.sayemshafayet.onereogamelauncher.ui.theme.CalmColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.GcColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.NeonColors
+import com.sayemshafayet.onereogamelauncher.ui.theme.SnesColors
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglCalmTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglGcTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglNeonTheme
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglSnesTheme
 
 /**
  * Legal reading surface — follows app theme. Stylized modes use their full schemes;
@@ -26,6 +28,7 @@ fun LegalDocumentTheme(content: @Composable () -> Unit) {
         isOrglNeonTheme() -> NeonColors
         isOrglCalmTheme() -> CalmColors
         isOrglGcTheme() -> GcColors
+        isOrglSnesTheme() -> SnesColors
         isSystemInDarkTheme() -> darkColorScheme()
         else -> lightColorScheme()
     }

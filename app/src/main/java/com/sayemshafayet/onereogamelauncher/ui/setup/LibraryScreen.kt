@@ -57,6 +57,8 @@ import com.sayemshafayet.onereogamelauncher.ui.input.orlgFocusable
 import com.sayemshafayet.onereogamelauncher.ui.input.orlgListFocus
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberOrlgFocusRequester
 import com.sayemshafayet.onereogamelauncher.ui.theme.FocusRing
+import com.sayemshafayet.onereogamelauncher.ui.theme.SnesText
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglSnesTheme
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibrarySystemRow
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 
@@ -205,7 +207,12 @@ private fun SystemGridTile(
     }
     // Theme-aware tile plate — icons are transparent; bottom ~40% is reserved for the name.
     val tileBackground = MaterialTheme.colorScheme.surfaceContainerHighest
-    val onTile = MaterialTheme.colorScheme.onSurface
+    // Lilac SNES plates need dark type; other themes keep onSurface.
+    val onTile = if (isOrglSnesTheme()) {
+        SnesText
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     val showNameOverlay = hasIconMapping
     val showNameInTile = !hasIconMapping
 

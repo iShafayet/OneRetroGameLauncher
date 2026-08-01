@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sayemshafayet.onereogamelauncher.domain.MediaType
+import com.sayemshafayet.onereogamelauncher.ui.theme.SnesText
+import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglSnesTheme
 import java.io.File
 
 @Composable
@@ -78,7 +80,11 @@ fun GameCoverImage(
                     Icons.Default.VideogameAsset,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    tint = if (isOrglSnesTheme()) {
+                        SnesText.copy(alpha = 0.55f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    },
                 )
             }
         }

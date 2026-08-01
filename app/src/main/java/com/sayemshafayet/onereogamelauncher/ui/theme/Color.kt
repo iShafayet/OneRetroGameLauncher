@@ -97,6 +97,24 @@ val GcRed = Color(0xFFBB2020)
 /** A button green. */
 val GcGreen = Color(0xFF4BA466)
 
+// --- SNES (NA Super Nintendo greys + purple — solid swatches) ---
+/** Shell background grey. */
+val SnesBackground = Color(0xFFB7B7B7)
+/** Primary UI text. */
+val SnesText = Color(0xFF515051)
+/** Raised panels. */
+val SnesPanel = Color(0xFFE5E5E5)
+/** Borders / strip labels. */
+val SnesBorder = Color(0xFF000000)
+/** Bright highlight / lightest plate. */
+val SnesLighter = Color(0xFFFFFFFF)
+/** Soft lilac button / accent. */
+val SnesLight = Color(0xFFCCCCEB)
+/** Mid grey (shoulders / muted). */
+val SnesMedium = Color(0xFF7F7F7F)
+/** Purple button / brand accent. */
+val SnesDark = Color(0xFF8C78C7)
+
 /**
  * Quiet interaction chrome — logo cyan, desaturated and low-opacity so focus/selection
  * reads without competing with content (and without amber).
@@ -176,6 +194,20 @@ data class OrglPalette(
             focusFill = GcSilver.copy(alpha = 0.14f),
             focusFillStrong = GcYellow.copy(alpha = 0.22f),
             selectionIndicator = GcYellow,
+        )
+
+        val Snes = OrglPalette(
+            inkDeep = SnesBackground,
+            inkMid = SnesPanel,
+            inkLight = SnesLighter,
+            accent = SnesDark,
+            onAccent = SnesLighter,
+            accentSoft = SnesLight,
+            errorSoft = SnesBorder,
+            focusRing = SnesDark,
+            focusFill = SnesDark.copy(alpha = 0.12f),
+            focusFillStrong = SnesLight.copy(alpha = 0.55f),
+            selectionIndicator = SnesDark,
         )
     }
 }

@@ -177,6 +177,49 @@ val GcColors = darkColorScheme(
     surfaceContainerHighest = GcBodyLight,
 )
 
+/** Fully specified SNES scheme — light grey shell, purple accents (NA Super NES). */
+val SnesColors = lightColorScheme(
+    // Darker purple — primary buttons / controls
+    primary = SnesDark,
+    onPrimary = SnesLighter,
+    // Lilac — soft containers / chrome companion
+    primaryContainer = SnesLight,
+    onPrimaryContainer = SnesDark,
+    secondary = SnesDark,
+    onSecondary = SnesLighter,
+    // Tonal buttons / selected chips (reads on lilac navbar)
+    secondaryContainer = SnesDark,
+    onSecondaryContainer = SnesLighter,
+    tertiary = SnesMedium,
+    onTertiary = SnesLighter,
+    tertiaryContainer = SnesMedium,
+    onTertiaryContainer = SnesLighter,
+    error = SnesBorder,
+    onError = SnesLighter,
+    errorContainer = SnesMedium,
+    onErrorContainer = SnesLighter,
+    background = SnesBackground,
+    onBackground = SnesText,
+    surface = SnesPanel,
+    onSurface = SnesText,
+    surfaceVariant = SnesLighter,
+    onSurfaceVariant = SnesText,
+    outline = SnesBorder,
+    outlineVariant = SnesMedium,
+    scrim = SnesBorder.copy(alpha = 0.5f),
+    inverseSurface = SnesBorder,
+    inverseOnSurface = SnesLighter,
+    inversePrimary = SnesLight,
+    surfaceTint = SnesDark,
+    surfaceDim = SnesBackground,
+    surfaceBright = SnesLighter,
+    surfaceContainerLowest = SnesBackground,
+    surfaceContainerLow = SnesPanel,
+    surfaceContainer = SnesPanel,
+    surfaceContainerHigh = SnesLighter,
+    surfaceContainerHighest = SnesLighter,
+)
+
 private val NeonShapes = Shapes(
     extraSmall = RoundedCornerShape(2.dp),
     small = RoundedCornerShape(4.dp),
@@ -305,6 +348,57 @@ private val GcTypography = OrglTypography.copy(
     ),
 )
 
+/** Soft “16-bit console” rounding — friendly like the SNES shell. */
+private val SnesShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(18.dp),
+    extraLarge = RoundedCornerShape(24.dp),
+)
+
+private val SnesTypography = OrglTypography.copy(
+    displayLarge = OrglTypography.displayLarge.copy(
+        letterSpacing = 1.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    displayMedium = OrglTypography.displayMedium.copy(letterSpacing = 0.8.sp),
+    headlineLarge = OrglTypography.headlineLarge.copy(
+        letterSpacing = 0.6.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    headlineMedium = OrglTypography.headlineMedium.copy(letterSpacing = 0.4.sp),
+    titleLarge = OrglTypography.titleLarge.copy(
+        letterSpacing = 0.5.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    titleMedium = OrglTypography.titleMedium.copy(
+        letterSpacing = 0.6.sp,
+        fontWeight = FontWeight.SemiBold,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 1.2.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 1.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        letterSpacing = 0.8.sp,
+    ),
+)
+
 @Composable
 fun OrglTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -313,17 +407,19 @@ fun OrglTheme(
 ) {
     val useDark = when (themeMode) {
         ThemeMode.NEON, ThemeMode.GC, ThemeMode.DARK -> true
-        ThemeMode.CALM, ThemeMode.LIGHT -> false
+        ThemeMode.CALM, ThemeMode.SNES, ThemeMode.LIGHT -> false
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
     val neon = themeMode.isNeon()
     val calm = themeMode.isCalm()
     val gc = themeMode.isGc()
+    val snes = themeMode.isSnes()
     val colorScheme = when {
         neon -> NeonColors
         calm -> CalmColors
         gc -> GcColors
+        snes -> SnesColors
         isPlayMode && useDark -> PlayDarkColors
         useDark -> DarkColors
         else -> LightColors
@@ -332,18 +428,21 @@ fun OrglTheme(
         neon -> OrglPalette.Neon
         calm -> OrglPalette.Calm
         gc -> OrglPalette.Gc
+        snes -> OrglPalette.Snes
         else -> OrglPalette.Brand
     }
     val typography = when {
         neon -> NeonTypography
         calm -> CalmTypography
         gc -> GcTypography
+        snes -> SnesTypography
         else -> OrglTypography
     }
     val shapes = when {
         neon -> NeonShapes
         calm -> CalmShapes
         gc -> GcShapes
+        snes -> SnesShapes
         else -> Shapes()
     }
 

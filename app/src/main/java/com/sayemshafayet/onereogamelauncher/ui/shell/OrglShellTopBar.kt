@@ -46,10 +46,8 @@ import com.sayemshafayet.onereogamelauncher.ui.input.GamepadHintOverlay
 import com.sayemshafayet.onereogamelauncher.ui.components.mediaTypeLabel
 import com.sayemshafayet.onereogamelauncher.ui.input.rememberShowGamepadHints
 import com.sayemshafayet.onereogamelauncher.ui.navigation.Routes
-import com.sayemshafayet.onereogamelauncher.ui.theme.GcBody
-import com.sayemshafayet.onereogamelauncher.ui.theme.isOrglGcTheme
 import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeAccentColor
-import com.sayemshafayet.onereogamelauncher.ui.theme.usesOrglAtmosphereTheme
+import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeContainerColor
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.GameDetailViewModel
 import com.sayemshafayet.onereogamelauncher.ui.viewmodel.LibraryViewModel
 import androidx.compose.material3.TopAppBarDefaults
@@ -221,15 +219,9 @@ private fun HubTopAppBar(
         base.copy(fontSize = (base.fontSize.value - 2f).sp)
     }
     val displayVersion = orglDisplayVersionName()
-    val atmosphere = usesOrglAtmosphereTheme()
-    val gc = isOrglGcTheme()
     val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = when {
-            gc -> GcBody
-            atmosphere -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
-            else -> Color.Unspecified
-        },
+        containerColor = orglChromeContainerColor(),
         titleContentColor = chromeAccent,
         actionIconContentColor = chromeAccent,
         navigationIconContentColor = chromeAccent,
@@ -246,7 +238,11 @@ private fun HubTopAppBar(
                     Text(
                         text = displayVersion,
                         style = versionStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (chromeAccent != Color.Unspecified) {
+                            chromeAccent.copy(alpha = 0.7f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                 }
             }
@@ -346,15 +342,9 @@ private fun SimpleTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val showHints = rememberShowGamepadHints()
-    val atmosphere = usesOrglAtmosphereTheme()
-    val gc = isOrglGcTheme()
     val chromeAccent = orglChromeAccentColor()
     val barColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = when {
-            gc -> GcBody
-            atmosphere -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
-            else -> Color.Unspecified
-        },
+        containerColor = orglChromeContainerColor(),
         titleContentColor = chromeAccent,
         actionIconContentColor = chromeAccent,
         navigationIconContentColor = chromeAccent,

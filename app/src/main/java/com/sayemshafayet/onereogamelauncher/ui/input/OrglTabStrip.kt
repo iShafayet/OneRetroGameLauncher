@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sayemshafayet.onereogamelauncher.ui.theme.SelectionIndicator
 import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeAccentColor
+import com.sayemshafayet.onereogamelauncher.ui.theme.orglChromeContainerColor
 import com.sayemshafayet.onereogamelauncher.ui.theme.usesOrglAtmosphereTheme
 
 /** Tab strip — touch selects a tab; cycle with L1 / R1 via [onPreviewKeyEvent] on a parent. */
@@ -106,24 +107,29 @@ fun OrglBottomNavStrip(
 ) {
     val atmosphere = usesOrglAtmosphereTheme()
     val chromeAccent = orglChromeAccentColor()
-    val selectedColor = if (atmosphere && chromeAccent != Color.Unspecified) {
+    val chromeContainer = orglChromeContainerColor()
+    val selectedColor = if (chromeAccent != Color.Unspecified) {
         chromeAccent
     } else {
         SelectionIndicator
     }
-    val unselected = MaterialTheme.colorScheme.onSurfaceVariant
+    val unselected = if (chromeAccent != Color.Unspecified) {
+        chromeAccent.copy(alpha = 0.55f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     val showHints = rememberShowGamepadHints()
     val barHeight = if (iconsOnly) 48.dp else 72.dp
     Surface(
         modifier
             .fillMaxWidth()
             .focusProperties { canFocus = false },
-        color = if (atmosphere) {
-            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
-        } else {
-            MaterialTheme.colorScheme.surface
+        color = when {
+            chromeContainer != Color.Unspecified -> chromeContainer
+            atmosphere -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f)
+            else -> MaterialTheme.colorScheme.surface
         },
-        tonalElevation = if (atmosphere) 0.dp else 3.dp,
+        tonalElevation = if (atmosphere || chromeContainer != Color.Unspecified) 0.dp else 3.dp,
     ) {
         Column(Modifier.focusProperties { canFocus = false }) {
             Row(
@@ -158,7 +164,9 @@ fun OrglBottomNavStrip(
                                 label,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                                color = if (selected) {
+                                color = if (selected && chromeAccent != Color.Unspecified) {
+                                    chromeAccent
+                                } else if (selected) {
                                     MaterialTheme.colorScheme.onSurface
                                 } else {
                                     unselected
