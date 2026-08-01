@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
             val startupReady by viewModel.startupReady.collectAsState()
 
             if (!startupReady) {
-                // Outside OrglTheme so light/dynamic Material colors never flash first.
+                // Outside OrglTheme so light Material colors never flash first.
                 OrglSplashScreen()
             } else {
                 OrglTheme(
