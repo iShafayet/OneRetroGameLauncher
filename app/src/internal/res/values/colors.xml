@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches internal orgl_logo.webp navy edge. -->
+    <color name="ic_launcher_background">#FF16193C</color>
+    <color name="logo_navy">#FF16193C</color>
+</resources>

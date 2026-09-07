@@ -3,17 +3,17 @@
 # Usage: make <target>
 # Run `make help` (or plain `make`) for the full list.
 #
-# Store flavors: FLAVOR=foss (default) or FLAVOR=play
+# Store flavors: FLAVOR=foss (default), play, or internal (debug-only)
 
 .DEFAULT_GOAL := help
 
-APP_ID        := $(if $(filter play,$(FLAVOR)),com.sayemshafayet.onereogamelauncher,com.sayemshafayet.orglfoss)
+FLAVOR        ?= foss
+APP_ID        := $(if $(filter play,$(FLAVOR)),com.sayemshafayet.onereogamelauncher,$(if $(filter internal,$(FLAVOR)),com.sayemshafayet.orglinternal,com.sayemshafayet.orglfoss))
 # applicationId may differ from the Kotlin namespace; use the fully-qualified activity.
 MAIN_ACTIVITY := $(APP_ID)/com.sayemshafayet.onereogamelauncher.MainActivity
 AVD           ?= Medium_Phone_API_36.1
-FLAVOR        ?= foss
 
-# Capitalize first letter for Gradle task names (foss -> Foss, play -> Play)
+# Capitalize first letter for Gradle task names (foss -> Foss, play -> Play, internal -> Internal)
 FLAVOR_CAP    := $(shell printf '%s' "$(FLAVOR)" | sed 's/^./\U&/')
 APK_DEBUG     := app/build/outputs/apk/$(FLAVOR)/debug/app-$(FLAVOR)-debug.apk
 APK_RELEASE   := app/build/outputs/apk/$(FLAVOR)/release/app-$(FLAVOR)-release.apk
@@ -43,9 +43,9 @@ export ANDROID_HOME
 
 GRADLEW := ./gradlew
 
-.PHONY: help build assemble release release-foss release-play bundle bundle-foss bundle-play checksum checksum-foss checksum-play cert cert-foss cert-play verify verify-foss verify-play test build-play build-foss build-fdroid bump \
+.PHONY: help build assemble release release-foss release-play bundle bundle-foss bundle-play checksum checksum-foss checksum-play cert cert-foss cert-play verify verify-foss verify-play test build-play build-foss build-fdroid build-internal bump \
 	install uninstall reinstall \
-	emulator emulator-list devices wait-device run launch run-play run-foss run-fdroid logcat \
+	emulator emulator-list devices wait-device run launch run-play run-foss run-fdroid run-internal logcat \
 	clean deep-clean doctor compile publish-foss \
 	_release _bundle _checksum _cert _verify
 
@@ -90,6 +90,9 @@ build-fdroid: ## Legacy alias for the FOSS debug APK
 build-play: ## Build Google Play debug APK
 	$(MAKE) build FLAVOR=play
 
+build-internal: ## Build internal debug APK (sideload only; no release)
+	$(MAKE) build FLAVOR=internal
+
 bump: ## Increment VERSION_BUILD in version.properties (versionCode / +build)
 	$(GRADLEW) :app:bumpVersion
 
@@ -103,6 +106,10 @@ release-play: ## Build signed Play release APK
 	$(MAKE) _release FLAVOR=play
 
 _release:
+	@if [ "$(FLAVOR)" = "internal" ]; then \
+		echo "Internal flavor is debug-only — use: make build-internal"; \
+		exit 1; \
+	fi
 	@if [ "$(FLAVOR)" = "play" ]; then \
 		test -f keystore-play.properties || { \
 			echo "Missing keystore-play.properties — copy keystore-play.properties.example and create your Play upload key."; \
@@ -124,6 +131,10 @@ bundle-play: ## Build signed Play release AAB (what Google Play expects)
 	$(MAKE) _bundle FLAVOR=play
 
 _bundle:
+	@if [ "$(FLAVOR)" = "internal" ]; then \
+		echo "Internal flavor is debug-only — use: make build-internal"; \
+		exit 1; \
+	fi
 	@if [ "$(FLAVOR)" = "play" ]; then \
 		test -f keystore-play.properties || { \
 			echo "Missing keystore-play.properties — copy keystore-play.properties.example and create your Play upload key."; \
@@ -218,6 +229,9 @@ run-fdroid: ## Legacy alias for the FOSS flavor
 
 run-play: ## Install and launch the Google Play flavor
 	$(MAKE) run FLAVOR=play
+
+run-internal: ## Install and launch the internal (debug-only) flavor
+	$(MAKE) run FLAVOR=internal
 
 logcat: ## Follow app logcat (Ctrl+C to stop)
 	$(ADB) logcat --pid=$$($(ADB) shell pidof -s $(APP_ID) 2>/dev/null || echo 0) \

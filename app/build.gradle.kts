@@ -49,6 +49,7 @@ fun bumpOrglBuildVersion() {
 }
 
 fun storeFlavorFromAssembleTask(taskName: String): String? = when {
+    taskName.contains("Internal", ignoreCase = true) -> "internal"
     taskName.contains("Foss", ignoreCase = true) -> "foss"
     taskName.contains("Play", ignoreCase = true) -> "play"
     else -> null
@@ -127,6 +128,11 @@ android {
                 signingConfig = signingConfigs.getByName("playRelease")
             }
         }
+        create("internal") {
+            dimension = "store"
+            // Sideload / debug only — never signed for store release.
+            applicationId = "com.sayemshafayet.orglinternal"
+        }
     }
 
     buildTypes {
@@ -180,6 +186,15 @@ android {
     }
 }
 
+// Internal is debug-only — do not generate a release variant.
+androidComponents {
+    beforeVariants { variantBuilder ->
+        if (variantBuilder.flavorName == "internal" && variantBuilder.buildType == "release") {
+            variantBuilder.enable = false
+        }
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -228,7 +243,7 @@ tasks.register("bumpVersion") {
     }
 }
 
-tasks.matching { it.name.matches(Regex("assemble(Foss|Play)Debug")) }.configureEach {
+tasks.matching { it.name.matches(Regex("assemble(Foss|Play|Internal)Debug")) }.configureEach {
     doLast {
         val flavor = storeFlavorFromAssembleTask(name) ?: return@doLast
         val version = orglVersionName()
